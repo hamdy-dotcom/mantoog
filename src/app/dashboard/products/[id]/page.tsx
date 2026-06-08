@@ -279,7 +279,7 @@ export default function EditProductPage() {
                       onClick={() => setStatus(s)}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${status === s ? 'bg-[#3b82f6] text-white' : 'bg-[#0f1117] border border-[#2a2d35] text-[#8b8fa8] hover:text-white'}`}
                     >
-                      {tr[statusLabels[s]]}
+                      {String(tr[statusLabels[s]] || s)}
                     </button>
                   ))}
                 </div>

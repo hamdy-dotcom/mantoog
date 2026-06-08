@@ -66,15 +66,35 @@ export default function NewProductPage() {
         body: JSON.stringify({ url }),
       })
       const data = await res.json()
-      if (data.success && !data.blocked) {
+      
+      if (data.success && data.title && data.title.length > 3) {
         if (data.title) setProductName(data.title)
         if (data.images?.length > 0) setScrapedImages(data.images)
+      } else {
+        // Fallback: client-side proxy
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+        const proxyRes = await fetch(proxyUrl)
+        const proxyData = await proxyRes.json()
+        
+        if (proxyData.contents) {
+          const html = proxyData.contents
+          const titleMatch = html.match(/<span[^>]*id="productTitle"[^>]*>([^<]+)<\/span>/) ||
+                            html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/) ||
+                            html.match(/<h1[^>]*>([^<]+)<\/h1>/)
+          if (titleMatch) setProductName(titleMatch[1].trim().slice(0, 100))
+          
+          const imgMatches = html.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9+_.-]+\.jpg/g) || []
+          const ogImg = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/)
+          const uniqueImgs = [...new Set([
+            ...(ogImg ? [ogImg[1]] : []),
+            ...imgMatches.filter((img: string) => !img.includes('sprite') && !img.includes('icon')).slice(0, 8)
+          ])] as string[]
+          if (uniqueImgs.length > 0) setScrapedImages(uniqueImgs)
+        }
       }
-      if (data.blocked) {
-        setScrapedImages([])
-        setProductName('')
-      }
-    } catch {}
+    } catch (err) {
+      console.error('Scrape error:', err)
+    }
     setScraping(false)
   }
 

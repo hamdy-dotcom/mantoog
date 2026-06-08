@@ -70,10 +70,19 @@ export default function AdminPage() {
 
     const { data: productsData } = await supabase
       .from('products')
-      .select('*, stores(name, slug, merchant_id), landing_pages(visits)')
+      .select('*, stores(name, slug, merchant_id)')
       .order('created_at', { ascending: false })
       .limit(500)
-    setAllProducts(productsData || [])
+
+    const { data: allLandingPages } = await supabase
+      .from('landing_pages')
+      .select('product_id, visits')
+
+    const enrichedAllProducts = (productsData || []).map((p: any) => ({
+      ...p,
+      landing_pages: allLandingPages?.filter((lp: any) => lp.product_id === p.id) || [],
+    }))
+    setAllProducts(enrichedAllProducts)
 
     const o = ordersData || []
     const allStores = storesData || []

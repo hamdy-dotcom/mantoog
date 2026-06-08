@@ -22,6 +22,11 @@ export default function AdminPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState('all')
   const [creditSuccess, setCreditSuccess] = useState(false)
   const [chartData, setChartData] = useState<any[]>([])
+  const [viewingMerchant, setViewingMerchant] = useState<any>(null)
+  const [merchantProducts, setMerchantProducts] = useState<any[]>([])
+  const [loadingProducts, setLoadingProducts] = useState(false)
+  const [allProducts, setAllProducts] = useState<any[]>([])
+  const [productSearch, setProductSearch] = useState('')
   const router = useRouter()
   const supabase = createClient()
 
@@ -62,6 +67,13 @@ export default function AdminPage() {
       .select('*, stores(name, currency)')
       .order('created_at', { ascending: false })
       .limit(500)
+
+    const { data: productsData } = await supabase
+      .from('products')
+      .select('*, stores(name, slug, merchant_id), landing_pages(visits)')
+      .order('created_at', { ascending: false })
+      .limit(500)
+    setAllProducts(productsData || [])
 
     const o = ordersData || []
     const allStores = storesData || []
@@ -165,6 +177,20 @@ export default function AdminPage() {
     setTimeout(() => setCreditSuccess(false), 3000)
   }
 
+  const loadMerchantProducts = async (merchant: any) => {
+    setLoadingProducts(true)
+    setViewingMerchant(merchant)
+    const store = merchant.stores?.[0]
+    if (!store) { setLoadingProducts(false); return }
+    const { data } = await supabase
+      .from('products')
+      .select('*, landing_pages(visits)')
+      .eq('store_id', store.id)
+      .order('created_at', { ascending: false })
+    setMerchantProducts(data || [])
+    setLoadingProducts(false)
+  }
+
   const exportOrdersCSV = () => {
     const filtered = filteredOrders
     const headers = ['Store', 'Customer', 'Phone', 'Governorate', 'Amount', 'Currency', 'Status', 'Date']
@@ -223,6 +249,7 @@ export default function AdminPage() {
   const tabs = [
     { id: 'overview', label: '📊 Overview' },
     { id: 'merchants', label: '👥 Merchants' },
+    { id: 'products', label: '📦 Products' },
     { id: 'orders', label: '🛒 Orders' },
     { id: 'credits', label: '💳 Credits' },
   ]
@@ -402,10 +429,16 @@ export default function AdminPage() {
                           <td className="px-4 py-3 text-sm text-[#fbbf24]">{merchantOrders}</td>
                           <td className="px-4 py-3 text-xs text-[#4a4e60] whitespace-nowrap">{new Date(m.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</td>
                           <td className="px-4 py-3">
-                            <button onClick={() => { setSelectedMerchant(m); setActiveTab('credits') }}
-                              className="text-xs bg-[#1f2229] hover:bg-[#3b82f6] border border-[#2a2d35] hover:border-[#3b82f6] text-[#8b8fa8] hover:text-white px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
-                              + Credits
-                            </button>
+                            <div className="flex gap-2">
+                              <button onClick={() => { setSelectedMerchant(m); setActiveTab('credits') }}
+                                className="text-xs bg-[#1f2229] hover:bg-[#3b82f6] border border-[#2a2d35] hover:border-[#3b82f6] text-[#8b8fa8] hover:text-white px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+                                + Credits
+                              </button>
+                              <button onClick={() => loadMerchantProducts(m)}
+                                className="text-xs bg-[#1f2229] hover:bg-[#1a3a5c] border border-[#2a2d35] hover:border-[#60a5fa] text-[#8b8fa8] hover:text-[#60a5fa] px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+                                👁️ Products
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )
@@ -577,7 +610,156 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {activeTab === 'products' && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <input value={productSearch} onChange={e => setProductSearch(e.target.value)}
+                placeholder="Search by product name or merchant..."
+                className="bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] w-72" />
+              <span className="text-xs text-[#4a4e60]">
+                {allProducts.filter(p => !productSearch || p.title?.toLowerCase().includes(productSearch.toLowerCase()) || p.stores?.name?.toLowerCase().includes(productSearch.toLowerCase())).length} products
+              </span>
+            </div>
+
+            <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[#2a2d35]">
+                      {['Product', 'Merchant', 'Store', 'Price', 'Status', 'Visits', 'Source', 'Date', 'Actions'].map(h => (
+                        <th key={h} className="text-left px-4 py-3 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allProducts
+                      .filter(p => !productSearch ||
+                        p.title?.toLowerCase().includes(productSearch.toLowerCase()) ||
+                        p.stores?.name?.toLowerCase().includes(productSearch.toLowerCase())
+                      )
+                      .map((product, i) => {
+                        const visits = product.landing_pages?.[0]?.visits || 0
+                        const merchant = merchants.find(m => m.stores?.[0]?.id === product.store_id)
+                        return (
+                          <tr key={product.id} className="border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-[#0f1117] flex-shrink-0 overflow-hidden">
+                                  {product.images?.[0] ? (
+                                    <img src={product.images[0]} alt="" className="w-full h-full object-contain p-0.5" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-lg">📦</div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-sm font-medium text-white truncate max-w-[180px]">{product.title}</div>
+                                  <div className="text-xs text-[#4a4e60] font-mono truncate max-w-[180px]">{product.id.slice(0, 8)}...</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">{merchant?.email || '—'}</td>
+                            <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">{product.stores?.name || '—'}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="text-sm font-bold text-white">{product.price} {product.currency}</div>
+                              {product.compare_at_price && (
+                                <div className="text-xs text-[#4a4e60] line-through">{product.compare_at_price}</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${product.status === 'active' ? 'bg-[#14321f] text-[#4ade80]' : product.status === 'draft' ? 'bg-[#1f2229] text-[#8b8fa8]' : 'bg-[#3a1414] text-[#f87171]'}`}>
+                                {product.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm font-bold text-[#60a5fa]">{visits}</td>
+                            <td className="px-4 py-3 text-xs text-[#8b8fa8]">{product.source_platform || 'manual'}</td>
+                            <td className="px-4 py-3 text-xs text-[#4a4e60] whitespace-nowrap">
+                              {new Date(product.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-2">
+                                <a href={`/${product.stores?.slug}/${product.id}`} target="_blank" rel="noopener noreferrer"
+                                  className="text-xs bg-[#1f2229] hover:bg-[#3b82f6] border border-[#2a2d35] hover:border-[#3b82f6] text-[#8b8fa8] hover:text-white px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+                                  👁️ Page
+                                </a>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {viewingMerchant && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2d35]">
+              <div>
+                <div className="font-semibold text-white">{viewingMerchant.email}</div>
+                <div className="text-xs text-[#4a4e60]">{viewingMerchant.stores?.[0]?.name} · {merchantProducts.length} products</div>
+              </div>
+              <button onClick={() => { setViewingMerchant(null); setMerchantProducts([]) }}
+                className="text-[#8b8fa8] hover:text-white text-2xl leading-none transition-colors">×</button>
+            </div>
+
+            {/* Products list */}
+            <div className="overflow-y-auto flex-1">
+              {loadingProducts && (
+                <div className="flex items-center justify-center py-12 text-[#8b8fa8] text-sm">Loading...</div>
+              )}
+              {!loadingProducts && merchantProducts.length === 0 && (
+                <div className="flex items-center justify-center py-12 text-[#4a4e60] text-sm">No products yet</div>
+              )}
+              {!loadingProducts && merchantProducts.map((product, i) => {
+                const visits = product.landing_pages?.[0]?.visits || 0
+                return (
+                  <div key={product.id} className="flex items-center gap-4 px-6 py-4 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors">
+                    {/* Image */}
+                    <div className="w-14 h-14 rounded-xl bg-[#0f1117] flex-shrink-0 overflow-hidden">
+                      {product.images?.[0] ? (
+                        <img src={product.images[0]} alt={product.title} className="w-full h-full object-contain p-1" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl">📦</div>
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-white truncate">{product.title}</div>
+                      <div className="text-xs text-[#4a4e60] mt-0.5">
+                        {product.price} {product.currency} · {product.source_platform || 'manual'}
+                      </div>
+                    </div>
+                    {/* Stats */}
+                    <div className="flex items-center gap-4 text-right flex-shrink-0">
+                      <div>
+                        <div className="text-xs text-[#4a4e60]">Visits</div>
+                        <div className="text-sm font-bold text-[#60a5fa]">{visits}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-[#4a4e60]">Status</div>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${product.status === 'active' ? 'bg-[#14321f] text-[#4ade80]' : 'bg-[#1f2229] text-[#8b8fa8]'}`}>
+                          {product.status}
+                        </span>
+                      </div>
+                      <a href={`/${viewingMerchant.stores?.[0]?.slug}/${product.id}`} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-[#3b82f6] hover:underline whitespace-nowrap">
+                        View page ↗
+                      </a>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -357,37 +357,37 @@ export default function LandingPage() {
         ].join('\n') }} />
       )}
 
-    <div dir={m.dir} className="min-h-screen overflow-x-hidden" style={{ fontFamily: 'system-ui, -apple-system, Arial, sans-serif', background: '#fff', color: '#111' }}>
+    <div dir={m.dir} className="min-h-screen" style={{ overflowX: 'hidden', maxWidth: '100vw', fontFamily: 'system-ui, -apple-system, Arial, sans-serif', background: '#fff', color: '#111' }}>
       <style>{`
-        * { box-sizing: border-box; }
-        .lp-wrap { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
-        .lp-cols { display: flex; gap: 48px; align-items: flex-start; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { overflow-x: hidden; max-width: 100vw; }
+        .lp-wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px; width: 100%; }
+        .lp-cols { display: flex; gap: 48px; align-items: flex-start; width: 100%; }
         .lp-img-col { width: 48%; flex-shrink: 0; }
-        .lp-info-col { flex: 1; }
+        .lp-info-col { flex: 1; min-width: 0; }
         .thumb-strip { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-        .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; cursor: pointer; flex-shrink: 0; }
-        .lp-checkout { max-width: 1100px; margin: 0 auto; padding: 0 24px 60px; }
+        .thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; cursor: pointer; flex-shrink: 0; }
+        .lp-checkout { max-width: 1100px; margin: 0 auto; padding: 0 16px 100px; width: 100%; }
+        .timer-block { display: flex; flex-direction: column; align-items: center; background: #1f2937; color: #fff; border-radius: 8px; padding: 8px 10px; min-width: 0; flex: 1; }
+        .timer-num { font-size: 22px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+        .timer-label { font-size: 10px; margin-top: 4px; color: #9ca3af; }
+        .timer-sep { font-size: 20px; font-weight: 800; color: #1f2937; align-self: flex-start; padding-top: 8px; flex-shrink: 0; }
+        .timer-row { display: flex; align-items: flex-start; gap: 4px; width: 100%; }
         @media (max-width: 768px) {
-          .lp-cols { flex-direction: column; gap: 0; }
+          .lp-cols { flex-direction: column; gap: 16px; }
           .lp-img-col { width: 100%; }
-          .lp-wrap { padding: 0; }
-          .lp-checkout { padding: 0 16px 80px; }
-          .timer-block { padding: 6px 8px; min-width: 0; flex: 1; max-width: 72px; }
+          .lp-wrap { padding: 12px; }
+          .lp-checkout { padding: 0 12px 100px; }
           .timer-num { font-size: 18px; }
           .timer-label { font-size: 9px; }
-          .timer-sep { font-size: 16px; padding-top: 4px; }
-          .timer-row { gap: 4px; max-width: 100%; }
+          .timer-sep { font-size: 16px; }
+          .thumb { width: 48px; height: 48px; }
         }
         @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .timer-block { display: flex; flex-direction: column; align-items: center; background: #1f2937; color: #fff; border-radius: 8px; padding: 8px 14px; min-width: 56px; max-width: 100%; }
-        .timer-num { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
-        .timer-label { font-size: 11px; margin-top: 4px; color: #9ca3af; }
-        .timer-sep { font-size: 24px; font-weight: 800; color: #1f2937; align-self: flex-start; padding-top: 8px; flex-shrink: 0; }
-        .timer-row { display: flex; align-items: flex-start; gap: 6px; max-width: 100%; }
       `}</style>
 
       {/* Urgency top bar */}
-      <div style={{ background: '#ef4444', color: '#fff', padding: '10px 16px', textAlign: 'center', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ background: '#ef4444', color: '#fff', padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap', width: '100%', maxWidth: '100vw' }}>
         <span>⏱️ {m.urgencyLabel}:</span>
         <span style={{ background: '#c00', borderRadius: 6, padding: '2px 10px', fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>{`${t.days}d ${t.h}:${t.min}:${t.sec}`}</span>
         <span>·</span>

@@ -7,27 +7,68 @@ import Link from 'next/link'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 
+const COUNTRY_CODES = [
+  { code: '+20', country: 'مصر', flag: '🇪🇬', digits: 10, pattern: /^01[0-2,5]\d{8}$/ },
+  { code: '+966', country: 'السعودية', flag: '🇸🇦', digits: 9, pattern: /^5\d{8}$/ },
+  { code: '+971', country: 'الإمارات', flag: '🇦🇪', digits: 9, pattern: /^5\d{8}$/ },
+  { code: '+212', country: 'المغرب', flag: '🇲🇦', digits: 9, pattern: /^[5-7]\d{8}$/ },
+  { code: '+213', country: 'الجزائر', flag: '🇩🇿', digits: 9, pattern: /^[5-7]\d{8}$/ },
+  { code: '+974', country: 'قطر', flag: '🇶🇦', digits: 8, pattern: /^[3-7]\d{7}$/ },
+  { code: '+965', country: 'الكويت', flag: '🇰🇼', digits: 8, pattern: /^[5-9]\d{7}$/ },
+  { code: '+973', country: 'البحرين', flag: '🇧🇭', digits: 8, pattern: /^[3-6]\d{7}$/ },
+  { code: '+968', country: 'عُمان', flag: '🇴🇲', digits: 8, pattern: /^[7-9]\d{7}$/ },
+]
+
 export default function SignupPage() {
   const { lang, dir, setLang } = useLang()
   const tr = t[lang]
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [phone, setPhone] = useState('')
+  const [countryCode, setCountryCode] = useState('+20')
+  const [phoneError, setPhoneError] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+
+  const validatePhone = (number: string, code: string) => {
+    const country = COUNTRY_CODES.find(c => c.code === code)
+    if (!country) return false
+    const cleaned = number.replace(/\s/g, '')
+    return country.pattern.test(cleaned)
+  }
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setPhoneError('')
+
+    // Validate phone
+    if (!phone.trim()) {
+      setPhoneError(lang === 'ar' ? 'رقم الهاتف مطلوب' : 'Phone number is required')
+      setLoading(false)
+      return
+    }
+    if (!validatePhone(phone, countryCode)) {
+      const country = COUNTRY_CODES.find(c => c.code === countryCode)
+      setPhoneError(lang === 'ar'
+        ? `رقم غير صحيح — يجب أن يكون ${country?.digits} أرقام`
+        : `Invalid number — must be ${country?.digits} digits`)
+      setLoading(false)
+      return
+    }
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: {
+          full_name: fullName,
+          phone: countryCode + phone,
+        },
       },
     })
 
@@ -35,6 +76,14 @@ export default function SignupPage() {
       setError(error.message)
       setLoading(false)
       return
+    }
+
+    if (data.user) {
+      await supabase.from('merchants').upsert({
+        id: data.user.id,
+        email,
+        phone: countryCode + phone,
+      }, { onConflict: 'id' })
     }
 
     router.push('/dashboard/setup')
@@ -110,6 +159,47 @@ export default function SignupPage() {
                 minLength={6}
                 className="mt-1.5 w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors"
               />
+            </div>
+
+            {/* Phone number */}
+            <div>
+              <label className="text-xs text-[#8b8fa8] uppercase tracking-wider mb-1.5 block">
+                {lang === 'ar' ? 'رقم الهاتف' : 'Phone number'}
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={countryCode}
+                  onChange={e => { setCountryCode(e.target.value); setPhoneError('') }}
+                  className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-2 py-3 text-white text-sm focus:outline-none focus:border-[#3b82f6] transition-colors w-32 flex-shrink-0"
+                >
+                  {COUNTRY_CODES.map(c => (
+                    <option key={c.code} value={c.code}>
+                      {c.flag} {c.code}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => {
+                    const val = e.target.value.replace(/[^\d]/g, '')
+                    setPhone(val)
+                    setPhoneError('')
+                  }}
+                  placeholder={countryCode === '+20' ? '01xxxxxxxxx' : countryCode === '+966' ? '5xxxxxxxx' : '5xxxxxxxx'}
+                  className={`flex-1 bg-[#0f1117] border rounded-xl px-4 py-3 text-white placeholder-[#4a4e60] focus:outline-none transition-colors text-sm ${phoneError ? 'border-[#f87171] focus:border-[#f87171]' : 'border-[#2a2d35] focus:border-[#3b82f6]'}`}
+                  dir="ltr"
+                />
+              </div>
+              {phoneError && (
+                <p className="text-[#f87171] text-xs mt-1">{phoneError}</p>
+              )}
+              <p className="text-[#4a4e60] text-xs mt-1">
+                {lang === 'ar'
+                  ? `${COUNTRY_CODES.find(c => c.code === countryCode)?.country} — ${COUNTRY_CODES.find(c => c.code === countryCode)?.digits} أرقام`
+                  : `${COUNTRY_CODES.find(c => c.code === countryCode)?.country} — ${COUNTRY_CODES.find(c => c.code === countryCode)?.digits} digits`
+                }
+              </p>
             </div>
 
             {error && (

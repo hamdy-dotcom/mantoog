@@ -163,7 +163,7 @@ export default function SettingsPage() {
     <div className={`min-h-screen bg-[#0f1117] flex`} dir={dir}>
       <Sidebar store={store} />
 
-      <main className="flex-1 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
+      <main className="flex-1 pt-16 md:pt-0 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
 
         <div className="mb-8 flex items-center justify-between">
           <div>

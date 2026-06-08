@@ -119,7 +119,7 @@ export default function OrdersPage() {
     <div className={`min-h-screen bg-[#0f1117] flex`} dir={dir}>
       <Sidebar store={store} />
 
-      <main className="flex-1 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
+      <main className="flex-1 pt-16 md:pt-0 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
 
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
@@ -136,7 +136,7 @@ export default function OrdersPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mb-4">
           {[
             { label: 'Total', value: stats.total },
             { label: 'Pending', value: stats.pending, color: 'text-[#fbbf24]' },
@@ -153,7 +153,7 @@ export default function OrdersPage() {
 
         {/* Filters + search */}
         <div className="flex items-center gap-3 mb-5 flex-wrap">
-          <div className="flex gap-1 p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl">
+          <div className="flex gap-1 mb-4 overflow-x-auto pb-1 scrollbar-hide p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl">
             {['all', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'].map(f => (
               <button
                 key={f}
@@ -180,7 +180,8 @@ export default function OrdersPage() {
             <p className="text-[#8b8fa8] text-sm">{tr.noOrdersDesc}</p>
           </div>
         ) : (
-          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
+          <div className="overflow-x-auto -mx-4 md:mx-0">
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden min-w-[700px]">
             {/* Table header */}
             <div className="grid grid-cols-12 gap-3 px-5 py-3 border-b border-[#2a2d35]">
               <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">#</span>
@@ -255,6 +256,7 @@ export default function OrdersPage() {
 
               </div>
             ))}
+          </div>
           </div>
         )}
       </main>

@@ -166,7 +166,7 @@ export default function ResearchPage() {
   return (
     <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
       <Sidebar store={store} credits={credits} />
-      <main className="flex-1 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
+      <main className="flex-1 pt-16 md:pt-0 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
         <div className="p-8 pb-4">
           <div className="mb-6">
             <h1 className="text-xl font-semibold text-white">{lang === 'ar' ? '🔍 أبحاث المنتجات' : '🔍 Product Research'}</h1>

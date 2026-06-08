@@ -46,6 +46,30 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
 
   return (
     <>
+      {/* Mobile Top Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-[#1a1d24] border-b border-[#2a2d35] px-4 py-3 flex items-center justify-between" dir={dir}>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-[#3b82f6] flex items-center justify-center text-white font-bold text-xs">
+            {store?.name?.[0]?.toUpperCase() || 'M'}
+          </div>
+          <span className="text-white text-sm font-semibold truncate max-w-[120px]">{store?.name}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+            className="text-xs border border-[#2a2d35] text-[#8b8fa8] px-2.5 py-1.5 rounded-lg">
+            {lang === 'ar' ? 'EN' : 'ع'}
+          </button>
+          <a href={`/${store?.slug}`} target="_blank" rel="noopener noreferrer"
+            className="text-xs bg-[#1a3a5c] text-[#60a5fa] px-2.5 py-1.5 rounded-lg">
+            🏪
+          </a>
+          <button onClick={handleLogout}
+            className="text-xs bg-[#3a1414] text-[#f87171] px-2.5 py-1.5 rounded-lg">
+            {lang === 'ar' ? 'خروج' : 'Logout'}
+          </button>
+        </div>
+      </div>
+
       {/* Desktop Sidebar */}
       <aside className={`hidden md:flex flex-col bg-[#1a1d24] ${dir === 'rtl' ? 'border-l' : 'border-r'} border-[#2a2d35] w-56 min-h-screen sticky top-0 h-screen overflow-y-auto ${dir === 'rtl' ? 'order-last' : 'order-first'}`}>
         {/* Store info */}

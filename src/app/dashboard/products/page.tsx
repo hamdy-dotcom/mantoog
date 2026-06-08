@@ -54,7 +54,7 @@ export default function ProductsPage() {
       <Sidebar store={store} />
 
       {/* Main */}
-      <main className="flex-1 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
+      <main className="flex-1 pt-16 md:pt-0 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
 
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
@@ -84,7 +84,8 @@ export default function ProductsPage() {
             </button>
           </div>
         ) : (
-          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
+          <div className="overflow-x-auto -mx-4 md:mx-0">
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden min-w-[600px]">
             {/* Table header */}
             <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-[#2a2d35]">
               <span className="col-span-4 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">Product</span>
@@ -164,6 +165,7 @@ export default function ProductsPage() {
 
               </div>
             ))}
+          </div>
           </div>
         )}
       </main>

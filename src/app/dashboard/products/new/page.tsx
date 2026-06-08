@@ -307,7 +307,7 @@ export default function NewProductPage() {
     <div className={`min-h-screen bg-[#0f1117] flex`} dir={dir}>
       <Sidebar store={store} />
 
-      <main className="flex-1 p-4 md:p-8 overflow-auto pb-24 md:pb-8 flex flex-col items-center">
+      <main className="flex-1 pt-16 md:pt-0 p-4 md:p-8 overflow-auto pb-24 md:pb-8 flex flex-col items-center">
         <div className="mb-8 flex items-center gap-4">
           <button
             onClick={() => step === 'preview' ? setStep('input') : router.push('/dashboard/products')}

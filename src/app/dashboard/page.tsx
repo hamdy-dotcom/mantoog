@@ -86,7 +86,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
       <Sidebar store={store} credits={credits} />
 
-      <main className="flex-1 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
+      <main className="flex-1 pt-16 md:pt-0 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
 
         {/* Header */}
         <div className="mb-8 flex items-start justify-between">
@@ -136,26 +136,26 @@ export default function DashboardPage() {
         )}
 
         {/* KPI Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           {[
             { label: tr.totalOrders, value: stats.orders, icon: '🛒', sub: lang === 'ar' ? 'إجمالي الطلبات' : 'All time' },
             { label: tr.revenue, value: `${stats.revenue.toLocaleString()} ${store?.currency}`, icon: '💰', sub: lang === 'ar' ? 'من الطلبات المُسلَّمة' : 'From delivered orders' },
             { label: lang === 'ar' ? 'تم التسليم' : 'Delivered', value: stats.delivered, icon: '✅', sub: lang === 'ar' ? `${stats.orders > 0 ? Math.round((stats.delivered / stats.orders) * 100) : 0}% معدل التسليم` : `${stats.orders > 0 ? Math.round((stats.delivered / stats.orders) * 100) : 0}% delivery rate` },
             { label: tr.freeCreditsLeft, value: credits?.credits_remaining ?? 100, icon: '🎯', sub: lang === 'ar' ? 'طلب متبقي' : 'Orders remaining', highlight: (credits?.credits_remaining ?? 100) <= 20 },
           ].map((s, i) => (
-            <div key={i} className={`bg-[#1a1d24] border rounded-xl p-5 ${s.highlight ? 'border-[#f59e0b]/40' : 'border-[#2a2d35]'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{s.label}</div>
-                <span className="text-xl">{s.icon}</span>
+            <div key={i} className={`bg-[#1a1d24] border rounded-xl p-3 md:p-5 ${s.highlight ? 'border-[#f59e0b]/40' : 'border-[#2a2d35]'}`}>
+              <div className="flex items-center justify-between mb-2 md:mb-3">
+                <div className="text-[10px] md:text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{s.label}</div>
+                <span className="text-base md:text-xl">{s.icon}</span>
               </div>
-              <div className={`text-2xl font-semibold mb-1 ${s.highlight ? 'text-[#f59e0b]' : 'text-white'}`}>{s.value}</div>
+              <div className={`text-xl md:text-2xl lg:text-3xl font-bold mb-1 ${s.highlight ? 'text-[#f59e0b]' : 'text-white'}`}>{s.value}</div>
               <div className="text-xs text-[#8b8fa8]">{s.sub}</div>
             </div>
           ))}
         </div>
 
         {/* Order status mini stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-2 mb-4">
           {[
             { label: lang === 'ar' ? 'قيد الانتظار' : 'Pending', value: stats.pending, color: 'text-[#fbbf24]', bg: 'bg-[#3a2800]' },
             { label: lang === 'ar' ? 'تم التسليم' : 'Delivered', value: stats.delivered, color: 'text-[#4ade80]', bg: 'bg-[#14321f]' },
@@ -168,10 +168,10 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4">
 
           {/* Recent orders */}
-          <div className="col-span-2 bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-[#2a2d35] flex items-center justify-between">
               <h2 className="text-white font-medium">{lang === 'ar' ? 'آخر الطلبات' : 'Recent orders'}</h2>
               <button onClick={() => router.push('/dashboard/orders')} className="text-xs text-[#3b82f6] hover:underline">

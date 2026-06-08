@@ -213,9 +213,13 @@ export default function LandingPage() {
         try { setSections(typeof lpData.sections === 'string' ? JSON.parse(lpData.sections) : lpData.sections) } catch {}
       }
 
-      // Increment visit count atomically
+      // Increment visit count via API
       if (lpData) {
-        await supabase.rpc('increment_visits', { lp_id: lpData.id })
+        fetch('/api/track-visit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ landing_page_id: lpData.id }),
+        }).catch(() => {})
       }
 
       setLoading(false)

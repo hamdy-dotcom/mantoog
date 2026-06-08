@@ -4,8 +4,12 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useLang } from '@/lib/i18n/LanguageContext'
+import { t } from '@/lib/i18n/translations'
 
 export default function SignupPage() {
+  const { lang, dir, setLang } = useLang()
+  const tr = t[lang]
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,17 +37,32 @@ export default function SignupPage() {
       return
     }
 
-    router.push('/dashboard')
+    router.push('/dashboard/setup')
   }
 
   return (
-    <div className="min-h-screen bg-[#0f1117] flex items-center justify-center px-4">
+    <div dir={dir} className="min-h-screen bg-[#0f1117] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
 
         {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-semibold text-white">Mantoog</h1>
-          <p className="text-[#8b8fa8] text-sm mt-1">Create your free store</p>
+          <p className="text-[#8b8fa8] text-sm mt-1">{tr.createAccount}</p>
+        </div>
+
+        <div className="flex justify-center gap-2 mb-4">
+          <button
+            onClick={() => setLang('ar')}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${lang === 'ar' ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] border border-[#2a2d35] hover:text-white'}`}
+          >
+            العربية
+          </button>
+          <button
+            onClick={() => setLang('en')}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${lang === 'en' ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] border border-[#2a2d35] hover:text-white'}`}
+          >
+            English
+          </button>
         </div>
 
         {/* Card */}
@@ -52,7 +71,7 @@ export default function SignupPage() {
 
             <div>
               <label className="text-xs font-medium text-[#8b8fa8] uppercase tracking-wider">
-                Full name
+                {tr.fullName}
               </label>
               <input
                 type="text"
@@ -66,7 +85,7 @@ export default function SignupPage() {
 
             <div>
               <label className="text-xs font-medium text-[#8b8fa8] uppercase tracking-wider">
-                Email
+                {tr.emailLabel}
               </label>
               <input
                 type="email"
@@ -80,7 +99,7 @@ export default function SignupPage() {
 
             <div>
               <label className="text-xs font-medium text-[#8b8fa8] uppercase tracking-wider">
-                Password
+                {tr.passwordLabel}
               </label>
               <input
                 type="password"
@@ -104,21 +123,21 @@ export default function SignupPage() {
               disabled={loading}
               className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
             >
-              {loading ? 'Creating account...' : 'Create free account'}
+              {loading ? `${tr.signupBtn}...` : tr.signupBtn}
             </button>
 
           </form>
         </div>
 
         <p className="text-center text-sm text-[#8b8fa8] mt-4">
-          Already have an account?{' '}
+          {tr.haveAccount}{' '}
           <Link href="/login" className="text-[#3b82f6] hover:underline">
-            Sign in
+            {tr.signinBtn}
           </Link>
         </p>
 
         <p className="text-center text-xs text-[#4a4e60] mt-3">
-          First 100 orders are completely free — no credit card needed
+          {tr.freeOrdersNote}
         </p>
 
       </div>

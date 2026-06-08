@@ -1,0 +1,2 @@
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS meta_pixel_id text DEFAULT NULL;
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS tiktok_pixel_id text DEFAULT NULL;

@@ -1,0 +1,2 @@
+ALTER TABLE products ADD COLUMN IF NOT EXISTS shipping_cost numeric DEFAULT NULL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS shipping_type text DEFAULT NULL;

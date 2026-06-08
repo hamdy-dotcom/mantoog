@@ -309,9 +309,11 @@ export default function LandingPage() {
         }
         if ((window as any).ttq) {
           (window as any).ttq.track('PlaceAnOrder', {
+            content_id: product.id,
+            content_name: product.title,
             currency: store.currency,
             value: totalPrice,
-            content_name: product.title,
+            quantity: qty,
           })
         }
       }
@@ -359,7 +361,7 @@ export default function LandingPage() {
               };
               ttq.load("${store.tiktok_pixel_id}");
               ttq.page();
-              ttq.track("ViewContent", {content_name: "${product.title?.replace(/"/g, '\\"') || ''}", value: ${product.price || 0}, currency: "${store.currency}"});
+              ttq.track("ViewContent", {content_id: "${product.id}", content_name: "${product.title?.replace(/"/g, '\\"') || ''}", value: ${product.price || 0}, currency: "${store.currency}"});
             }(window,document,"ttq");
           `}
         </Script>
@@ -663,8 +665,11 @@ export default function LandingPage() {
                   }
                   if ((window as any).ttq) {
                     (window as any).ttq.track('InitiateCheckout', {
+                      content_id: product.id,
+                      content_name: product.title,
                       currency: store.currency,
                       value: totalPrice,
+                      quantity: qty,
                     })
                   }
                 }

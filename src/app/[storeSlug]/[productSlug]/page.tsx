@@ -357,7 +357,7 @@ export default function LandingPage() {
         ].join('\n') }} />
       )}
 
-    <div dir={m.dir} style={{ fontFamily: 'system-ui, -apple-system, Arial, sans-serif', background: '#fff', minHeight: '100vh', color: '#111' }}>
+    <div dir={m.dir} className="min-h-screen overflow-x-hidden" style={{ fontFamily: 'system-ui, -apple-system, Arial, sans-serif', background: '#fff', color: '#111' }}>
       <style>{`
         * { box-sizing: border-box; }
         .lp-wrap { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
@@ -372,12 +372,18 @@ export default function LandingPage() {
           .lp-img-col { width: 100%; }
           .lp-wrap { padding: 0; }
           .lp-checkout { padding: 0 16px 80px; }
+          .timer-block { padding: 6px 8px; min-width: 0; flex: 1; max-width: 72px; }
+          .timer-num { font-size: 18px; }
+          .timer-label { font-size: 9px; }
+          .timer-sep { font-size: 16px; padding-top: 4px; }
+          .timer-row { gap: 4px; max-width: 100%; }
         }
         @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .timer-block { display: flex; flex-direction: column; align-items: center; background: #1f2937; color: #fff; border-radius: 8px; padding: 8px 14px; min-width: 56px; }
+        .timer-block { display: flex; flex-direction: column; align-items: center; background: #1f2937; color: #fff; border-radius: 8px; padding: 8px 14px; min-width: 56px; max-width: 100%; }
         .timer-num { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
         .timer-label { font-size: 11px; margin-top: 4px; color: #9ca3af; }
-        .timer-sep { font-size: 24px; font-weight: 800; color: #1f2937; align-self: flex-start; padding-top: 8px; }
+        .timer-sep { font-size: 24px; font-weight: 800; color: #1f2937; align-self: flex-start; padding-top: 8px; flex-shrink: 0; }
+        .timer-row { display: flex; align-items: flex-start; gap: 6px; max-width: 100%; }
       `}</style>
 
       {/* Urgency top bar */}
@@ -454,7 +460,7 @@ export default function LandingPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 15, fontWeight: 600, color: '#111' }}>
                 🔥 <span>{m.urgencyLabel}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+              <div className="timer-row">
                 <div className="timer-block"><span className="timer-num">{t.days.toString().padStart(2,'0')}</span><span className="timer-label">{m.days}</span></div>
                 <span className="timer-sep">:</span>
                 <div className="timer-block"><span className="timer-num">{t.h}</span><span className="timer-label">{m.hours}</span></div>

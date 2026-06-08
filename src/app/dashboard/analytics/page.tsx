@@ -33,9 +33,21 @@ export default function AnalyticsPage() {
 
       const { data: productsData } = await supabase
         .from('products')
-        .select('id, title, images, landing_pages(visits)')
+        .select('id, title, images')
         .eq('merchant_id', user.id)
-      setProducts(productsData || [])
+
+      const { data: landingPagesData } = await supabase
+        .from('landing_pages')
+        .select('product_id, visits')
+        .in('product_id', (productsData || []).map((p: any) => p.id))
+
+      const enrichedProducts = (productsData || []).map((p: any) => ({
+        ...p,
+        landing_pages: landingPagesData?.filter((lp: any) => lp.product_id === p.id) || [],
+      }))
+
+      setProducts(enrichedProducts)
+      console.log('Products with landing pages:', JSON.stringify(enrichedProducts.slice(0, 2), null, 2))
 
       setLoading(false)
     }

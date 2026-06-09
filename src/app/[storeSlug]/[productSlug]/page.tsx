@@ -188,7 +188,6 @@ export default function LandingPage() {
   const [phone, setPhone] = useState('')
   const [region, setRegion] = useState('')
   const [address, setAddress] = useState('')
-  const [qty, setQty] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [formError, setFormError] = useState('')
@@ -268,7 +267,6 @@ export default function LandingPage() {
       ? (store.static_shipping_cost || 0)
       : (product.shipping_cost || 0))
     : 0
-  const total = product ? ((product.price * qty) + shippingCost).toFixed(2) : '0'
   const t = formatTimer(timer)
   const primaryColor = store?.primary_color || '#2563eb'
   const benefits: string[] = sections?.benefits || []
@@ -276,10 +274,10 @@ export default function LandingPage() {
   const handleSubmit = async () => {
     if (!name.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب اسمك' : 'Please enter your name'); return }
     if (!phone.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب رقم هاتفك' : 'Please enter your phone'); return }
-    if (m.regions.length > 0 && !region) { setFormError(m.dir === 'rtl' ? 'من فضلك اختار المنطقة' : 'Please select region'); return }
     if (!address.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب عنوانك بالتفصيل' : 'Please enter your full address'); return }
     setFormError('')
     setSubmitting(true)
+    const orderTotal = product.price + shippingCost
     const { error } = await supabase.from('orders').insert({
       store_id: store.id,
       merchant_id: store.merchant_id,
@@ -289,9 +287,9 @@ export default function LandingPage() {
       address_governorate: region,
       address_line1: address,
       address_country: store.currency === 'EGP' ? 'EG' : store.currency === 'SAR' ? 'SA' : 'AE',
-      quantity: qty,
+      quantity: 1,
       unit_price: product.price,
-      total_price: parseFloat(total),
+      total_price: orderTotal,
       currency: store.currency,
       shipping_price: shippingCost,
       payment_method: 'cod',
@@ -299,12 +297,11 @@ export default function LandingPage() {
     })
     setSubmitting(false)
     if (!error) {
-      const totalPrice = parseFloat(total)
       if (typeof window !== 'undefined') {
         if ((window as any).fbq) {
           (window as any).fbq('track', 'Purchase', {
             currency: store.currency,
-            value: totalPrice,
+            value: orderTotal,
             content_name: product.title,
           })
         }
@@ -313,8 +310,8 @@ export default function LandingPage() {
             content_id: product.id,
             content_name: product.title,
             currency: store.currency,
-            value: totalPrice,
-            quantity: qty,
+            value: orderTotal,
+            quantity: 1,
           })
         }
       }
@@ -408,9 +405,11 @@ export default function LandingPage() {
         .timer-label { font-size: 10px; margin-top: 4px; color: #9ca3af; }
         .timer-sep { font-size: 20px; font-weight: 800; color: #1f2937; align-self: flex-start; padding-top: 8px; flex-shrink: 0; }
         .timer-row { display: flex; align-items: flex-start; gap: 4px; width: 100%; }
+        .lp-mobile-img { display: none; }
         @media (max-width: 768px) {
           .lp-cols { flex-direction: column; gap: 16px; }
-          .lp-img-col { width: 100%; }
+          .lp-mobile-img { display: block; }
+          .lp-img-col { display: none; }
           .lp-wrap { padding: 12px; }
           .lp-checkout { padding: 0 12px 100px; }
           .timer-num { font-size: 18px; }
@@ -424,9 +423,15 @@ export default function LandingPage() {
       {/* Urgency top bar */}
       <div style={{ background: '#ef4444', color: '#fff', padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap', width: '100%', maxWidth: '100vw' }}>
         <span>⏱️ {m.urgencyLabel}:</span>
-        <span style={{ background: '#c00', borderRadius: 6, padding: '2px 10px', fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>{`${t.days}d ${t.h}:${t.min}:${t.sec}`}</span>
-        <span>·</span>
-        <span>🚚 {m.freeShipping}</span>
+        <span style={{ background: '#c00', borderRadius: 6, padding: '2px 10px', fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>
+          {`${t.days.toString().padStart(2,'0')} ${m.days} · ${t.h} ${m.hours} · ${t.min} ${m.mins} · ${t.sec} ${m.secs}`}
+        </span>
+        {shippingCost === 0 && (
+          <>
+            <span>·</span>
+            <span>🚚 {m.freeShipping}</span>
+          </>
+        )}
       </div>
 
       <div className="lp-wrap">
@@ -476,6 +481,31 @@ export default function LandingPage() {
 
             {landingPage?.subheadline && (
               <p style={{ fontSize: 15, color: '#555', margin: '0 0 16px', lineHeight: 1.5 }}>{landingPage.subheadline}</p>
+            )}
+
+            {/* Images — shown here on mobile only, desktop image col handles desktop */}
+            {images.length > 0 && (
+              <div className="lp-mobile-img" style={{ marginBottom: 16 }}>
+                <img
+                  src={images[activeImg]}
+                  alt={product?.title}
+                  style={{ width: '100%', aspectRatio: '1/1', objectFit: 'contain', borderRadius: 12, display: 'block', background: '#f8f9fa' }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+                {images.length > 1 && (
+                  <div className="thumb-strip">
+                    {images.map((img: string, i: number) => (
+                      <img
+                        key={i}
+                        src={img}
+                        className="thumb"
+                        onClick={() => setActiveImg(i)}
+                        style={{ border: activeImg === i ? `2px solid ${primaryColor}` : '2px solid #e5e7eb' }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -532,7 +562,7 @@ export default function LandingPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20, textAlign: 'center' }}>
               {[
                 { icon: '💵', text: m.codText },
-                { icon: '🚚', text: m.freeShipping.split(' ').slice(0, 2).join(' ') },
+                { icon: '🚚', text: shippingCost === 0 ? m.freeShipping.split(' ').slice(0, 2).join(' ') : (m.dir === 'rtl' ? 'توصيل سريع' : 'Fast Delivery') },
                 { icon: '↩️', text: m.returnText },
                 { icon: '✅', text: m.originalText },
               ].map((b, i) => (
@@ -549,9 +579,7 @@ export default function LandingPage() {
                 onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
                 style={{ flex: 2, background: primaryColor, color: '#fff', border: 'none', borderRadius: 10, padding: '14px 20px', fontSize: 16, fontWeight: 800, cursor: 'pointer' }}
               >
-                {shippingCost === 0
-                  ? (m.ctaFree || 'اطلب الان والتوصيل مجاني 🚀')
-                  : (m.cta || 'اطلب الان 🚀')}
+                {shippingCost === 0 ? (m.ctaFree || 'اطلب الان والتوصيل مجاني 🚀') : (m.cta || 'اطلب الان 🚀')}
               </button>
               <button
                 onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
@@ -610,45 +638,29 @@ export default function LandingPage() {
           </div>
         )}
 
-        <div ref={formRef} style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 16, padding: 28, maxWidth: 600, margin: '0 auto' }}>
+        <div ref={formRef} style={{ background: '#f0f0f0', border: '1px solid #d1d5db', borderRadius: 16, padding: 28, maxWidth: 600, margin: '0 auto' }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 18, textAlign: 'center', color: '#111' }}>
             {m.orderFormTitle}
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <input value={name} onChange={e => setName(e.target.value)} placeholder={m.namePlaceholder} style={inputStyle} />
             <input value={phone} onChange={e => setPhone(e.target.value)} placeholder={m.phonePlaceholder} type="tel" style={{ ...inputStyle, direction: 'ltr', textAlign: m.dir === 'rtl' ? 'right' : 'left' }} />
-            {m.regions.length > 0 && (
-              <select value={region} onChange={e => setRegion(e.target.value)} style={{ ...inputStyle, color: region ? '#111' : '#9ca3af' }}>
-                <option value="">{m.regionLabel}</option>
-                {m.regions.map((r: string) => <option key={r} value={r}>{r}</option>)}
-              </select>
-            )}
             <input
               value={address}
               onChange={e => setAddress(e.target.value)}
               placeholder={m.dir === 'rtl' ? 'العنوان بالتفصيل (الشارع، المبنى، الدور)' : 'Full address (street, building, floor)'}
               style={inputStyle}
             />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px' }}>
-              <span style={{ fontSize: 14, color: '#555' }}>{m.qtyLabel}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <button onClick={() => setQty(q => Math.max(1, q - 1))} style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #d1d5db', background: '#f3f4f6', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                <span style={{ fontSize: 16, fontWeight: 700, minWidth: 24, textAlign: 'center' }}>{qty}</span>
-                <button onClick={() => setQty(q => q + 1)} style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #d1d5db', background: '#f3f4f6', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-              </div>
-            </div>
             <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#555' }}>
                 <span>{m.shippingLabel}</span>
                 <span style={{ color: shippingCost === 0 ? '#16a34a' : '#111', fontWeight: 600 }}>
-                  {shippingCost === 0
-                    ? (m.freeShipping || 'شحن مجاني ✓')
-                    : `${shippingCost} ${store?.currency}`}
+                  {shippingCost === 0 ? (m.freeShipping || 'شحن مجاني ✓') : `${shippingCost} ${store?.currency}`}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 800, color: '#111' }}>
                 <span>{m.totalLabel}</span>
-                <span>{total} {store?.currency}</span>
+                <span>{product?.price} {store?.currency}</span>
               </div>
             </div>
             {formError && (
@@ -656,22 +668,13 @@ export default function LandingPage() {
             )}
             <button
               onClick={() => {
-                const totalPrice = parseFloat(total)
+                const totalPrice = parseFloat(product?.price)
                 if (typeof window !== 'undefined') {
                   if ((window as any).fbq) {
-                    (window as any).fbq('track', 'InitiateCheckout', {
-                      currency: store.currency,
-                      value: totalPrice,
-                    })
+                    (window as any).fbq('track', 'InitiateCheckout', { currency: store.currency, value: totalPrice })
                   }
                   if ((window as any).ttq) {
-                    (window as any).ttq.track('InitiateCheckout', {
-                      content_id: product.id,
-                      content_name: product.title,
-                      currency: store.currency,
-                      value: totalPrice,
-                      quantity: qty,
-                    })
+                    (window as any).ttq.track('InitiateCheckout', { content_id: product.id, content_name: product.title, currency: store.currency, value: totalPrice, quantity: 1 })
                   }
                 }
                 handleSubmit()
@@ -679,9 +682,7 @@ export default function LandingPage() {
               disabled={submitting}
               style={{ background: submitting ? '#9ca3af' : primaryColor, color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontSize: 18, fontWeight: 800, cursor: submitting ? 'not-allowed' : 'pointer', width: '100%' }}
             >
-              {submitting ? '...' : (shippingCost === 0
-                ? (m.ctaFree || 'اطلب الان والتوصيل مجاني 🚀')
-                : (m.cta || 'اطلب الان 🚀'))}
+              {submitting ? '...' : (shippingCost === 0 ? (m.ctaFree || 'اطلب الان والتوصيل مجاني 🚀') : (m.cta || 'اطلب الان 🚀'))}
             </button>
           </div>
         </div>

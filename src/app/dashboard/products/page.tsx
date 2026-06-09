@@ -150,6 +150,13 @@ export default function ProductsPage() {
                 {/* Actions */}
                 <div className="col-span-2 flex justify-end items-center gap-3">
                   <button
+                    onClick={() => router.push(`/dashboard/products/${product.id}/creative`)}
+                    className="text-xs font-medium bg-[#1f2229] hover:bg-gradient-to-r hover:from-[#3b82f6] hover:to-[#8b5cf6] border border-[#2a2d35] hover:border-transparent text-[#8b8fa8] hover:text-white px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                    title={lang === 'ar' ? 'إنشاء إعلان' : 'Create Ad'}
+                  >
+                    🎬
+                  </button>
+                  <button
                     onClick={() => window.open(`/${store.slug}/${product.id}`, '_blank')}
                     className="text-xs font-medium bg-[#1a3a5c] text-[#60a5fa] hover:bg-[#3b82f6] hover:text-white px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
                   >

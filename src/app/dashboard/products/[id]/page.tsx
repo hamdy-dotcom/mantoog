@@ -211,6 +211,10 @@ export default function EditProductPage() {
             <h1 className="text-xl font-semibold text-white">{tr.editProduct}</h1>
           </div>
           <div className="flex items-center gap-3">
+            <button onClick={() => router.push(`/dashboard/products/${params.id}/creative`)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6] text-white text-sm font-semibold hover:opacity-90 transition-opacity">
+              🎬 {lang === 'ar' ? 'إنشاء إعلان' : 'Create Ad'}
+            </button>
             <button
               onClick={() => window.open(`/${store.slug}/${params.id}`, '_blank')}
               className="text-sm font-medium bg-[#1a3a5c] text-[#60a5fa] hover:bg-[#3b82f6] hover:text-white px-4 py-2 rounded-lg transition-colors"

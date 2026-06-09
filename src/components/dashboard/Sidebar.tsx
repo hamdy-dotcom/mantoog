@@ -10,6 +10,7 @@ const navItems = [
   { key: 'dashboard', path: '/dashboard', icon: '🏠' },
   { key: 'products', path: '/dashboard/products', icon: '📦' },
   { key: 'research', path: '/dashboard/products/research', icon: '🔍' },
+  { key: 'tiktokSpy', path: '/dashboard/tiktok-spy', icon: '🎵' },
   { key: 'orders', path: '/dashboard/orders', icon: '🛒' },
   { key: 'ads', path: '/dashboard/ads', icon: '📣' },
   { key: 'analytics', path: '/dashboard/analytics', icon: '📊' },

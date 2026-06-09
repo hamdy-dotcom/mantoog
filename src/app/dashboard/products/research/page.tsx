@@ -6,13 +6,13 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
 import { useLang } from '@/lib/i18n/LanguageContext'
 
-const COUNTRIES = [
-  { code: 'EG', label: 'Egypt', flag: '🇪🇬' },
-  { code: 'SA', label: 'Saudi Arabia', flag: '🇸🇦' },
-  { code: 'AE', label: 'UAE', flag: '🇦🇪' },
-  { code: 'MA', label: 'Morocco', flag: '🇲🇦' },
-  { code: 'DZ', label: 'Algeria', flag: '🇩🇿' },
-]
+const COUNTRY_LABELS: Record<string, string> = {
+  EG: 'Egypt',
+  SA: 'Saudi Arabia',
+  AE: 'UAE',
+  MA: 'Morocco',
+  DZ: 'Algeria',
+}
 
 const CATEGORIES = [
   { id: 'all', label: { en: 'All', ar: 'الكل' } },
@@ -25,7 +25,7 @@ const CATEGORIES = [
 const SOURCES = [
   { id: 'amazon', label: 'Amazon', flag: '📦' },
   { id: 'noon', label: 'Noon', flag: '🌙' },
-  { id: 'aliexpress', label: 'AliExpress', flag: '🛒', comingSoon: true },
+  { id: 'aliexpress', label: 'AliExpress', flag: '🛒' },
 ]
 
 export default function ResearchPage() {
@@ -33,13 +33,17 @@ export default function ResearchPage() {
   const [credits, setCredits] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('bestsellers')
-  const [selectedCountry, setSelectedCountry] = useState('EG')
+  const [storeCountry, setStoreCountry] = useState('EG')
   const [selectedCategory, setSelectedCategory] = useState('all')
 
   const [scrapedProducts, setScrapedProducts] = useState<any[]>([])
   const [scrapeLoading, setScrapeLoading] = useState(false)
   const [scrapeLoaded, setScrapeLoaded] = useState(false)
   const [selectedSource, setSelectedSource] = useState('amazon')
+  const [aliProducts, setAliProducts] = useState<any[]>([])
+  const [aliLoading, setAliLoading] = useState(false)
+  const [importingId, setImportingId] = useState<string | null>(null)
+  const [importedIds, setImportedIds] = useState<Set<string>>(new Set())
 
   // Hot on Mantoog
   const [hotProducts, setHotProducts] = useState<any[]>([])
@@ -73,7 +77,7 @@ export default function ResearchPage() {
       // Auto-detect country from store currency
       const countryMap: Record<string, string> = { EGP: 'EG', SAR: 'SA', AED: 'AE', MAD: 'MA', DZD: 'DZ' }
       const country = countryMap[storeData.currency] || 'EG'
-      setSelectedCountry(country)
+      setStoreCountry(country)
       setLoading(false)
 
       fetchBestsellers(country, 'all', 'amazon')
@@ -82,10 +86,20 @@ export default function ResearchPage() {
     init()
   }, [])
 
+  const fetchAliExpressProducts = async () => {
+    setAliLoading(true)
+    setAliProducts([])
+    try {
+      const res = await fetch('/api/aliexpress/products')
+      const data = await res.json()
+      setAliProducts(data.products || [])
+    } catch {}
+    setAliLoading(false)
+  }
+
   const fetchBestsellers = async (country: string, category: string, source: string) => {
     if (source === 'aliexpress') {
-      setScrapeLoaded(true)
-      setScrapedProducts([])
+      fetchAliExpressProducts()
       return
     }
     setScrapeLoading(true)
@@ -117,6 +131,22 @@ export default function ResearchPage() {
     setHotLoading(false)
   }
 
+  const handleImport = async (product: any) => {
+    setImportingId(product.id)
+    try {
+      const res = await fetch('/api/aliexpress/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setImportedIds(prev => new Set([...prev, product.id]))
+      }
+    } catch {}
+    setImportingId(null)
+  }
+
   const handleAnalyze = async () => {
     if (!analyzerUrl.trim()) return
     setAnalyzerLoading(true)
@@ -125,18 +155,12 @@ export default function ResearchPage() {
       const res = await fetch('/api/ai/analyze-product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: analyzerUrl, country: selectedCountry, currency: store?.currency, language: lang }),
+        body: JSON.stringify({ url: analyzerUrl, country: storeCountry, currency: store?.currency, language: lang }),
       })
       const data = await res.json()
       setAnalyzerResult(data)
     } catch {}
     setAnalyzerLoading(false)
-  }
-
-  const handleCountryChange = (code: string) => {
-    setSelectedCountry(code)
-    if (activeTab === 'bestsellers') fetchBestsellers(code, selectedCategory, selectedSource)
-    if (activeTab === 'hot') fetchHotProducts(code)
   }
 
   // Profit calculator
@@ -173,17 +197,6 @@ export default function ResearchPage() {
             <p className="text-[#8b8fa8] text-sm mt-1">{lang === 'ar' ? 'بيانات حقيقية من Meta وبيانات Mantoog الفعلية' : 'Real data from Meta ads and actual Mantoog orders'}</p>
           </div>
 
-          {/* Country filter */}
-          <div className="flex items-center gap-2 mb-5 flex-wrap">
-            <span className="text-xs text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'السوق:' : 'Market:'}</span>
-            {COUNTRIES.map(c => (
-              <button key={c.code} onClick={() => handleCountryChange(c.code)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedCountry === c.code ? 'bg-[#3b82f6] text-white' : 'bg-[#1a1d24] border border-[#2a2d35] text-[#8b8fa8] hover:text-white hover:border-[#3b82f6]'}`}>
-                {c.flag} {c.label}
-              </button>
-            ))}
-          </div>
-
           {/* Tabs */}
           <div className="flex gap-1 p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl w-fit mb-6 flex-wrap">
             {tabs.map(tab => (
@@ -205,24 +218,36 @@ export default function ResearchPage() {
                   <span className="text-xs text-[#4a4e60]">{lang === 'ar' ? 'المصدر:' : 'Source:'}</span>
                   {SOURCES.map(s => (
                     <button key={s.id}
-                      onClick={() => { if (!s.comingSoon) { setSelectedSource(s.id); fetchBestsellers(selectedCountry, selectedCategory, s.id) } }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${s.comingSoon ? 'border-[#2a2d35] text-[#4a4e60] cursor-not-allowed' : selectedSource === s.id ? 'bg-[#3b82f6] border-[#3b82f6] text-white' : 'border-[#2a2d35] text-[#8b8fa8] hover:border-[#3b82f6] hover:text-white'}`}>
-                      {s.flag} {s.label} {s.comingSoon ? '🔜' : ''}
+                      onClick={() => {
+                        setSelectedSource(s.id)
+                        if (s.id === 'aliexpress') {
+                          fetchAliExpressProducts()
+                        } else {
+                          fetchBestsellers(storeCountry, selectedCategory, s.id)
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${selectedSource === s.id ? 'bg-[#3b82f6] border-[#3b82f6] text-white' : 'border-[#2a2d35] text-[#8b8fa8] hover:border-[#3b82f6] hover:text-white'}`}>
+                      {s.flag} {s.label}
                     </button>
                   ))}
                 </div>
-                <div className="flex gap-1 flex-wrap">
-                  {CATEGORIES.map(cat => (
-                    <button key={cat.id}
-                      onClick={() => { setSelectedCategory(cat.id); fetchBestsellers(selectedCountry, cat.id, selectedSource) }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${selectedCategory === cat.id ? 'bg-[#1f2229] text-white border-[#3b82f6]' : 'text-[#8b8fa8] hover:text-white border-[#2a2d35]'}`}>
-                      {cat.label[lang as 'en' | 'ar']}
-                    </button>
-                  ))}
-                </div>
+                {selectedSource !== 'aliexpress' && (
+                  <div className="flex gap-1 flex-wrap">
+                    {CATEGORIES.map(cat => (
+                      <button key={cat.id}
+                        onClick={() => {
+                          setSelectedCategory(cat.id)
+                          fetchBestsellers(storeCountry, cat.id, selectedSource)
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${selectedCategory === cat.id ? 'bg-[#1f2229] text-white border-[#3b82f6]' : 'text-[#8b8fa8] hover:text-white border-[#2a2d35]'}`}>
+                        {cat.label[lang as 'en' | 'ar']}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {scrapeLoading && (
+              {scrapeLoading && selectedSource !== 'aliexpress' && (
                 <div className="flex flex-col items-center justify-center py-24 gap-4">
                   <div className="text-5xl animate-pulse">🔍</div>
                   <div className="text-white font-semibold text-lg">
@@ -232,25 +257,25 @@ export default function ResearchPage() {
                 </div>
               )}
 
-              {!scrapeLoading && scrapeLoaded && scrapedProducts.length === 0 && (
+              {!scrapeLoading && selectedSource !== 'aliexpress' && scrapeLoaded && scrapedProducts.length === 0 && (
                 <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-12 text-center max-w-lg">
                   <div className="text-4xl mb-3">😔</div>
                   <div className="text-white font-medium mb-2">{lang === 'ar' ? 'لم نتمكن من جلب البيانات' : 'Could not fetch data'}</div>
                   <div className="text-[#8b8fa8] text-sm mb-4">{lang === 'ar' ? 'الموقع قد يكون محمياً. جرب مصدراً آخر.' : 'The site may be protected. Try another source.'}</div>
-                  <button onClick={() => fetchBestsellers(selectedCountry, selectedCategory, selectedSource)}
+                  <button onClick={() => fetchBestsellers(storeCountry, selectedCategory, selectedSource)}
                     className="bg-[#3b82f6] text-white px-5 py-2 rounded-lg text-sm font-semibold">
                     {lang === 'ar' ? 'إعادة المحاولة' : 'Retry'}
                   </button>
                 </div>
               )}
 
-              {!scrapeLoading && scrapedProducts.length > 0 && (
+              {!scrapeLoading && selectedSource !== 'aliexpress' && scrapedProducts.length > 0 && (
                 <div>
                   <div className="text-xs text-[#4a4e60] mb-4 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#4ade80] inline-block" />
                     {lang === 'ar'
-                      ? `${scrapedProducts.length} منتج من ${SOURCES.find(s => s.id === selectedSource)?.label} في ${COUNTRIES.find(c => c.code === selectedCountry)?.label}`
-                      : `${scrapedProducts.length} products from ${SOURCES.find(s => s.id === selectedSource)?.label} in ${COUNTRIES.find(c => c.code === selectedCountry)?.label}`
+                      ? `${scrapedProducts.length} منتج من ${SOURCES.find(s => s.id === selectedSource)?.label} في ${COUNTRY_LABELS[storeCountry] || storeCountry}`
+                      : `${scrapedProducts.length} products from ${SOURCES.find(s => s.id === selectedSource)?.label} in ${COUNTRY_LABELS[storeCountry] || storeCountry}`
                     }
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
@@ -290,6 +315,116 @@ export default function ResearchPage() {
                   </div>
                 </div>
               )}
+
+              {/* AliExpress Products */}
+              {selectedSource === 'aliexpress' && (
+                <div>
+                  {aliLoading && (
+                    <div className="flex flex-col items-center justify-center py-24 gap-4">
+                      <div className="text-5xl animate-pulse">🛒</div>
+                      <div className="text-white font-semibold text-lg">
+                        {lang === 'ar' ? 'جاري جلب أفضل المنتجات من AliExpress...' : 'Fetching top products from AliExpress...'}
+                      </div>
+                      <div className="text-[#8b8fa8] text-sm">
+                        {lang === 'ar' ? 'بيانات حقيقية من AliExpress' : 'Real data from AliExpress'}
+                      </div>
+                    </div>
+                  )}
+
+                  {!aliLoading && aliProducts.length === 0 && (
+                    <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-12 text-center max-w-lg">
+                      <div className="text-4xl mb-3">😔</div>
+                      <div className="text-white font-medium mb-2">
+                        {lang === 'ar' ? 'لم نتمكن من جلب البيانات' : 'Could not fetch data'}
+                      </div>
+                      <div className="text-[#8b8fa8] text-sm mb-4">
+                        {lang === 'ar' ? 'جرب مرة أخرى' : 'Please try again'}
+                      </div>
+                      <button onClick={() => fetchAliExpressProducts()}
+                        className="bg-[#3b82f6] text-white px-5 py-2 rounded-lg text-sm font-semibold">
+                        {lang === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+                      </button>
+                    </div>
+                  )}
+
+                  {!aliLoading && aliProducts.length > 0 && (
+                    <div>
+                      <div className="text-xs text-[#4a4e60] mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[#4ade80] inline-block" />
+                        {lang === 'ar'
+                          ? `${aliProducts.length} منتج رائج من AliExpress`
+                          : `${aliProducts.length} trending products from AliExpress`}
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                        {aliProducts.map((product) => (
+                          <div key={product.id} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden hover:border-[#3b82f6] transition-all group flex flex-col">
+                            {/* Image */}
+                            <div className="relative bg-white overflow-hidden" style={{ aspectRatio: '1' }}>
+                              {product.image ? (
+                                <img src={product.image} alt={product.title}
+                                  className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                                  onError={e => { (e.target as HTMLImageElement).parentElement!.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#0f1117;font-size:2rem">📦</div>' }} />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-[#0f1117] text-3xl">📦</div>
+                              )}
+                              {product.orders && (
+                                <div className="absolute top-1.5 left-1.5 bg-black/80 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+                                  🔥 {product.orders}
+                                </div>
+                              )}
+                            </div>
+                            {/* Info */}
+                            <div className="p-2.5 flex-1 flex flex-col gap-1.5">
+                              <h3 className="text-white leading-snug flex-1 line-clamp-2" style={{ fontSize: '11px', fontWeight: 600 }}
+                                title={product.title}>
+                                {product.title}
+                              </h3>
+                              {/* Price */}
+                              <div className="flex flex-col gap-0.5 pt-1.5 border-t border-[#2a2d35]">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-[#4a4e60]">{lang === 'ar' ? 'سعر AliExpress' : 'AliExpress price'}</span>
+                                  <span className="text-xs font-bold text-[#4ade80]">
+                                    ${product.price} USD
+                                  </span>
+                                </div>
+                                {product.originalPrice && product.originalPrice > product.price && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-[#4a4e60]">{lang === 'ar' ? 'قبل الخصم' : 'Was'}</span>
+                                    <span className="text-xs text-[#4a4e60] line-through">${product.originalPrice}</span>
+                                  </div>
+                                )}
+                                {product.rating && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-[#4a4e60]">{lang === 'ar' ? 'التقييم' : 'Rating'}</span>
+                                    <span className="text-xs text-[#fbbf24]">⭐ {product.rating}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {/* Import button */}
+                              <button
+                                onClick={() => handleImport(product)}
+                                disabled={importingId === product.id || importedIds.has(product.id)}
+                                className={`flex items-center justify-center w-full text-xs py-1.5 rounded-lg transition-colors font-medium mt-1
+                                  ${importedIds.has(product.id)
+                                    ? 'bg-[#14321f] text-[#4ade80] border border-[#4ade80]/30 cursor-default'
+                                    : importingId === product.id
+                                    ? 'bg-[#2a2d35] text-[#8b8fa8] cursor-wait'
+                                    : 'bg-[#1DB87A] hover:bg-[#0fa865] text-white'
+                                  }`}>
+                                {importedIds.has(product.id)
+                                  ? (lang === 'ar' ? '✓ تم الاستيراد' : '✓ Imported')
+                                  : importingId === product.id
+                                  ? (lang === 'ar' ? 'جاري...' : 'Importing...')
+                                  : (lang === 'ar' ? '⬇ استيراد للمتجر' : '⬇ Import to store')}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -299,8 +434,8 @@ export default function ResearchPage() {
               <div className="text-xs text-[#4a4e60] mb-5 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-[#f97316] animate-pulse inline-block" />
                 {lang === 'ar'
-                  ? `المنتجات الأكثر طلباً على Mantoog في ${COUNTRIES.find(c => c.code === selectedCountry)?.label} خلال آخر 30 يوم`
-                  : `Top ordered products on Mantoog in ${COUNTRIES.find(c => c.code === selectedCountry)?.label} in the last 30 days`
+                  ? `المنتجات الأكثر طلباً على Mantoog في ${COUNTRY_LABELS[storeCountry] || storeCountry} خلال آخر 30 يوم`
+                  : `Top ordered products on Mantoog in ${COUNTRY_LABELS[storeCountry] || storeCountry} in the last 30 days`
                 }
               </div>
 

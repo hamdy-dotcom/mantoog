@@ -648,7 +648,7 @@ export default function LandingPage() {
             <input
               value={address}
               onChange={e => setAddress(e.target.value)}
-              placeholder={m.dir === 'rtl' ? 'العنوان بالتفصيل (الشارع، المبنى، الدور)' : 'Full address (street, building, floor)'}
+              placeholder={m.dir === 'rtl' ? 'العنوان تفصيلي (منطقة، مدينة، حي)' : 'Full address (area, city, district)'}
               style={inputStyle}
             />
             <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>

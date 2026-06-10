@@ -409,18 +409,6 @@ export default function LandingPage() {
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map)
         const marker = L.marker(defaultCenter, { draggable: true }).addTo(map)
 
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              const { latitude: lat, longitude: lng } = pos.coords
-              marker.setLatLng([lat, lng])
-              map.flyTo([lat, lng], 15, { duration: 1 })
-            },
-            () => {},
-            { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-          )
-        }
-
         const handlePick = async (lat: number, lng: number) => {
           marker.setLatLng([lat, lng])
           map.flyTo([lat, lng], Math.max(map.getZoom(), 16), { duration: 0.6 })

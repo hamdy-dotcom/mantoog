@@ -200,7 +200,7 @@ export default function EditProductPage() {
   }
 
   return (
-    <div className={`min-h-screen bg-[#0f1117] flex`} dir={dir}>
+    <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
       <Sidebar store={store} />
 
       <main className="flex-1 p-6 md:p-8 overflow-auto pb-24 md:pb-8 mt-14 md:mt-0">

@@ -49,7 +49,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className={`min-h-screen bg-[#0f1117] flex`} dir={dir}>
+    <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
 
       <Sidebar store={store} />
 

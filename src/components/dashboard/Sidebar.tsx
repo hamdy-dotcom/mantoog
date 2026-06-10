@@ -72,7 +72,7 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
       </div>
 
       {/* Desktop Sidebar */}
-      <aside className={`hidden md:flex flex-col bg-[#1a1d24] ${dir === 'rtl' ? 'border-l' : 'border-r'} border-[#2a2d35] w-56 min-h-screen sticky top-0 h-screen overflow-y-auto ${dir === 'rtl' ? 'order-last' : 'order-first'}`}>
+      <aside className={`hidden md:flex flex-col bg-[#1a1d24] ${dir === 'rtl' ? 'border-l' : 'border-r'} border-[#2a2d35] w-56 min-h-screen sticky top-0 h-screen overflow-y-auto`}>
         {/* Store info */}
         <div className="p-4 pt-6 border-b border-[#2a2d35]">
           <div className="flex items-center gap-2 mb-2">
@@ -96,23 +96,21 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
             const active = isNavActive(item.path)
             return (
               <button key={item.path} onClick={() => router.push(item.path)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${active ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:bg-[#1f2229] hover:text-white'}`}
-                style={{ justifyContent: dir === 'rtl' ? 'flex-end' : 'flex-start' }}>
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${active ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:bg-[#1f2229] hover:text-white'}`}>
                 {item.isImage ? (
                   <img src={item.icon} alt="" style={{ width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }} />
                 ) : (
                   <span className="text-base">{item.icon}</span>
                 )}
-                <span>{tr[item.key as keyof typeof tr] as string}</span>
+                <span className="flex-1 text-start">{tr[item.key as keyof typeof tr] as string}</span>
               </button>
             )
           })}
           {isAdmin && (
             <button onClick={() => router.push('/admin')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#8b8fa8] hover:bg-[#1f2229] hover:text-white transition-all"
-              style={{ justifyContent: dir === 'rtl' ? 'flex-end' : 'flex-start' }}>
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#8b8fa8] hover:bg-[#1f2229] hover:text-white transition-all">
               <span className="text-base">⚙️</span>
-              <span>Admin</span>
+              <span className="flex-1 text-start">Admin</span>
             </button>
           )}
         </nav>

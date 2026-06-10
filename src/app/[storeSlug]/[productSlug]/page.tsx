@@ -660,7 +660,7 @@ export default function LandingPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 800, color: '#111' }}>
                 <span>{m.totalLabel}</span>
-                <span>{product?.price} {store?.currency}</span>
+                <span>{(parseFloat(product?.price || 0) + parseFloat(shippingCost || 0)).toFixed(0)} {store?.currency}</span>
               </div>
             </div>
             {formError && (

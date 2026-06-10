@@ -163,34 +163,29 @@ export default function AdminPage() {
   const handleAddCredits = async () => {
     if (!selectedMerchant || !creditAmount) return
     setAddingCredits(true)
-    const { data: credits } = await supabase
-      .from('order_credits')
-      .select('*')
-      .eq('merchant_id', selectedMerchant.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    if (credits) {
-      await supabase.from('order_credits')
-        .update({ credits_total: credits.credits_total + parseInt(creditAmount) })
-        .eq('id', credits.id)
-    } else {
-      await supabase.from('order_credits').insert({
-        merchant_id: selectedMerchant.id,
-        credits_total: parseInt(creditAmount),
-        credits_used: 0,
-        bundle_type: 'manual',
-        price_paid: 0,
+    try {
+      const res = await fetch('/api/admin/add-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          merchant_id: selectedMerchant.id,
+          amount: parseInt(creditAmount),
+        }),
       })
+      const data = await res.json()
+      if (data.success) {
+        await loadData()
+        setCreditAmount('')
+        setSelectedMerchant(null)
+        setCreditSuccess(true)
+        setTimeout(() => setCreditSuccess(false), 3000)
+      } else {
+        alert('Error: ' + data.error)
+      }
+    } catch (err) {
+      alert('Failed to add credits')
     }
-
-    await loadData()
-    setCreditAmount('')
-    setSelectedMerchant(null)
     setAddingCredits(false)
-    setCreditSuccess(true)
-    setTimeout(() => setCreditSuccess(false), 3000)
   }
 
   const loadMerchantProducts = async (merchant: any) => {

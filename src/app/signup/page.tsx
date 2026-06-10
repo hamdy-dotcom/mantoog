@@ -95,7 +95,7 @@ export default function SignupPage() {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold text-white">Mantoog</h1>
+          <img src="/logo.svg" alt="Mantoog" className="w-48 h-48 object-contain mx-auto mb-2" />
           <p className="text-[#8b8fa8] text-sm mt-1">{tr.createAccount}</p>
         </div>
 

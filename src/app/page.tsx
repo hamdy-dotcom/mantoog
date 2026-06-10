@@ -85,7 +85,7 @@ export default function HomePage() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#2a2d35]/50 backdrop-blur-xl bg-[#0f1117]/80 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="font-bold text-xl text-white">Mantoog</div>
+          <img src="/logo.svg" alt="Mantoog" className="h-20 w-20 object-contain" />
           <div className="flex items-center gap-3">
             {/* Language toggle */}
             <button
@@ -154,6 +154,8 @@ export default function HomePage() {
             <span className="w-2 h-2 rounded-full bg-[#3b82f6] animate-pulse inline-block" />
             {c.badge}
           </div>
+
+          <img src="/logo.svg" alt="Mantoog" className="w-56 h-56 object-contain mx-auto mb-6" />
 
           {/* Headline */}
           <h1 className={`text-5xl md:text-7xl font-bold leading-tight mb-6 ${mounted ? 'animate-fade-in-up' : 'opacity-0'}`}>

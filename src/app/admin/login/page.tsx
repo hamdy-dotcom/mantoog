@@ -39,7 +39,7 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-[#0f1117] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-[#3b82f6] rounded-xl flex items-center justify-center text-xl font-bold mx-auto mb-4">M</div>
+          <img src="/logo.svg" alt="Mantoog" className="w-36 h-36 object-contain mx-auto mb-4" />
           <h1 className="text-xl font-bold text-white">Mantoog Admin</h1>
           <p className="text-[#8b8fa8] text-sm mt-1">Restricted access only</p>
         </div>

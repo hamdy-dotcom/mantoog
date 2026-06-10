@@ -50,9 +50,7 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
       {/* Mobile Top Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-[#1a1d24] border-b border-[#2a2d35] px-4 py-3 flex items-center justify-between" dir={dir}>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#3b82f6] flex items-center justify-center text-white font-bold text-xs">
-            {store?.name?.[0]?.toUpperCase() || 'M'}
-          </div>
+          <img src="/logo.svg" alt="Mantoog" className="w-20 h-20 object-contain" />
           <span className="text-white text-sm font-semibold truncate max-w-[120px]">{store?.name}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -75,14 +73,10 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
       <aside className={`hidden md:flex flex-col bg-[#1a1d24] ${dir === 'rtl' ? 'border-l' : 'border-r'} border-[#2a2d35] w-56 min-h-screen sticky top-0 h-screen overflow-y-auto`}>
         {/* Store info */}
         <div className="p-4 pt-6 border-b border-[#2a2d35]">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-[#3b82f6] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              {store?.name?.[0]?.toUpperCase() || 'M'}
-            </div>
-            <div className="min-w-0">
-              <div className="font-semibold text-white text-sm truncate">{store?.name}</div>
-              <div className="text-xs text-[#4a4e60]">{store?.currency}</div>
-            </div>
+          <div className="flex flex-col items-center mb-3">
+            <img src="/logo.svg" alt="Mantoog" className="w-32 h-32 object-contain mb-2" />
+            <div className="font-semibold text-white text-sm truncate">{store?.name}</div>
+            <div className="text-xs text-[#4a4e60]">{store?.currency}</div>
           </div>
           <a href={`/${store?.slug}`} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-xs text-[#3b82f6] hover:text-white bg-[#1a3a5c] hover:bg-[#3b82f6] px-2.5 py-1.5 rounded-lg transition-colors w-full justify-center font-medium">

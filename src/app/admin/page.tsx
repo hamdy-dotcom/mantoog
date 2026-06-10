@@ -275,7 +275,7 @@ export default function AdminPage() {
       {/* Header */}
       <div className="border-b border-[#2a2d35] px-8 py-4 flex items-center justify-between sticky top-0 bg-[#0f1117] z-10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#3b82f6] rounded-lg flex items-center justify-center text-sm font-bold">M</div>
+          <img src="/logo.svg" alt="Mantoog" className="w-16 h-16 object-contain" />
           <div>
             <div className="font-semibold text-sm">Mantoog Admin</div>
             <div className="text-xs text-[#4a4e60]">Platform management</div>

@@ -15,7 +15,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Mantoog | منتوج",
-  description: "منصة دروبشيبينج للتجار في منطقة الشرق الأوسط وشمال أفريقيا",
+  description: "أنشئ متجرك الإلكتروني في 60 ثانية وابدأ البيع فوراً",
+  icons: {
+    icon: [
+      { url: '/logo.svg', type: 'image/svg+xml', sizes: 'any' },
+    ],
+    shortcut: '/logo.svg',
+    apple: '/logo.svg',
+  },
 };
 
 export default function RootLayout({

@@ -864,15 +864,7 @@ export default function LandingPage() {
                       <div style={{ fontWeight: 700, marginBottom: 2, color: '#1e40af' }}>
                         {m.dir === 'rtl' ? 'تم تحديد موقعك' : 'Location pinned'}
                       </div>
-                      <div style={{ color: '#6b7280', fontSize: 12, marginBottom: 4 }}>{pickedLocation.address}</div>
-                      <a
-                        href={`https://maps.google.com/?q=${pickedLocation.lat},${pickedLocation.lng}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: 12, color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}
-                      >
-                        {m.dir === 'rtl' ? '🗺️ عرض على خرائط جوجل' : '🗺️ View on Google Maps'}
-                      </a>
+                      <div style={{ color: '#6b7280', fontSize: 12 }}>{pickedLocation.address}</div>
                     </div>
                   </div>
                 )}

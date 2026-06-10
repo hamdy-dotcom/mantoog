@@ -74,7 +74,7 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
       {/* Desktop Sidebar */}
       <aside className={`hidden md:flex flex-col bg-[#1a1d24] ${dir === 'rtl' ? 'border-l' : 'border-r'} border-[#2a2d35] w-56 min-h-screen sticky top-0 h-screen overflow-y-auto ${dir === 'rtl' ? 'order-last' : 'order-first'}`}>
         {/* Store info */}
-        <div className="p-4 border-b border-[#2a2d35]">
+        <div className="p-4 pt-6 border-b border-[#2a2d35]">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-8 h-8 rounded-lg bg-[#3b82f6] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               {store?.name?.[0]?.toUpperCase() || 'M'}

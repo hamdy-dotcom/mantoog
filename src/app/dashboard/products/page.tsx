@@ -54,7 +54,7 @@ export default function ProductsPage() {
       <Sidebar store={store} />
 
       {/* Main */}
-      <main className="flex-1 pt-16 md:pt-0 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
+      <main className="flex-1 p-6 md:p-8 overflow-auto pb-24 md:pb-8 mt-14 md:mt-0">
 
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">

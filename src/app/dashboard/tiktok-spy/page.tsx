@@ -40,7 +40,7 @@ export default function TikTokSpyPage() {
   return (
     <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
       <Sidebar store={store} credits={credits} />
-      <main className="flex-1 pt-16 md:pt-0 flex flex-col overflow-hidden">
+      <main className="flex-1 p-6 md:p-8 pb-24 md:pb-8 mt-14 md:mt-0 flex flex-col overflow-hidden">
 
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#2a2d35] flex items-center justify-between flex-shrink-0">

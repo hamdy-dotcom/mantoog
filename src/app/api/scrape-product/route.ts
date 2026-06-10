@@ -193,10 +193,14 @@ export async function POST(request: NextRequest) {
 
     if (!html) {
       return NextResponse.json({
-        success: false,
-        error: 'Could not fetch page',
+        success: true,
+        title: '',
+        images: [],
+        description: '',
+        price: '',
         platform,
-      }, { status: 400 })
+        blocked: true,
+      })
     }
 
     const data = extractData(html, platform)

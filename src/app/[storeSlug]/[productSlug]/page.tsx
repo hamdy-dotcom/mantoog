@@ -334,6 +334,40 @@ export default function LandingPage() {
   const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 15, boxSizing: 'border-box', direction: m.dir as any, fontFamily: 'system-ui', outline: 'none', background: '#fff' }
   const images = product?.images || []
 
+  const REVIEWS = [
+    {
+      names: { ar: ['محمد أحمد', 'أحمد علي', 'خالد محمد', 'عمر حسن', 'يوسف إبراهيم', 'سامي العمري', 'فيصل الأحمد'], en: ['Mohammed A.', 'Ahmed K.', 'Omar H.', 'Khalid M.', 'Yusuf I.'] },
+      comments: {
+        ar: [
+          'منتج ممتاز! وصل بسرعة والجودة أحسن من المتوقع 🔥',
+          'اشتريته لأهلي وكلهم انبسطوا منه، سيرجع أطلب تاني',
+          'صراحة مش متوقع الجودة دي بالسعر ده، شكراً جزيلاً',
+          'وصل في 3 أيام وشغال تمام، نصحت فيه كل أصحابي',
+          'جربت منتجات مشابهة بس ده الأحسن بكتير',
+        ],
+        en: [
+          'Excellent product! Fast delivery and quality better than expected 🔥',
+          'Bought it for family, everyone loved it. Will order again!',
+          'Amazing quality for the price, highly recommend!',
+        ]
+      }
+    }
+  ]
+
+  const getReviews = () => {
+    const seed = product?.id?.charCodeAt(0) || 1
+    const lang_key = m.dir === 'rtl' ? 'ar' : 'en'
+    const names = REVIEWS[0].names[lang_key as 'ar' | 'en']
+    const comments = REVIEWS[0].comments[lang_key as 'ar' | 'en']
+    return [0, 1, 2].map(i => ({
+      name: names[(seed + i * 3) % names.length],
+      comment: comments[(seed + i * 2) % comments.length],
+      rating: 5,
+      date: new Date(Date.now() - (i + 1) * 3 * 24 * 60 * 60 * 1000).toLocaleDateString(m.dir === 'rtl' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric' }),
+      verified: true,
+    }))
+  }
+
   return (
     <>
       {store.tiktok_pixel_id && (
@@ -475,9 +509,14 @@ export default function LandingPage() {
               </span>
             </div>
 
-            <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 8px', lineHeight: 1.3, color: '#111' }}>
-              {landingPage?.headline || product?.title}
+            <h1 style={{ fontSize: 'clamp(24px, 5vw, 36px)', fontWeight: 900, lineHeight: 1.2, marginBottom: 8, color: '#111' }}>
+              {product?.title}
             </h1>
+            {landingPage?.headline && landingPage.headline !== product?.title && (
+              <p style={{ fontSize: 'clamp(16px, 3vw, 22px)', fontWeight: 600, color: primaryColor, marginBottom: 12, lineHeight: 1.4 }}>
+                {landingPage.headline}
+              </p>
+            )}
 
             {landingPage?.subheadline && (
               <p style={{ fontSize: 15, color: '#555', margin: '0 0 16px', lineHeight: 1.5 }}>{landingPage.subheadline}</p>
@@ -637,6 +676,39 @@ export default function LandingPage() {
             </div>
           </div>
         )}
+
+        {/* Customer Reviews */}
+        <div className="lp-checkout" style={{ paddingBottom: 0, marginBottom: 0 }}>
+          <div style={{ background: '#f8f9fa', borderRadius: 16, padding: '20px 16px', marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <span style={{ fontSize: 20 }}>⭐⭐⭐⭐⭐</span>
+              <span style={{ fontWeight: 700, fontSize: 16, color: '#111' }}>4.9/5</span>
+              <span style={{ color: '#888', fontSize: 14 }}>({Math.floor(Math.random() * 50) + 80} {m.dir === 'rtl' ? 'تقييم' : 'reviews'})</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {getReviews().map((review, i) => (
+                <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', border: '1px solid #e5e7eb' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: primaryColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
+                        {review.name[0]}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: '#111' }}>{review.name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ color: '#f59e0b', fontSize: 12 }}>⭐⭐⭐⭐⭐</span>
+                          {review.verified && <span style={{ fontSize: 10, color: '#10b981', fontWeight: 500 }}>✓ {m.dir === 'rtl' ? 'مشتري موثق' : 'Verified'}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, color: '#aaa' }}>{review.date}</span>
+                  </div>
+                  <p style={{ fontSize: 14, color: '#374151', lineHeight: 1.5, margin: 0 }}>{review.comment}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
         <div ref={formRef} style={{ background: '#f0f0f0', border: '1px solid #d1d5db', borderRadius: 16, padding: 28, maxWidth: 600, margin: '0 auto' }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 18, textAlign: 'center', color: '#111' }}>

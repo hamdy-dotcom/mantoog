@@ -27,6 +27,7 @@ export default function AdminPage() {
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [allProducts, setAllProducts] = useState<any[]>([])
   const [productSearch, setProductSearch] = useState('')
+  const [merchantsMap, setMerchantsMap] = useState<Record<string, any>>({})
   const router = useRouter()
   const supabase = createClient()
 
@@ -58,13 +59,19 @@ export default function AdminPage() {
       .select('*')
       .order('created_at', { ascending: false })
 
+    const merchantsMapData = (merchantsData || []).reduce((acc: any, m: any) => {
+      acc[m.id] = m
+      return acc
+    }, {})
+    setMerchantsMap(merchantsMapData)
+
     const { data: creditsData } = await supabase
       .from('order_credits')
       .select('*')
 
     const { data: ordersData } = await supabase
       .from('orders')
-      .select('*, stores(name, currency)')
+      .select('*, stores(name, currency, merchant_id)')
       .order('created_at', { ascending: false })
       .limit(500)
 
@@ -488,7 +495,7 @@ export default function AdminPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#2a2d35]">
-                      {['Store', 'Customer', 'Phone', 'Governorate', 'Amount', 'Status', 'Date'].map(h => (
+                      {['Store', 'Customer', 'Phone', 'Address', 'Merchant', 'Amount', 'Status', 'Date'].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -499,7 +506,12 @@ export default function AdminPage() {
                         <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">{order.stores?.name || '—'}</td>
                         <td className="px-4 py-3 text-sm">{order.customer_name || '—'}</td>
                         <td className="px-4 py-3 text-xs text-[#8b8fa8]">{order.customer_phone || '—'}</td>
-                        <td className="px-4 py-3 text-xs text-[#8b8fa8]">{order.address_governorate || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-[#8b8fa8]">
+                          {[order.address_line1, order.address_governorate].filter(Boolean).join(', ') || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[#8b8fa8]">
+                          {merchantsMap[order.stores?.merchant_id]?.full_name || merchantsMap[order.stores?.merchant_id]?.email || '—'}
+                        </td>
                         <td className="px-4 py-3 text-sm font-bold text-[#4ade80] whitespace-nowrap">
                           {order.total_price} {order.stores?.currency || ''}
                         </td>

@@ -193,8 +193,12 @@ export default function ResearchPage() {
       <main className="flex-1 pt-16 md:pt-0 p-4 md:p-8 overflow-auto pb-24 md:pb-8">
         <div className="p-8 pb-4">
           <div className="mb-6">
-            <h1 className="text-xl font-semibold text-white">{lang === 'ar' ? '🔍 أبحاث المنتجات' : '🔍 Product Research'}</h1>
-            <p className="text-[#8b8fa8] text-sm mt-1">{lang === 'ar' ? 'بيانات حقيقية من Meta وبيانات Mantoog الفعلية' : 'Real data from Meta ads and actual Mantoog orders'}</p>
+            <h1 className="text-xl font-semibold text-white">
+              {lang === 'ar' ? '🏆 المنتجات الأكثر مبيعاً' : '🏆 Top Selling Products'}
+            </h1>
+            <p className="text-[#8b8fa8] text-sm mt-1">
+              {lang === 'ar' ? 'اكتشف أفضل المنتجات الرائجة واستوردها لمتجرك' : 'Discover top trending products and import them to your store'}
+            </p>
           </div>
 
           {/* Tabs */}

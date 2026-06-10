@@ -5,7 +5,7 @@ export const t = {
     // Nav
     dashboard: 'Dashboard',
     products: 'Products',
-    research: 'Product Research',
+    research: 'Top Selling Products',
     tiktokSpy: 'TikTok Ad Spy',
     orders: 'Orders',
     ads: 'Ads',
@@ -190,7 +190,7 @@ export const t = {
     // Nav
     dashboard: 'الرئيسية',
     products: 'المنتجات',
-    research: 'أبحاث المنتجات',
+    research: 'المنتجات الأكثر مبيعاً',
     tiktokSpy: 'تصفح إعلانات تيكتوك',
     orders: 'الطلبات',
     ads: 'الإعلانات',

@@ -30,6 +30,7 @@ export default function NewProductPage() {
   const [error, setError] = useState('')
   const [step, setStep] = useState<'input' | 'preview'>('input')
   const [scraping, setScraping] = useState(false)
+  const [scrapeError, setScrapeError] = useState('')
   const [scrapedImages, setScrapedImages] = useState<string[]>([])
   const [productName, setProductName] = useState('')
   const [productShipping, setProductShipping] = useState<'free' | 'fixed'>('free')
@@ -59,6 +60,7 @@ export default function NewProductPage() {
   const handleScrapeUrl = async () => {
     if (!url.trim()) return
     setScraping(true)
+    setScrapeError('')
     try {
       const res = await fetch('/api/scrape-product', {
         method: 'POST',
@@ -92,8 +94,10 @@ export default function NewProductPage() {
           if (uniqueImgs.length > 0) setScrapedImages(uniqueImgs)
         }
       }
-    } catch (err) {
-      console.error('Scrape error:', err)
+    } catch (error) {
+      setScrapeError(lang === 'ar'
+        ? 'تعذر جلب بيانات المنتج. هذا الموقع قد لا يدعم الاستيراد التلقائي — يرجى إدخال تفاصيل المنتج يدوياً.'
+        : 'Could not fetch product data. This website may not support auto-import — please enter product details manually.')
     }
     setScraping(false)
   }
@@ -380,6 +384,12 @@ export default function NewProductPage() {
 
                 {scraping && (
                   <div className="text-xs text-[#8b8fa8] animate-pulse">🔍 Fetching product data...</div>
+                )}
+
+                {scrapeError && (
+                  <div className="bg-[#3a1414] border border-[#f87171]/20 rounded-lg px-3 py-2.5">
+                    <p className="text-[#f87171] text-xs">{scrapeError}</p>
+                  </div>
                 )}
 
                 {!scraping && url.includes('aliexpress') && (

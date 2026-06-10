@@ -45,8 +45,12 @@ export default function TikTokSpyPage() {
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#2a2d35] flex items-center justify-between flex-shrink-0">
           <div>
-            <h1 className="text-lg font-semibold text-white">
-              <span className="mr-2">🎵</span>
+            <h1 className="text-lg font-semibold text-white flex items-center gap-2">
+              <img
+                src="https://img.magnific.com/premium-vector/tik-tok-logo_578229-290.jpg?semt=ais_hybrid&w=740&q=80"
+                alt="TikTok"
+                style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }}
+              />
               {lang === 'ar' ? 'تصفح إعلانات تيكتوك' : 'TikTok Ad Spy'}
             </h1>
             <p className="text-[#8b8fa8] text-xs mt-0.5">

@@ -192,6 +192,8 @@ export default function LandingPage() {
   const [submitted, setSubmitted] = useState(false)
   const [formError, setFormError] = useState('')
   const [showSticky, setShowSticky] = useState(false)
+  const [pickedLocation, setPickedLocation] = useState<{lat: number, lng: number, address: string} | null>(null)
+  const [locationLoading, setLocationLoading] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -254,6 +256,10 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  useEffect(() => {
+    (window as any).__setPickedLocation = setPickedLocation
+  }, [])
+
   const formatTimer = (s: number) => {
     const days = Math.floor(s / 86400)
     const h = Math.floor((s % 86400) / 3600).toString().padStart(2, '0')
@@ -275,6 +281,10 @@ export default function LandingPage() {
     if (!name.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب اسمك' : 'Please enter your name'); return }
     if (!phone.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب رقم هاتفك' : 'Please enter your phone'); return }
     if (!address.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب عنوانك بالتفصيل' : 'Please enter your full address'); return }
+    if (store?.location_required && !pickedLocation) {
+      setFormError(m.dir === 'rtl' ? 'يرجى تحديد موقعك على الخريطة' : 'Please pin your location on the map')
+      return
+    }
     setFormError('')
     setSubmitting(true)
     const orderTotal = product.price + shippingCost
@@ -294,6 +304,10 @@ export default function LandingPage() {
       shipping_price: shippingCost,
       payment_method: 'cod',
       status: 'pending',
+      lat: pickedLocation?.lat || null,
+      lng: pickedLocation?.lng || null,
+      map_link: pickedLocation ? `https://maps.google.com/?q=${pickedLocation.lat},${pickedLocation.lng}` : null,
+      location_address: pickedLocation?.address || null,
     })
     setSubmitting(false)
     if (!error) {
@@ -370,6 +384,64 @@ export default function LandingPage() {
 
   return (
     <>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+      <Script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" strategy="lazyOnload" onLoad={() => {
+        if (!(window as any).L || !store?.enable_location) return
+        const L = (window as any).L
+
+        const COUNTRY_CENTERS: Record<string, [number, number]> = {
+          SAR: [24.7136, 46.6753],
+          AED: [25.2048, 55.2708],
+          EGP: [30.0444, 31.2357],
+          MAD: [33.9716, -6.8498],
+          DZD: [36.7372, 3.0865],
+          USD: [25.2048, 55.2708],
+        }
+        const defaultCenter = COUNTRY_CENTERS[store?.currency || 'USD'] || [25.2048, 55.2708]
+
+        const map = L.map('lp-map', {
+          zoomControl: true,
+          scrollWheelZoom: false,
+          tap: true,
+          touchZoom: true,
+        }).setView(defaultCenter, 13)
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map)
+        const marker = L.marker(defaultCenter, { draggable: true }).addTo(map)
+
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const { latitude: lat, longitude: lng } = pos.coords
+              marker.setLatLng([lat, lng])
+              map.flyTo([lat, lng], 15, { duration: 1 })
+            },
+            () => {},
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+          )
+        }
+
+        const handlePick = async (lat: number, lng: number) => {
+          marker.setLatLng([lat, lng])
+          map.flyTo([lat, lng], Math.max(map.getZoom(), 16), { duration: 0.6 })
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=ar&zoom=18`,
+              { headers: { 'Accept': 'application/json' } }
+            )
+            const data = await res.json()
+            ;(window as any).__setPickedLocation({ lat, lng, address: data.display_name || `${lat}, ${lng}` })
+          } catch {
+            ;(window as any).__setPickedLocation({ lat, lng, address: `${lat}, ${lng}` })
+          }
+        }
+
+        marker.on('dragend', (e: any) => { const p = e.target.getLatLng(); handlePick(p.lat, p.lng) })
+        map.on('click', (e: any) => handlePick(e.latlng.lat, e.latlng.lng))
+        setTimeout(() => map.invalidateSize(), 300)
+        ;(window as any).__leafletMap = map
+        ;(window as any).__leafletMarker = marker
+      }} />
       {store.tiktok_pixel_id && (
         <Script id="tiktok-pixel" strategy="afterInteractive">
           {`
@@ -723,6 +795,101 @@ export default function LandingPage() {
               placeholder={m.dir === 'rtl' ? 'العنوان تفصيلي (منطقة، مدينة، حي)' : 'Full address (area, city, district)'}
               style={inputStyle}
             />
+            {store?.enable_location && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <label style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>
+                    📍 {m.dir === 'rtl' ? 'تحديد موقع التوصيل' : 'Delivery Location'}
+                    {!store?.location_required && (
+                      <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af', marginRight: 6, marginLeft: 6 }}>
+                        ({m.dir === 'rtl' ? 'اختياري' : 'optional'})
+                      </span>
+                    )}
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocationLoading(true)
+                    if (!navigator.geolocation) { setLocationLoading(false); return; }
+                    navigator.geolocation.getCurrentPosition(
+                      async (pos) => {
+                        const { latitude: lat, longitude: lng } = pos.coords
+                        try {
+                          const res = await fetch(
+                            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=${m.dir === 'rtl' ? 'ar' : 'en'}&zoom=18`,
+                            { headers: { 'Accept': 'application/json' } }
+                          )
+                          const data = await res.json()
+                          const loc = { lat, lng, address: data.display_name || `${lat}, ${lng}` }
+                          setPickedLocation(loc)
+                          if ((window as any).__leafletMap && (window as any).__leafletMarker) {
+                            (window as any).__leafletMarker.setLatLng([lat, lng])
+                            ;(window as any).__leafletMap.flyTo([lat, lng], 17, { duration: 0.8 })
+                          }
+                        } catch {
+                          setPickedLocation({ lat, lng, address: `${lat}, ${lng}` })
+                        }
+                        setLocationLoading(false)
+                      },
+                      () => setLocationLoading(false),
+                      { enableHighAccuracy: true, timeout: 10000 }
+                    )
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '14px 20px',
+                    background: locationLoading ? '#9ca3af' : 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 12,
+                    fontSize: 15,
+                    fontWeight: 800,
+                    cursor: locationLoading ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 10,
+                    marginBottom: 10,
+                    boxShadow: '0 8px 20px -6px rgba(59,130,246,0.6)',
+                    transition: 'all 0.2s',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <span style={{ fontSize: 20 }}>📡</span>
+                  {locationLoading
+                    ? (m.dir === 'rtl' ? 'جاري تحديد موقعك...' : 'Locating...')
+                    : (m.dir === 'rtl' ? 'اضغط هنا لتحديد موقعك تلقائياً' : 'Tap to detect my location automatically')}
+                </button>
+
+                <p style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', marginBottom: 10 }}>
+                  {m.dir === 'rtl' ? 'أو حرك الدبوس على الخريطة يدوياً' : 'Or drag the pin on the map manually'}
+                </p>
+
+                <div id="lp-map" style={{ height: 220, borderRadius: 12, border: '1.5px solid #e5e7eb', marginBottom: 10, overflow: 'hidden', position: 'relative', zIndex: 1 }} />
+
+                {pickedLocation && (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'rgba(59,130,246,0.05)', border: '1.5px solid #3b82f6', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+                    <span style={{ fontSize: 16 }}>✅</span>
+                    <div style={{ fontSize: 13, color: '#374151', flex: 1 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 2, color: '#1e40af' }}>
+                        {m.dir === 'rtl' ? 'تم تحديد موقعك' : 'Location pinned'}
+                      </div>
+                      <div style={{ color: '#6b7280', fontSize: 12, marginBottom: 4 }}>{pickedLocation.address}</div>
+                      <a
+                        href={`https://maps.google.com/?q=${pickedLocation.lat},${pickedLocation.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 12, color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}
+                      >
+                        {m.dir === 'rtl' ? '🗺️ عرض على خرائط جوجل' : '🗺️ View on Google Maps'}
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#555' }}>
                 <span>{m.shippingLabel}</span>

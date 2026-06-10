@@ -46,6 +46,8 @@ export default function SettingsPage() {
   const [metaPixelId, setMetaPixelId] = useState('')
   const [tiktokPixelId, setTiktokPixelId] = useState('')
   const [savingPixels, setSavingPixels] = useState(false)
+  const [enableLocation, setEnableLocation] = useState(false)
+  const [locationRequired, setLocationRequired] = useState(false)
 
   // Merchant fields
   const [fullName, setFullName] = useState('')
@@ -77,6 +79,8 @@ export default function SettingsPage() {
       setLogoUrl(storeData.logo_url || '')
       if (storeData.meta_pixel_id) setMetaPixelId(storeData.meta_pixel_id)
       if (storeData.tiktok_pixel_id) setTiktokPixelId(storeData.tiktok_pixel_id)
+      setEnableLocation(storeData.enable_location || false)
+      setLocationRequired(storeData.location_required || false)
       setLoading(false)
     }
     init()
@@ -119,6 +123,8 @@ export default function SettingsPage() {
       static_shipping_cost: shippingType === 'static' ? parseFloat(staticShippingCost) || 0 : null,
       custom_domain: customDomain || null,
       logo_url: newLogoUrl || null,
+      enable_location: enableLocation,
+      location_required: locationRequired,
       updated_at: new Date().toISOString(),
     }).eq('id', store.id)
 
@@ -196,6 +202,7 @@ export default function SettingsPage() {
             { id: 'store', label: tr.storeInfo },
             { id: 'brand', label: tr.brandAppearance },
             { id: 'pixels', label: lang === 'ar' ? '📡 التتبع والإعلانات' : '📡 Pixels & Ads' },
+            { id: 'checkout', label: { ar: 'نموذج الطلب', en: 'Order Form' }, icon: '🛒' },
             { id: 'shipping', label: tr.shipping },
             { id: 'domain', label: tr.customDomain },
             { id: 'account', label: tr.account },
@@ -205,7 +212,8 @@ export default function SettingsPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'}`}
             >
-              {tab.label}
+              {'icon' in tab && tab.icon ? `${tab.icon} ` : ''}
+              {typeof tab.label === 'object' ? tab.label[lang as 'ar' | 'en'] : tab.label}
             </button>
           ))}
         </div>
@@ -393,6 +401,46 @@ export default function SettingsPage() {
               <button onClick={handleSavePixels} disabled={savingPixels}
                 className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-colors">
                 {savingPixels ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : (lang === 'ar' ? 'حفظ إعدادات البكسل' : 'Save pixel settings')}
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'checkout' && (
+            <div className="space-y-6">
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-6">
+                <h3 className="text-white font-semibold mb-1">{lang === 'ar' ? '📍 تحديد الموقع' : '📍 Location Picker'}</h3>
+                <p className="text-[#8b8fa8] text-sm mb-5">{lang === 'ar' ? 'اسمح للعملاء بتحديد موقعهم على الخريطة عند الطلب' : 'Allow customers to pin their location on a map when ordering'}</p>
+
+                <div className="flex items-center justify-between py-3 border-b border-[#2a2d35]">
+                  <div>
+                    <div className="text-white text-sm font-medium">{lang === 'ar' ? 'تفعيل تحديد الموقع' : 'Enable location picker'}</div>
+                    <div className="text-[#4a4e60] text-xs mt-0.5">{lang === 'ar' ? 'يظهر خريطة في صفحة الطلب' : 'Shows a map in the order form'}</div>
+                  </div>
+                  <button
+                    onClick={() => setEnableLocation(!enableLocation)}
+                    className={`relative w-12 h-6 rounded-full transition-colors ${enableLocation ? 'bg-[#3b82f6]' : 'bg-[#2a2d35]'}`}>
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${enableLocation ? 'right-1' : 'left-1'}`} />
+                  </button>
+                </div>
+
+                {enableLocation && (
+                  <div className="flex items-center justify-between py-3">
+                    <div>
+                      <div className="text-white text-sm font-medium">{lang === 'ar' ? 'الموقع إلزامي' : 'Location required'}</div>
+                      <div className="text-[#4a4e60] text-xs mt-0.5">{lang === 'ar' ? 'لا يمكن إتمام الطلب بدون تحديد الموقع' : 'Customer must pin location to complete order'}</div>
+                    </div>
+                    <button
+                      onClick={() => setLocationRequired(!locationRequired)}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${locationRequired ? 'bg-[#1DB87A]' : 'bg-[#2a2d35]'}`}>
+                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${locationRequired ? 'right-1' : 'left-1'}`} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button onClick={handleSave}
+                className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+                {lang === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}
               </button>
             </div>
           )}

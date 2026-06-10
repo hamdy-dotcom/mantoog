@@ -186,8 +186,9 @@ export default function OrdersPage() {
             <div className="grid grid-cols-12 gap-3 px-5 py-3 border-b border-[#2a2d35]">
               <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">#</span>
               <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.customer}</span>
+              <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">📍</span>
               <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.product}</span>
-              <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.address}</span>
+              <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.address}</span>
               <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.total}</span>
               <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.qty}</span>
               <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.status}</span>
@@ -208,6 +209,18 @@ export default function OrdersPage() {
                   <div className="text-xs text-[#4a4e60] mt-0.5">{order.customer_phone}</div>
                 </div>
 
+                {/* Location */}
+                <div className="col-span-1">
+                  {order.map_link ? (
+                    <a href={order.map_link} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-[#3b82f6] hover:text-white bg-[#1a3a5c] hover:bg-[#3b82f6] px-2.5 py-1.5 rounded-lg transition-colors font-medium whitespace-nowrap">
+                      🗺️ {lang === 'ar' ? 'الموقع' : 'Location'}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-[#4a4e60]">—</span>
+                  )}
+                </div>
+
                 {/* Product */}
                 <div className="col-span-2 flex items-center gap-2">
                   {order.products?.images?.[0] && (
@@ -217,7 +230,7 @@ export default function OrdersPage() {
                 </div>
 
                 {/* Address */}
-                <div className="col-span-2">
+                <div className="col-span-1">
                   <div className="text-xs text-[#8b8fa8] truncate">{order.address_governorate}</div>
                   <div className="text-xs text-[#4a4e60] truncate">{order.address_line1}</div>
                 </div>

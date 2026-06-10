@@ -490,7 +490,11 @@ export default function AdminPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#2a2d35]">
-                      {['Store', 'Customer', 'Phone', 'Address', 'Merchant', 'Amount', 'Status', 'Date'].map(h => (
+                      {['Store', 'Customer', 'Phone'].map(h => (
+                        <th key={h} className="text-left px-4 py-3 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
+                      ))}
+                      <th className="text-left px-4 py-3 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">📍</th>
+                      {['Address', 'Merchant', 'Amount', 'Status', 'Date'].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -501,6 +505,16 @@ export default function AdminPage() {
                         <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">{order.stores?.name || '—'}</td>
                         <td className="px-4 py-3 text-sm">{order.customer_name || '—'}</td>
                         <td className="px-4 py-3 text-xs text-[#8b8fa8]">{order.customer_phone || '—'}</td>
+                        <td className="px-4 py-3">
+                          {order.map_link ? (
+                            <a href={order.map_link} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs text-[#3b82f6] hover:text-white bg-[#1a3a5c] hover:bg-[#3b82f6] px-2.5 py-1.5 rounded-lg transition-colors font-medium whitespace-nowrap">
+                              🗺️ Location
+                            </a>
+                          ) : (
+                            <span className="text-xs text-[#4a4e60]">—</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-xs text-[#8b8fa8]">
                           {[order.address_line1, order.address_governorate].filter(Boolean).join(', ') || '—'}
                         </td>

@@ -46,8 +46,11 @@ export default function SettingsPage() {
   const [metaPixelId, setMetaPixelId] = useState('')
   const [tiktokPixelId, setTiktokPixelId] = useState('')
   const [savingPixels, setSavingPixels] = useState(false)
-  const [enableLocation, setEnableLocation] = useState(false)
+  const [addressMode, setAddressMode] = useState<'text' | 'map'>('text')
   const [locationRequired, setLocationRequired] = useState(false)
+  const [showQuantity, setShowQuantity] = useState(false)
+  const [showNote, setShowNote] = useState(false)
+  const [noteRequired, setNoteRequired] = useState(false)
 
   // Merchant fields
   const [fullName, setFullName] = useState('')
@@ -79,8 +82,11 @@ export default function SettingsPage() {
       setLogoUrl(storeData.logo_url || '')
       if (storeData.meta_pixel_id) setMetaPixelId(storeData.meta_pixel_id)
       if (storeData.tiktok_pixel_id) setTiktokPixelId(storeData.tiktok_pixel_id)
-      setEnableLocation(storeData.enable_location || false)
+      setAddressMode(storeData.address_mode || (storeData.enable_location ? 'map' : 'text'))
       setLocationRequired(storeData.location_required || false)
+      setShowQuantity(storeData.show_quantity || false)
+      setShowNote(storeData.show_note || false)
+      setNoteRequired(storeData.note_required || false)
       setLoading(false)
     }
     init()
@@ -123,8 +129,11 @@ export default function SettingsPage() {
       static_shipping_cost: shippingType === 'static' ? parseFloat(staticShippingCost) || 0 : null,
       custom_domain: customDomain || null,
       logo_url: newLogoUrl || null,
-      enable_location: enableLocation,
+      address_mode: addressMode,
       location_required: locationRequired,
+      show_quantity: showQuantity,
+      show_note: showNote,
+      note_required: noteRequired,
       updated_at: new Date().toISOString(),
     }).eq('id', store.id)
 
@@ -407,24 +416,52 @@ export default function SettingsPage() {
 
           {activeTab === 'checkout' && (
             <div className="space-y-6">
-              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-6">
-                <h3 className="text-white font-semibold mb-1">{lang === 'ar' ? '📍 تحديد الموقع' : '📍 Location Picker'}</h3>
-                <p className="text-[#8b8fa8] text-sm mb-5">{lang === 'ar' ? 'اسمح للعملاء بتحديد موقعهم على الخريطة عند الطلب' : 'Allow customers to pin their location on a map when ordering'}</p>
 
-                <div className="flex items-center justify-between py-3 border-b border-[#2a2d35]">
-                  <div>
-                    <div className="text-white text-sm font-medium">{lang === 'ar' ? 'تفعيل تحديد الموقع' : 'Enable location picker'}</div>
-                    <div className="text-[#4a4e60] text-xs mt-0.5">{lang === 'ar' ? 'يظهر خريطة في صفحة الطلب' : 'Shows a map in the order form'}</div>
-                  </div>
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-6">
+                <h3 className="text-white font-semibold mb-1">{lang === 'ar' ? '🔒 حقول ثابتة' : '🔒 Fixed Fields'}</h3>
+                <p className="text-[#8b8fa8] text-sm mb-4">{lang === 'ar' ? 'هذه الحقول إلزامية دائماً ولا يمكن إزالتها' : 'These fields are always required and cannot be removed'}</p>
+                <div className="space-y-3">
+                  {[
+                    { label: lang === 'ar' ? 'الاسم' : 'Name', icon: '👤' },
+                    { label: lang === 'ar' ? 'رقم الهاتف' : 'Phone Number', icon: '📱' },
+                  ].map((f, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 border-b border-[#2a2d35] last:border-0">
+                      <div className="flex items-center gap-3">
+                        <span>{f.icon}</span>
+                        <span className="text-white text-sm font-medium">{f.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-[#4ade80] bg-[#14321f] px-2 py-1 rounded-full">{lang === 'ar' ? 'إلزامي دائماً' : 'Always required'}</span>
+                        <div className="w-10 h-5 rounded-full bg-[#3b82f6] opacity-50 cursor-not-allowed relative">
+                          <span className="absolute right-1 top-0.5 w-4 h-4 bg-white rounded-full" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-6">
+                <h3 className="text-white font-semibold mb-1">{lang === 'ar' ? '📍 طريقة تحديد العنوان' : '📍 Address Method'}</h3>
+                <p className="text-[#8b8fa8] text-sm mb-4">{lang === 'ar' ? 'اختر كيف يحدد العميل عنوان التوصيل' : 'Choose how the customer provides their delivery address'}</p>
+                <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => setEnableLocation(!enableLocation)}
-                    className={`relative w-12 h-6 rounded-full transition-colors ${enableLocation ? 'bg-[#3b82f6]' : 'bg-[#2a2d35]'}`}>
-                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${enableLocation ? 'right-1' : 'left-1'}`} />
+                    onClick={() => setAddressMode('text')}
+                    className={`p-4 rounded-xl border-2 text-right transition-all ${addressMode === 'text' ? 'border-[#3b82f6] bg-[#1a3a5c]' : 'border-[#2a2d35] hover:border-[#3b82f6]'}`}>
+                    <div className="text-2xl mb-2">✍️</div>
+                    <div className="text-white text-sm font-semibold">{lang === 'ar' ? 'نص يدوي' : 'Text input'}</div>
+                    <div className="text-[#8b8fa8] text-xs mt-1">{lang === 'ar' ? 'العميل يكتب عنوانه' : 'Customer types their address'}</div>
+                  </button>
+                  <button
+                    onClick={() => setAddressMode('map')}
+                    className={`p-4 rounded-xl border-2 text-right transition-all ${addressMode === 'map' ? 'border-[#3b82f6] bg-[#1a3a5c]' : 'border-[#2a2d35] hover:border-[#3b82f6]'}`}>
+                    <div className="text-2xl mb-2">🗺️</div>
+                    <div className="text-white text-sm font-semibold">{lang === 'ar' ? 'خريطة تفاعلية' : 'Interactive map'}</div>
+                    <div className="text-[#8b8fa8] text-xs mt-1">{lang === 'ar' ? 'العميل يحدد موقعه' : 'Customer pins their location'}</div>
                   </button>
                 </div>
-
-                {enableLocation && (
-                  <div className="flex items-center justify-between py-3">
+                {addressMode === 'map' && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#2a2d35]">
                     <div>
                       <div className="text-white text-sm font-medium">{lang === 'ar' ? 'الموقع إلزامي' : 'Location required'}</div>
                       <div className="text-[#4a4e60] text-xs mt-0.5">{lang === 'ar' ? 'لا يمكن إتمام الطلب بدون تحديد الموقع' : 'Customer must pin location to complete order'}</div>
@@ -436,6 +473,59 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 )}
+              </div>
+
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-6">
+                <h3 className="text-white font-semibold mb-1">{lang === 'ar' ? '➕ حقول إضافية' : '➕ Extra Fields'}</h3>
+                <p className="text-[#8b8fa8] text-sm mb-4">{lang === 'ar' ? 'اختر الحقول الإضافية التي تريد إظهارها في نموذج الطلب' : 'Choose extra fields to show in the order form'}</p>
+
+                <div className="space-y-0">
+                  <div className="flex items-center justify-between py-3 border-b border-[#2a2d35]">
+                    <div className="flex items-center gap-3">
+                      <span>🔢</span>
+                      <div>
+                        <div className="text-white text-sm font-medium">{lang === 'ar' ? 'الكمية' : 'Quantity'}</div>
+                        <div className="text-[#4a4e60] text-xs">{lang === 'ar' ? 'يفتح للعميل زر + و - لاختيار الكمية' : 'Shows +/- quantity selector, defaults to 1'}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowQuantity(!showQuantity)}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${showQuantity ? 'bg-[#3b82f6]' : 'bg-[#2a2d35]'}`}>
+                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${showQuantity ? 'right-1' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between py-3 border-b border-[#2a2d35]">
+                    <div className="flex items-center gap-3">
+                      <span>📝</span>
+                      <div>
+                        <div className="text-white text-sm font-medium">{lang === 'ar' ? 'ملاحظة العميل' : 'Customer note'}</div>
+                        <div className="text-[#4a4e60] text-xs">{lang === 'ar' ? 'حقل نصي للعميل يضع فيه أي ملاحظات' : 'Text field for customer notes or special requests'}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowNote(!showNote)}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${showNote ? 'bg-[#3b82f6]' : 'bg-[#2a2d35]'}`}>
+                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${showNote ? 'right-1' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  {showNote && (
+                    <div className="flex items-center justify-between py-3 pr-8 border-b border-[#2a2d35]">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[#4a4e60]">↳</span>
+                        <div>
+                          <div className="text-[#8b8fa8] text-sm">{lang === 'ar' ? 'الملاحظة إلزامية' : 'Note required'}</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setNoteRequired(!noteRequired)}
+                        className={`relative w-12 h-6 rounded-full transition-colors ${noteRequired ? 'bg-[#1DB87A]' : 'bg-[#2a2d35]'}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${noteRequired ? 'right-1' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <button onClick={handleSave}

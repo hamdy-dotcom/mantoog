@@ -1,0 +1,7 @@
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS address_mode text DEFAULT 'text';
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS show_quantity boolean DEFAULT false;
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS show_note boolean DEFAULT false;
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS note_required boolean DEFAULT false;
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS quantity INT DEFAULT 1;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS note TEXT;

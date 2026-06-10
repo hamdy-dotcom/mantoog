@@ -194,6 +194,8 @@ export default function LandingPage() {
   const [showSticky, setShowSticky] = useState(false)
   const [pickedLocation, setPickedLocation] = useState<{lat: number, lng: number, address: string} | null>(null)
   const [locationLoading, setLocationLoading] = useState(false)
+  const [note, setNote] = useState('')
+  const [qty, setQty] = useState(1)
   const formRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -273,6 +275,10 @@ export default function LandingPage() {
       ? (store.static_shipping_cost || 0)
       : (product.shipping_cost || 0))
     : 0
+  const isMapAddress = store?.address_mode === 'map' || (!store?.address_mode && store?.enable_location)
+  const total = store?.show_quantity
+    ? (parseFloat(product?.price || 0) * qty + parseFloat(shippingCost || 0)).toFixed(0)
+    : (parseFloat(product?.price || 0) + parseFloat(shippingCost || 0)).toFixed(0)
   const t = formatTimer(timer)
   const primaryColor = store?.primary_color || '#2563eb'
   const benefits: string[] = sections?.benefits || []
@@ -280,14 +286,22 @@ export default function LandingPage() {
   const handleSubmit = async () => {
     if (!name.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب اسمك' : 'Please enter your name'); return }
     if (!phone.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب رقم هاتفك' : 'Please enter your phone'); return }
-    if (!address.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب عنوانك بالتفصيل' : 'Please enter your full address'); return }
-    if (store?.location_required && !pickedLocation) {
+    if (isMapAddress && store?.location_required && !pickedLocation) {
       setFormError(m.dir === 'rtl' ? 'يرجى تحديد موقعك على الخريطة' : 'Please pin your location on the map')
+      return
+    }
+    if (!isMapAddress && !address.trim()) {
+      setFormError(m.dir === 'rtl' ? 'يرجى إدخال العنوان' : 'Please enter your address')
+      return
+    }
+    if (store?.show_note && store?.note_required && !note.trim()) {
+      setFormError(m.dir === 'rtl' ? 'يرجى إدخال ملاحظاتك' : 'Please enter your note')
       return
     }
     setFormError('')
     setSubmitting(true)
-    const orderTotal = product.price + shippingCost
+    const orderQty = store?.show_quantity ? qty : 1
+    const orderTotal = product.price * orderQty + shippingCost
     const { error } = await supabase.from('orders').insert({
       store_id: store.id,
       merchant_id: store.merchant_id,
@@ -295,9 +309,10 @@ export default function LandingPage() {
       customer_name: name,
       customer_phone: phone,
       address_governorate: region,
-      address_line1: address,
+      address_line1: isMapAddress ? (pickedLocation?.address || '') : address,
       address_country: store.currency === 'EGP' ? 'EG' : store.currency === 'SAR' ? 'SA' : 'AE',
-      quantity: 1,
+      quantity: orderQty,
+      note: store?.show_note ? note : null,
       unit_price: product.price,
       total_price: orderTotal,
       currency: store.currency,
@@ -325,7 +340,7 @@ export default function LandingPage() {
             content_name: product.title,
             currency: store.currency,
             value: orderTotal,
-            quantity: 1,
+            quantity: orderQty,
           })
         }
       }
@@ -386,7 +401,7 @@ export default function LandingPage() {
     <>
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
       <Script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" strategy="lazyOnload" onLoad={() => {
-        if (!(window as any).L || !store?.enable_location) return
+        if (!(window as any).L || !(store?.address_mode === 'map' || (!store?.address_mode && store?.enable_location))) return
         const L = (window as any).L
 
         const COUNTRY_CENTERS: Record<string, [number, number]> = {
@@ -777,14 +792,18 @@ export default function LandingPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <input value={name} onChange={e => setName(e.target.value)} placeholder={m.namePlaceholder} style={inputStyle} />
             <input value={phone} onChange={e => setPhone(e.target.value)} placeholder={m.phonePlaceholder} type="tel" style={{ ...inputStyle, direction: 'ltr', textAlign: m.dir === 'rtl' ? 'right' : 'left' }} />
-            <input
-              value={address}
-              onChange={e => setAddress(e.target.value)}
-              placeholder={m.dir === 'rtl' ? 'العنوان تفصيلي (منطقة، مدينة، حي)' : 'Full address (area, city, district)'}
-              style={inputStyle}
-            />
-            {store?.enable_location && (
-              <div style={{ marginBottom: 12 }}>
+
+            {!isMapAddress && (
+              <input
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                placeholder={m.dir === 'rtl' ? 'العنوان تفصيلي (منطقة، مدينة، حي)' : 'Full address (area, city, district)'}
+                style={inputStyle}
+              />
+            )}
+
+            {isMapAddress && (
+              <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <label style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>
                     📍 {m.dir === 'rtl' ? 'تحديد موقع التوصيل' : 'Delivery Location'}
@@ -795,7 +814,6 @@ export default function LandingPage() {
                     )}
                   </label>
                 </div>
-
                 <button
                   type="button"
                   onClick={() => {
@@ -826,50 +844,56 @@ export default function LandingPage() {
                     )
                   }}
                   style={{
-                    width: '100%',
-                    padding: '14px 20px',
+                    width: '100%', padding: '14px 20px',
                     background: locationLoading ? '#9ca3af' : 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 12,
-                    fontSize: 15,
-                    fontWeight: 800,
+                    color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 800,
                     cursor: locationLoading ? 'wait' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 10,
-                    marginBottom: 10,
-                    boxShadow: '0 8px 20px -6px rgba(59,130,246,0.6)',
-                    transition: 'all 0.2s',
-                    fontFamily: 'inherit',
-                  }}
-                >
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    marginBottom: 10, boxShadow: '0 8px 20px -6px rgba(59,130,246,0.6)',
+                    transition: 'all 0.2s', fontFamily: 'inherit',
+                  }}>
                   <span style={{ fontSize: 20 }}>📡</span>
                   {locationLoading
                     ? (m.dir === 'rtl' ? 'جاري تحديد موقعك...' : 'Locating...')
                     : (m.dir === 'rtl' ? 'اضغط هنا لتحديد موقعك تلقائياً' : 'Tap to detect my location automatically')}
                 </button>
-
                 <p style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', marginBottom: 10 }}>
                   {m.dir === 'rtl' ? 'أو حرك الدبوس على الخريطة يدوياً' : 'Or drag the pin on the map manually'}
                 </p>
-
                 <div id="lp-map" style={{ height: 220, borderRadius: 12, border: '1.5px solid #e5e7eb', marginBottom: 10, overflow: 'hidden', position: 'relative', zIndex: 1 }} />
-
                 {pickedLocation && (
                   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'rgba(59,130,246,0.05)', border: '1.5px solid #3b82f6', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
                     <span style={{ fontSize: 16 }}>✅</span>
                     <div style={{ fontSize: 13, color: '#374151', flex: 1 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 2, color: '#1e40af' }}>
-                        {m.dir === 'rtl' ? 'تم تحديد موقعك' : 'Location pinned'}
-                      </div>
+                      <div style={{ fontWeight: 700, marginBottom: 2, color: '#1e40af' }}>{m.dir === 'rtl' ? 'تم تحديد موقعك' : 'Location pinned'}</div>
                       <div style={{ color: '#6b7280', fontSize: 12 }}>{pickedLocation.address}</div>
                     </div>
                   </div>
                 )}
               </div>
             )}
+
+            {store?.show_quantity && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px' }}>
+                <span style={{ fontSize: 14, color: '#555' }}>{m.qtyLabel}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <button onClick={() => setQty(q => Math.max(1, q - 1))} style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #d1d5db', background: '#f3f4f6', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                  <span style={{ fontSize: 16, fontWeight: 700, minWidth: 24, textAlign: 'center' }}>{qty}</span>
+                  <button onClick={() => setQty(q => q + 1)} style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #d1d5db', background: '#f3f4f6', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                </div>
+              </div>
+            )}
+
+            {store?.show_note && (
+              <textarea
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder={m.dir === 'rtl' ? 'ملاحظات إضافية للطلب (اختياري)' : 'Additional notes for your order (optional)'}
+                rows={3}
+                style={{ ...inputStyle, resize: 'none', fontFamily: 'inherit' }}
+              />
+            )}
+
             <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#555' }}>
                 <span>{m.shippingLabel}</span>
@@ -879,7 +903,7 @@ export default function LandingPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 800, color: '#111' }}>
                 <span>{m.totalLabel}</span>
-                <span>{(parseFloat(product?.price || 0) + parseFloat(shippingCost || 0)).toFixed(0)} {store?.currency}</span>
+                <span>{total} {store?.currency}</span>
               </div>
             </div>
             {formError && (
@@ -887,13 +911,16 @@ export default function LandingPage() {
             )}
             <button
               onClick={() => {
-                const totalPrice = parseFloat(product?.price)
+                const totalPrice = store?.show_quantity
+                  ? parseFloat(product?.price || 0) * qty
+                  : parseFloat(product?.price || 0)
+                const checkoutQty = store?.show_quantity ? qty : 1
                 if (typeof window !== 'undefined') {
                   if ((window as any).fbq) {
                     (window as any).fbq('track', 'InitiateCheckout', { currency: store.currency, value: totalPrice })
                   }
                   if ((window as any).ttq) {
-                    (window as any).ttq.track('InitiateCheckout', { content_id: product.id, content_name: product.title, currency: store.currency, value: totalPrice, quantity: 1 })
+                    (window as any).ttq.track('InitiateCheckout', { content_id: product.id, content_name: product.title, currency: store.currency, value: totalPrice, quantity: checkoutQty })
                   }
                 }
                 handleSubmit()

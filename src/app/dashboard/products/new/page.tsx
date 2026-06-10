@@ -61,6 +61,49 @@ export default function NewProductPage() {
     if (!url.trim()) return
     setScraping(true)
     setScrapeError('')
+
+    try {
+      // Try client-side fetch first (browser IP not blocked)
+      const corsProxy = `https://corsproxy.io/?${encodeURIComponent(url)}`
+      const browserRes = await fetch(corsProxy)
+
+      if (browserRes.ok) {
+        const html = await browserRes.text()
+
+        // Extract title
+        const titleMatch =
+          html.match(/<span[^>]*id="productTitle"[^>]*>\s*([^<]+)\s*<\/span>/) ||
+          html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/) ||
+          html.match(/<title>([^<]+)<\/title>/)
+
+        if (titleMatch) {
+          const cleanTitle = titleMatch[1].trim().replace(/\s+/g, ' ').slice(0, 100)
+          if (cleanTitle.length > 3) setProductName(cleanTitle)
+        }
+
+        // Extract images
+        const amazonImgs = html.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9+._%-]+\.jpg/g) || []
+        const ogImg = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/)
+        const noonImgs = html.match(/https:\/\/f\.nooncdn\.com\/p\/[A-Za-z0-9/_.-]+\.jpg/g) || []
+
+        const allImgs = [
+          ...(ogImg ? [ogImg[1]] : []),
+          ...amazonImgs,
+          ...noonImgs,
+        ].filter(img => !img.includes('sprite') && !img.includes('icon') && !img.includes('logo'))
+
+        const uniqueImgs = [...new Set(allImgs)].slice(0, 8)
+        if (uniqueImgs.length > 0) setScrapedImages(uniqueImgs)
+
+        // If we got something useful, stop here
+        if (titleMatch || uniqueImgs.length > 0) {
+          setScraping(false)
+          return
+        }
+      }
+    } catch {}
+
+    // Fallback to server scraper
     try {
       const res = await fetch('/api/scrape-product', {
         method: 'POST',
@@ -68,37 +111,12 @@ export default function NewProductPage() {
         body: JSON.stringify({ url }),
       })
       const data = await res.json()
-      
       if (data.success && data.title && data.title.length > 3) {
-        if (data.title) setProductName(data.title)
+        setProductName(data.title)
         if (data.images?.length > 0) setScrapedImages(data.images)
-      } else {
-        // Fallback: client-side proxy
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
-        const proxyRes = await fetch(proxyUrl)
-        const proxyData = await proxyRes.json()
-        
-        if (proxyData.contents) {
-          const html = proxyData.contents
-          const titleMatch = html.match(/<span[^>]*id="productTitle"[^>]*>([^<]+)<\/span>/) ||
-                            html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/) ||
-                            html.match(/<h1[^>]*>([^<]+)<\/h1>/)
-          if (titleMatch) setProductName(titleMatch[1].trim().slice(0, 100))
-          
-          const imgMatches = html.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9+_.-]+\.jpg/g) || []
-          const ogImg = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/)
-          const uniqueImgs = [...new Set([
-            ...(ogImg ? [ogImg[1]] : []),
-            ...imgMatches.filter((img: string) => !img.includes('sprite') && !img.includes('icon')).slice(0, 8)
-          ])] as string[]
-          if (uniqueImgs.length > 0) setScrapedImages(uniqueImgs)
-        }
       }
-    } catch (error) {
-      setScrapeError(lang === 'ar'
-        ? 'تعذر جلب بيانات المنتج. هذا الموقع قد لا يدعم الاستيراد التلقائي — يرجى إدخال تفاصيل المنتج يدوياً.'
-        : 'Could not fetch product data. This website may not support auto-import — please enter product details manually.')
-    }
+    } catch {}
+
     setScraping(false)
   }
 

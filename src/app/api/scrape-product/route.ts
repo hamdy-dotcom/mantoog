@@ -154,32 +154,52 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'max-age=0',
-        'sec-fetch-dest': 'document',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-site': 'none',
-        'upgrade-insecure-requests': '1',
-      },
-      signal: AbortSignal.timeout(15000),
-    })
+    const SCRAPER_APIS = [
+      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    ]
 
-    if (!response.ok) {
+    let html = ''
+
+    // Try direct fetch first
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
+          'Cache-Control': 'max-age=0',
+        },
+        signal: AbortSignal.timeout(10000),
+      })
+      if (response.ok) {
+        html = await response.text()
+      }
+    } catch {}
+
+    // Fallback to proxy APIs
+    if (!html) {
+      for (const proxyUrl of SCRAPER_APIS) {
+        try {
+          const proxyRes = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) })
+          if (proxyRes.ok) {
+            const proxyData = await proxyRes.json()
+            html = proxyData.contents || proxyData || ''
+            if (html) break
+          }
+        } catch {}
+      }
+    }
+
+    if (!html) {
       return NextResponse.json({
         success: false,
-        error: `Failed to fetch page: ${response.status}`,
+        error: 'Could not fetch page',
         platform,
       }, { status: 400 })
     }
 
-    const html = await response.text()
     const data = extractData(html, platform)
-
     return NextResponse.json({ success: true, ...data })
 
   } catch (error: any) {

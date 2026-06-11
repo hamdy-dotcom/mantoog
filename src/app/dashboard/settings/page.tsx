@@ -37,6 +37,7 @@ export default function SettingsPage() {
   const [currency, setCurrency] = useState('EGP')
   const [language, setLanguage] = useState('ar')
   const [primaryColor, setPrimaryColor] = useState('#3b82f6')
+  const [theme, setTheme] = useState('classic')
   const [shippingType, setShippingType] = useState('static')
   const [staticShippingCost, setStaticShippingCost] = useState('')
   const [customDomain, setCustomDomain] = useState('')
@@ -76,6 +77,7 @@ export default function SettingsPage() {
       setCurrency(storeData.currency || 'EGP')
       setLanguage(storeData.language || 'ar')
       setPrimaryColor(storeData.primary_color || '#3b82f6')
+      setTheme(storeData.theme || 'classic')
       setShippingType(storeData.shipping_type || 'static')
       setStaticShippingCost(storeData.static_shipping_cost?.toString() || '')
       setCustomDomain(storeData.custom_domain || '')
@@ -125,6 +127,7 @@ export default function SettingsPage() {
       currency,
       language,
       primary_color: primaryColor,
+      theme: theme,
       shipping_type: shippingType,
       static_shipping_cost: shippingType === 'static' ? parseFloat(staticShippingCost) || 0 : null,
       custom_domain: customDomain || null,
@@ -312,6 +315,88 @@ export default function SettingsPage() {
                   />
                   <span className="text-sm text-[#8b8fa8]">{primaryColor}</span>
                   <div className="w-8 h-8 rounded-lg border border-[#2a2d35]" style={{ backgroundColor: primaryColor }} />
+                </div>
+              </div>
+
+              {/* Theme Picker */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-6">
+                <h3 className="text-white font-semibold mb-1">{lang === 'ar' ? '🎨 ثيم صفحة المنتج' : '🎨 Landing Page Theme'}</h3>
+                <p className="text-[#8b8fa8] text-sm mb-5">{lang === 'ar' ? 'اختر الثيم المناسب لنوع منتجاتك — سيطبق على جميع صفحات منتجاتك' : 'Choose the theme that fits your products — applies to all your landing pages'}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    {
+                      id: 'classic',
+                      name: { ar: 'Classic', en: 'Classic' },
+                      desc: { ar: 'التصميم الافتراضي العام', en: 'Default general design' },
+                      emoji: '🛒',
+                      preview: ['#3b82f6', '#1a1d24', '#ffffff'],
+                    },
+                    {
+                      id: 'fashion',
+                      name: { ar: 'Theme 2', en: 'Theme 2' },
+                      desc: { ar: 'أزياء وموضة — أبيض وأنيق', en: 'Fashion & style — clean white' },
+                      emoji: '👗',
+                      preview: ['#ffffff', '#111111', '#f3f4f6'],
+                    },
+                    {
+                      id: 'beauty',
+                      name: { ar: 'Theme 3', en: 'Theme 3' },
+                      desc: { ar: 'جمال وعناية — ألوان ناعمة', en: 'Beauty & skincare — soft tones' },
+                      emoji: '💄',
+                      preview: ['#fff5f8', '#e8956d', '#2d8c7a'],
+                    },
+                    {
+                      id: 'home',
+                      name: { ar: 'Theme 4', en: 'Theme 4' },
+                      desc: { ar: 'كريمي وعملي — للمنتجات العامة', en: 'Cream & minimal — general products' },
+                      emoji: '🏠',
+                      preview: ['#f5f0e8', '#2d5a3d', '#ffffff'],
+                    },
+                  ].map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTheme(t.id)}
+                      className={`relative rounded-xl border-2 text-right transition-all overflow-hidden ${theme === t.id ? 'border-[#3b82f6] bg-[#1a3a5c]' : 'border-[#2a2d35] hover:border-[#3b82f6] bg-[#0f1117]'}`}
+                    >
+                      {theme === t.id && (
+                        <div className="absolute top-2 left-2 z-10 w-5 h-5 rounded-full bg-[#3b82f6] flex items-center justify-center text-white text-xs">✓</div>
+                      )}
+
+                      <div style={{ width: '100%', height: 200, overflow: 'hidden', position: 'relative', background: '#fff', borderRadius: '10px 10px 0 0' }}>
+                        <iframe
+                          src={`/theme-preview/${t.id}`}
+                          title={`${t.name[lang as 'ar' | 'en']} preview`}
+                          style={{
+                            width: '390px',
+                            height: '844px',
+                            border: 'none',
+                            transform: 'scale(0.42)',
+                            transformOrigin: 'top right',
+                            pointerEvents: 'none',
+                          }}
+                          scrolling="no"
+                          loading="lazy"
+                        />
+                      </div>
+
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="text-white text-sm font-semibold">{t.emoji} {t.name[lang as 'ar' | 'en']}</div>
+                        </div>
+                        <div className="text-[#8b8fa8] text-xs mb-3">{t.desc[lang as 'ar' | 'en']}</div>
+
+                        <a
+                          href={`/theme-preview/${t.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="text-xs text-[#3b82f6] hover:underline"
+                        >
+                          {lang === 'ar' ? 'معاينة كاملة ↗' : 'Full preview ↗'}
+                        </a>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
             </Section>

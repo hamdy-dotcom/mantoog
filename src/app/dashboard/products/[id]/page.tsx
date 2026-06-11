@@ -43,6 +43,13 @@ export default function EditProductPage() {
   const [trustText, setTrustText] = useState('')
   const [descriptionLong, setDescriptionLong] = useState('')
 
+  const [productSizes, setProductSizes] = useState<string[]>([])
+  const [productColors, setProductColors] = useState<{ name: string; hex: string }[]>([])
+  const [showSizePanel, setShowSizePanel] = useState(false)
+  const [showColorPanel, setShowColorPanel] = useState(false)
+  const [newColorName, setNewColorName] = useState('')
+  const [newColorHex, setNewColorHex] = useState('#000000')
+
   const router = useRouter()
   const params = useParams()
   const supabase = createClient()
@@ -72,6 +79,8 @@ export default function EditProductPage() {
       setComparePrice(productData.compare_at_price?.toString() || '')
       setStatus(productData.status || 'active')
       setImages(productData.images || [])
+      setProductSizes(productData.sizes || [])
+      setProductColors(productData.colors || [])
 
       // Get landing page
       const { data: lpData } = await supabase
@@ -146,6 +155,8 @@ export default function EditProductPage() {
         compare_at_price: comparePrice ? parseFloat(comparePrice) : null,
         status,
         images: allImages,
+        sizes: productSizes.length > 0 ? productSizes : null,
+        colors: productColors.length > 0 ? productColors : null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', params.id)
@@ -286,6 +297,107 @@ export default function EditProductPage() {
                       {String(tr[statusLabels[s]] || s)}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Sizes & Colors */}
+              <div className="space-y-3 pt-2">
+                <label className="text-xs font-medium text-[#8b8fa8] uppercase tracking-wider block">
+                  {lang === 'ar' ? 'مقاسات وألوان المنتج (اختياري)' : 'Product Sizes & Colors (optional)'}
+                </label>
+
+                <div>
+                  <button onClick={() => setShowSizePanel(!showSizePanel)}
+                    className="flex items-center gap-2 text-sm text-[#3b82f6] hover:text-white border border-[#2a2d35] hover:border-[#3b82f6] px-4 py-2 rounded-lg transition-colors">
+                    <span>📏</span>
+                    <span>{lang === 'ar' ? 'تعديل المقاسات' : 'Edit Sizes'}</span>
+                    {productSizes.length > 0 && <span className="bg-[#3b82f6] text-white text-xs px-2 py-0.5 rounded-full">{productSizes.length}</span>}
+                  </button>
+                  {showSizePanel && (
+                    <div className="mt-3 bg-[#0f1117] border border-[#2a2d35] rounded-xl p-4">
+                      <div className="text-xs text-[#8b8fa8] mb-3">{lang === 'ar' ? 'اختر المقاسات المتاحة' : 'Select available sizes'}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'فري سايز'].map(size => (
+                          <button key={size} onClick={() => setProductSizes(prev =>
+                            prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]
+                          )}
+                            className={`px-4 py-2 rounded-full border text-sm font-medium transition-all ${
+                              productSizes.includes(size)
+                                ? 'bg-[#3b82f6] border-[#3b82f6] text-white'
+                                : 'border-[#2a2d35] text-[#8b8fa8] hover:border-[#3b82f6] hover:text-white'
+                            }`}>
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                      {productSizes.length > 0 && (
+                        <div className="mt-3 text-xs text-[#4ade80]">✓ {productSizes.join(', ')}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <button onClick={() => setShowColorPanel(!showColorPanel)}
+                    className="flex items-center gap-2 text-sm text-[#3b82f6] hover:text-white border border-[#2a2d35] hover:border-[#3b82f6] px-4 py-2 rounded-lg transition-colors">
+                    <span>🎨</span>
+                    <span>{lang === 'ar' ? 'تعديل الألوان' : 'Edit Colors'}</span>
+                    {productColors.length > 0 && <span className="bg-[#3b82f6] text-white text-xs px-2 py-0.5 rounded-full">{productColors.length}</span>}
+                  </button>
+                  {showColorPanel && (
+                    <div className="mt-3 bg-[#0f1117] border border-[#2a2d35] rounded-xl p-4">
+                      <div className="text-xs text-[#8b8fa8] mb-3">{lang === 'ar' ? 'ألوان المنتج (بحد أقصى 5)' : 'Product colors (max 5)'}</div>
+                      {productColors.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {productColors.map((color, i) => (
+                            <div key={i} className="flex items-center gap-2 bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-1.5">
+                              <div style={{ width: 16, height: 16, borderRadius: '50%', background: color.hex, border: '1px solid #444' }} />
+                              <span className="text-sm text-white">{color.name}</span>
+                              <button onClick={() => setProductColors(prev => prev.filter((_, idx) => idx !== i))}
+                                className="text-[#f87171] text-xs hover:text-white ml-1">✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {productColors.length < 5 && (
+                        <div className="flex items-center gap-3 mb-3">
+                          <input type="color" value={newColorHex} onChange={e => setNewColorHex(e.target.value)}
+                            className="w-10 h-10 rounded-lg border border-[#2a2d35] cursor-pointer bg-transparent" />
+                          <input type="text" value={newColorName} onChange={e => setNewColorName(e.target.value)}
+                            placeholder={lang === 'ar' ? 'اسم اللون' : 'Color name'}
+                            className="flex-1 bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6]" />
+                          <button onClick={() => {
+                            if (!newColorName.trim()) return
+                            setProductColors(prev => [...prev, { name: newColorName.trim(), hex: newColorHex }])
+                            setNewColorName('')
+                            setNewColorHex('#000000')
+                          }}
+                            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white text-sm px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
+                            + {lang === 'ar' ? 'إضافة' : 'Add'}
+                          </button>
+                        </div>
+                      )}
+                      <div className="flex gap-2 flex-wrap">
+                        {[
+                          { name: 'أسود', hex: '#000000' },
+                          { name: 'أبيض', hex: '#ffffff' },
+                          { name: 'رمادي', hex: '#9ca3af' },
+                          { name: 'كحلي', hex: '#1e3a5f' },
+                          { name: 'بيج', hex: '#d4b896' },
+                          { name: 'أحمر', hex: '#ef4444' },
+                          { name: 'أخضر', hex: '#22c55e' },
+                        ].map((preset, i) => (
+                          <button key={i}
+                            disabled={productColors.length >= 5 || !!productColors.find(c => c.hex === preset.hex)}
+                            onClick={() => setProductColors(prev => [...prev, preset])}
+                            className="flex items-center gap-1.5 border border-[#2a2d35] hover:border-[#3b82f6] disabled:opacity-30 disabled:cursor-not-allowed rounded-lg px-2 py-1 text-xs text-[#8b8fa8] hover:text-white transition-colors">
+                            <div style={{ width: 12, height: 12, borderRadius: '50%', background: preset.hex, border: '1px solid #444' }} />
+                            {preset.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </Section>

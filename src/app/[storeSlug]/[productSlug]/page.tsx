@@ -4,6 +4,9 @@ import { useEffect, useState, useRef } from 'react'
 import Script from 'next/script'
 import { createClient } from '@/lib/supabase/client'
 import { useParams } from 'next/navigation'
+import FashionTheme from '@/components/landing/FashionTheme'
+import BeautyTheme from '@/components/landing/BeautyTheme'
+import HomeTheme from '@/components/landing/HomeTheme'
 
 const MARKET: Record<string, any> = {
   EGP: {
@@ -283,38 +286,117 @@ export default function LandingPage() {
     : (parseFloat(product?.price || 0) + parseFloat(shippingCost || 0)).toFixed(0)
   const t = formatTimer(timer)
   const primaryColor = store?.primary_color || '#2563eb'
+
+  const THEMES: Record<string, any> = {
+    classic: {
+      bg: '#ffffff',
+      pageBg: '#f9fafb',
+      text: '#111111',
+      subtext: '#555555',
+      accent: primaryColor || '#3b82f6',
+      timerBg: '#1f2937',
+      timerText: '#ffffff',
+      urgencyBg: '#ef4444',
+      cardBg: '#ffffff',
+      cardBorder: '#e5e7eb',
+      formBg: '#f0f0f0',
+      badgeBg: '#f9fafb',
+      font: 'system-ui, Arial, sans-serif',
+      heroStyle: 'split',
+      ctaSuffix: '🚀',
+    },
+    fashion: {
+      bg: '#0a0a0a',
+      pageBg: '#0a0a0a',
+      text: '#ffffff',
+      subtext: '#a0a0a0',
+      accent: '#d4a853',
+      timerBg: '#1a1a1a',
+      timerText: '#d4a853',
+      urgencyBg: '#1a1a1a',
+      cardBg: '#111111',
+      cardBorder: '#2a2a2a',
+      formBg: '#111111',
+      badgeBg: '#1a1a1a',
+      font: 'system-ui, Arial, sans-serif',
+      heroStyle: 'fullwidth',
+      ctaSuffix: '✨',
+    },
+    home: {
+      bg: '#fdf6ee',
+      pageBg: '#fdf6ee',
+      text: '#2d1810',
+      subtext: '#7a5c4a',
+      accent: '#e07b39',
+      timerBg: '#2d1810',
+      timerText: '#fdf6ee',
+      urgencyBg: '#e07b39',
+      cardBg: '#ffffff',
+      cardBorder: '#e8d5c0',
+      formBg: '#f5ece0',
+      badgeBg: '#fff8f0',
+      font: 'system-ui, Arial, sans-serif',
+      heroStyle: 'split',
+      ctaSuffix: '🏠',
+    },
+    beauty: {
+      bg: '#fff5f8',
+      pageBg: '#fff5f8',
+      text: '#4a1030',
+      subtext: '#8b4060',
+      accent: '#e91e8c',
+      timerBg: '#4a1030',
+      timerText: '#ffffff',
+      urgencyBg: '#e91e8c',
+      cardBg: '#ffffff',
+      cardBorder: '#f5c2d8',
+      formBg: '#fce8f0',
+      badgeBg: '#fff0f5',
+      font: 'system-ui, Arial, sans-serif',
+      heroStyle: 'split',
+      ctaSuffix: '💄',
+    },
+  }
+
+  const th = THEMES[store?.theme || 'classic'] || THEMES.classic
   const benefits: string[] = sections?.benefits || []
 
-  const handleSubmit = async () => {
-    if (!name.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب اسمك' : 'Please enter your name'); return }
-    if (!phone.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب رقم هاتفك' : 'Please enter your phone'); return }
+  const handleSubmit = async (overrides?: { name?: string; phone?: string; address?: string; note?: string; qty?: number }) => {
+    const submitName = overrides?.name ?? name
+    const submitPhone = overrides?.phone ?? phone
+    const submitAddress = overrides?.address ?? address
+    const submitNote = overrides?.note ?? note
+    const submitQty = overrides?.qty ?? qty
+
+    if (!submitName.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب اسمك' : 'Please enter your name'); return }
+    if (!submitPhone.trim()) { setFormError(m.dir === 'rtl' ? 'من فضلك اكتب رقم هاتفك' : 'Please enter your phone'); return }
     if (isMapAddress && store?.location_required && !pickedLocation) {
       setFormError(m.dir === 'rtl' ? 'يرجى تحديد موقعك على الخريطة' : 'Please pin your location on the map')
       return
     }
-    if (!isMapAddress && !address.trim()) {
+    if (!isMapAddress && !submitAddress.trim()) {
       setFormError(m.dir === 'rtl' ? 'يرجى إدخال العنوان' : 'Please enter your address')
       return
     }
-    if (store?.show_note && store?.note_required && !note.trim()) {
+    if (store?.show_note && store?.note_required && !submitNote.trim()) {
       setFormError(m.dir === 'rtl' ? 'يرجى إدخال ملاحظاتك' : 'Please enter your note')
       return
     }
     setFormError('')
     setSubmitting(true)
-    const orderQty = store?.show_quantity ? qty : 1
+    const orderQty = store?.show_quantity ? submitQty : 1
     const orderTotal = product.price * orderQty + shippingCost
     const { error } = await supabase.from('orders').insert({
       store_id: store.id,
       merchant_id: store.merchant_id,
       product_id: product.id,
-      customer_name: name,
-      customer_phone: phone,
+      customer_name: submitName,
+      customer_phone: submitPhone,
       address_governorate: region,
-      address_line1: isMapAddress ? (pickedLocation?.address || '') : address,
+      address_line1: isMapAddress ? (pickedLocation?.address || '') : submitAddress,
       address_country: store.currency === 'EGP' ? 'EG' : store.currency === 'SAR' ? 'SA' : 'AE',
       quantity: orderQty,
-      note: store?.show_note ? note : null,
+      note: store?.show_note ? submitNote : null,
       unit_price: product.price,
       total_price: orderTotal,
       currency: store.currency,
@@ -346,6 +428,11 @@ export default function LandingPage() {
           })
         }
       }
+      setName(submitName)
+      setPhone(submitPhone)
+      setAddress(submitAddress)
+      setNote(submitNote)
+      setQty(submitQty)
       setSubmitted(true)
     } else {
       setFormError(m.dir === 'rtl' ? 'حصل خطأ، حاول تاني' : 'Something went wrong, please try again')
@@ -362,7 +449,7 @@ export default function LandingPage() {
     </div>
   )
 
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 15, boxSizing: 'border-box', direction: m.dir as any, fontFamily: 'system-ui', outline: 'none', background: '#fff' }
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', border: `1px solid ${th.cardBorder}`, borderRadius: 8, fontSize: 15, boxSizing: 'border-box', direction: m.dir as any, fontFamily: th.font, outline: 'none', background: th.cardBg, color: th.text }
   const images = product?.images || []
 
   const REVIEWS_DATA = {
@@ -483,6 +570,79 @@ export default function LandingPage() {
     return { reviews, reviewCount }
   }
 
+  // Theme routing
+  if (store?.theme === 'fashion') {
+    return (
+      <FashionTheme
+        store={store}
+        product={product}
+        landingPage={landingPage}
+        sections={sections}
+        images={images}
+        benefits={benefits}
+        shippingCost={shippingCost}
+        submitting={submitting}
+        formError={formError}
+        onSubmit={async ({ name, phone, address, note, qty, selectedSize, selectedColor }: any) => {
+          setName(name)
+          setPhone(phone)
+          setAddress(address)
+          setNote(note)
+          setQty(qty)
+          await handleSubmit({ name, phone, address, note, qty })
+        }}
+      />
+    )
+  }
+
+  if (store?.theme === 'beauty') {
+    return (
+      <BeautyTheme
+        store={store}
+        product={product}
+        landingPage={landingPage}
+        sections={sections}
+        images={images}
+        benefits={benefits}
+        shippingCost={shippingCost}
+        submitting={submitting}
+        formError={formError}
+        onSubmit={async ({ name, phone, address, note, qty }: any) => {
+          setName(name)
+          setPhone(phone)
+          setAddress(address)
+          setNote(note)
+          setQty(qty)
+          await handleSubmit({ name, phone, address, note, qty })
+        }}
+      />
+    )
+  }
+
+  if (store?.theme === 'home') {
+    return (
+      <HomeTheme
+        store={store}
+        product={product}
+        landingPage={landingPage}
+        sections={sections}
+        images={images}
+        benefits={benefits}
+        shippingCost={shippingCost}
+        submitting={submitting}
+        formError={formError}
+        onSubmit={async ({ name, phone, address, note, qty, selectedColor }: any) => {
+          setName(name)
+          setPhone(phone)
+          setAddress(address)
+          setNote(note)
+          setQty(qty)
+          await handleSubmit({ name, phone, address, note, qty })
+        }}
+      />
+    )
+  }
+
   return (
     <>
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
@@ -584,7 +744,7 @@ export default function LandingPage() {
         </>
       )}
 
-    <div dir={m.dir} className="min-h-screen" style={{ overflowX: 'hidden', maxWidth: '100vw', fontFamily: 'system-ui, -apple-system, Arial, sans-serif', background: '#fff', color: '#111' }}>
+    <div dir={m.dir} className="min-h-screen" style={{ overflowX: 'hidden', maxWidth: '100vw', fontFamily: th.font, background: th.bg, color: th.text }}>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { overflow-x: hidden; max-width: 100vw; }
@@ -595,7 +755,7 @@ export default function LandingPage() {
         .thumb-strip { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
         .thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; cursor: pointer; flex-shrink: 0; }
         .lp-checkout { max-width: 1100px; margin: 0 auto; padding: 0 16px 100px; width: 100%; }
-        .timer-block { display: flex; flex-direction: column; align-items: center; background: #1f2937; color: #fff; border-radius: 8px; padding: 8px 10px; min-width: 0; flex: 1; }
+        .timer-block { display: flex; flex-direction: column; align-items: center; border-radius: 8px; padding: 8px 10px; min-width: 0; flex: 1; }
         .timer-num { font-size: 22px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
         .timer-label { font-size: 10px; margin-top: 4px; color: #9ca3af; }
         .timer-sep { font-size: 20px; font-weight: 800; color: #1f2937; align-self: flex-start; padding-top: 8px; flex-shrink: 0; }
@@ -616,7 +776,7 @@ export default function LandingPage() {
       `}</style>
 
       {/* Urgency top bar */}
-      <div style={{ background: '#ef4444', color: '#fff', padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap', width: '100%', maxWidth: '100vw' }}>
+      <div style={{ background: th.urgencyBg, color: th.text === '#ffffff' ? '#ffffff' : '#ffffff', padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap', width: '100%' }}>
         <span>⏱️ {m.urgencyLabel}:</span>
         <span style={{ background: '#c00', borderRadius: 6, padding: '2px 10px', fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>
           {`${t.days.toString().padStart(2,'0')} ${m.days} · ${t.h} ${m.hours} · ${t.min} ${m.mins} · ${t.sec} ${m.secs}`}
@@ -650,14 +810,14 @@ export default function LandingPage() {
                         src={img}
                         className="thumb"
                         onClick={() => setActiveImg(i)}
-                        style={{ border: activeImg === i ? `2px solid ${primaryColor}` : '2px solid #e5e7eb' }}
+                        style={{ border: activeImg === i ? `2px solid ${th.accent}` : `2px solid ${th.cardBorder}` }}
                       />
                     ))}
                   </div>
                 )}
               </div>
             ) : (
-              <div style={{ width: '100%', aspectRatio: '1/1', background: '#f3f4f6', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 64 }}>📦</div>
+              <div style={{ width: '100%', aspectRatio: '1/1', background: th.badgeBg, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 64 }}>📦</div>
             )}
           </div>
 
@@ -665,22 +825,22 @@ export default function LandingPage() {
           <div className="lp-info-col" style={{ order: m.dir === 'rtl' ? 1 : 2 }}>
 
             <div style={{ marginBottom: 8 }}>
-              <span style={{ background: '#f3f4f6', color: '#555', fontSize: 13, padding: '4px 12px', borderRadius: 99, fontWeight: 500 }}>
+              <span style={{ background: th.badgeBg, color: th.subtext, fontSize: 13, padding: '4px 12px', borderRadius: 99, fontWeight: 500 }}>
                 {m.dir === 'rtl' ? 'الأكثر مبيعاً' : 'Best Seller'}
               </span>
             </div>
 
-            <h1 style={{ fontSize: 'clamp(24px, 5vw, 36px)', fontWeight: 900, lineHeight: 1.2, marginBottom: 8, color: '#111' }}>
+            <h1 style={{ fontSize: 'clamp(24px, 5vw, 36px)', fontWeight: 900, lineHeight: 1.2, marginBottom: 8, color: th.text }}>
               {product?.title}
             </h1>
             {landingPage?.headline && landingPage.headline !== product?.title && (
-              <p style={{ fontSize: 'clamp(16px, 3vw, 22px)', fontWeight: 600, color: primaryColor, marginBottom: 12, lineHeight: 1.4 }}>
+              <p style={{ fontSize: 'clamp(16px, 3vw, 22px)', fontWeight: 600, color: th.accent, marginBottom: 12, lineHeight: 1.4 }}>
                 {landingPage.headline}
               </p>
             )}
 
             {landingPage?.subheadline && (
-              <p style={{ fontSize: 15, color: '#555', margin: '0 0 16px', lineHeight: 1.5 }}>{landingPage.subheadline}</p>
+              <p style={{ fontSize: 15, color: th.subtext, margin: '0 0 16px', lineHeight: 1.5 }}>{landingPage.subheadline}</p>
             )}
 
             {/* Images — shown here on mobile only, desktop image col handles desktop */}
@@ -700,7 +860,7 @@ export default function LandingPage() {
                         src={img}
                         className="thumb"
                         onClick={() => setActiveImg(i)}
-                        style={{ border: activeImg === i ? `2px solid ${primaryColor}` : '2px solid #e5e7eb' }}
+                        style={{ border: activeImg === i ? `2px solid ${th.accent}` : `2px solid ${th.cardBorder}` }}
                       />
                     ))}
                   </div>
@@ -709,7 +869,7 @@ export default function LandingPage() {
             )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 30, fontWeight: 800, color: '#111' }}>{product?.price} {store?.currency}</span>
+              <span style={{ fontSize: 30, fontWeight: 800, color: th.text }}>{product?.price} {store?.currency}</span>
               {product?.compare_at_price && (
                 <>
                   <span style={{ fontSize: 18, color: '#999', textDecoration: 'line-through' }}>{product.compare_at_price} {store?.currency}</span>
@@ -722,17 +882,17 @@ export default function LandingPage() {
 
             {/* Countdown */}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 15, fontWeight: 600, color: '#111' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 15, fontWeight: 600, color: th.text }}>
                 🔥 <span>{m.urgencyLabel}</span>
               </div>
               <div className="timer-row">
-                <div className="timer-block"><span className="timer-num">{t.days.toString().padStart(2,'0')}</span><span className="timer-label">{m.days}</span></div>
+                <div className="timer-block" style={{ background: th.timerBg, color: th.timerText }}><span className="timer-num">{t.days.toString().padStart(2,'0')}</span><span className="timer-label">{m.days}</span></div>
                 <span className="timer-sep">:</span>
-                <div className="timer-block"><span className="timer-num">{t.h}</span><span className="timer-label">{m.hours}</span></div>
+                <div className="timer-block" style={{ background: th.timerBg, color: th.timerText }}><span className="timer-num">{t.h}</span><span className="timer-label">{m.hours}</span></div>
                 <span className="timer-sep">:</span>
-                <div className="timer-block"><span className="timer-num">{t.min}</span><span className="timer-label">{m.mins}</span></div>
+                <div className="timer-block" style={{ background: th.timerBg, color: th.timerText }}><span className="timer-num">{t.min}</span><span className="timer-label">{m.mins}</span></div>
                 <span className="timer-sep">:</span>
-                <div className="timer-block"><span className="timer-num">{t.sec}</span><span className="timer-label">{m.secs}</span></div>
+                <div className="timer-block" style={{ background: th.timerBg, color: th.timerText }}><span className="timer-num">{t.sec}</span><span className="timer-label">{m.secs}</span></div>
               </div>
             </div>
 
@@ -742,7 +902,7 @@ export default function LandingPage() {
                 <span style={{ color: '#ef4444', fontWeight: 700 }}>🔥 {m.stockText(stock)}</span>
                 <span style={{ color: '#9ca3af', fontSize: 12 }}>{m.dir === 'rtl' ? 'اطلب قبل نفاذ الكمية' : 'Order before it runs out'}</span>
               </div>
-              <div style={{ background: '#e5e7eb', borderRadius: 99, height: 10, overflow: 'hidden' }}>
+              <div style={{ background: th.cardBorder, borderRadius: 99, height: 10, overflow: 'hidden' }}>
                 <div style={{ height: '100%', borderRadius: 99, background: 'linear-gradient(to left, #ef4444, #f97316, #22c55e)', width: `${Math.min((stock / 15) * 100, 100)}%`, transition: 'width 0.5s' }} />
               </div>
             </div>
@@ -751,7 +911,7 @@ export default function LandingPage() {
             {benefits.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 {benefits.map((b: string, i: number) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 0', fontSize: 14, color: '#222', alignItems: 'flex-start', lineHeight: 1.5 }}>
+                  <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 0', fontSize: 14, color: th.text, alignItems: 'flex-start', lineHeight: 1.5 }}>
                     <span style={{ flexShrink: 0 }}>✅</span><span>{b}</span>
                   </div>
                 ))}
@@ -766,9 +926,9 @@ export default function LandingPage() {
                 { icon: '↩️', text: m.returnText },
                 { icon: '✅', text: m.originalText },
               ].map((b, i) => (
-                <div key={i} style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 4px' }}>
+                <div key={i} style={{ background: th.badgeBg, border: `1px solid ${th.cardBorder}`, borderRadius: 8, padding: '8px 4px' }}>
                   <div style={{ fontSize: 20, marginBottom: 4 }}>{b.icon}</div>
-                  <div style={{ fontSize: 10, color: '#555', fontWeight: 500, lineHeight: 1.3 }}>{b.text}</div>
+                  <div style={{ fontSize: 10, color: th.subtext, fontWeight: 500, lineHeight: 1.3 }}>{b.text}</div>
                 </div>
               ))}
             </div>
@@ -777,13 +937,15 @@ export default function LandingPage() {
             <div style={{ display: 'flex', gap: 10 }}>
               <button
                 onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                style={{ flex: 2, background: primaryColor, color: '#fff', border: 'none', borderRadius: 10, padding: '14px 20px', fontSize: 16, fontWeight: 800, cursor: 'pointer' }}
+                style={{ flex: 2, background: th.accent, color: '#fff', border: 'none', borderRadius: 10, padding: '14px 20px', fontSize: 16, fontWeight: 800, cursor: 'pointer' }}
               >
-                {shippingCost === 0 ? (m.ctaFree || 'اطلب الان والتوصيل مجاني 🚀') : (m.cta || 'اطلب الان 🚀')}
+                {shippingCost === 0
+                  ? (m.ctaFree || `اطلب الان والتوصيل مجاني ${th.ctaSuffix}`)
+                  : (m.cta || `اطلب الان ${th.ctaSuffix}`)}
               </button>
               <button
                 onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                style={{ flex: 1, background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 10, padding: '14px 20px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}
+                style={{ flex: 1, background: th.cardBg, color: th.subtext, border: `1px solid ${th.cardBorder}`, borderRadius: 10, padding: '14px 20px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}
               >
                 {m.addToCart}
               </button>
@@ -796,10 +958,10 @@ export default function LandingPage() {
       {/* CHECKOUT SECTION */}
       <div className="lp-checkout">
         {sections?.description_long && (
-          <div style={{ maxWidth: 800, margin: '0 auto 32px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, overflow: 'hidden', direction: m.dir as any }}>
-            <div style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 4, height: 20, background: primaryColor, borderRadius: 99, flexShrink: 0 }} />
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111', margin: 0 }}>
+          <div style={{ maxWidth: 800, margin: '0 auto 32px', background: th.cardBg, border: `1px solid ${th.cardBorder}`, borderRadius: 16, overflow: 'hidden', direction: m.dir as any }}>
+            <div style={{ background: th.badgeBg, borderBottom: `1px solid ${th.cardBorder}`, padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 4, height: 20, background: th.accent, borderRadius: 99, flexShrink: 0 }} />
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: th.text, margin: 0 }}>
                 {m.dir === 'rtl' ? 'تفاصيل المنتج' : 'Product Details'}
               </h2>
             </div>
@@ -807,15 +969,15 @@ export default function LandingPage() {
               {benefits.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 20 }}>
                   {benefits.map((b: string, i: number) => (
-                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: '10px 12px' }}>
+                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: th.badgeBg, border: `1px solid ${th.cardBorder}`, borderRadius: 10, padding: '10px 12px' }}>
                       <span style={{ fontSize: 16, flexShrink: 0 }}>✅</span>
-                      <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.5, fontWeight: 500 }}>{b}</span>
+                      <span style={{ fontSize: 13, color: th.subtext, lineHeight: 1.5, fontWeight: 500 }}>{b}</span>
                     </div>
                   ))}
                 </div>
               )}
-              {benefits.length > 0 && <div style={{ height: 1, background: '#e5e7eb', marginBottom: 20 }} />}
-              <div style={{ fontSize: 15, color: '#374151', lineHeight: 1.9 }}>
+              {benefits.length > 0 && <div style={{ height: 1, background: th.cardBorder, marginBottom: 20 }} />}
+              <div style={{ fontSize: 15, color: th.subtext, lineHeight: 1.9 }}>
                 {sections.description_long.split('\n').filter((p: string) => p.trim()).map((paragraph: string, i: number) => (
                   <p key={i} style={{ margin: '0 0 12px' }}>{paragraph}</p>
                 ))}
@@ -843,23 +1005,23 @@ export default function LandingPage() {
           const { reviews, reviewCount } = getReviews()
           return (
             <div className="lp-checkout" style={{ paddingBottom: 0, marginBottom: 0 }}>
-              <div style={{ background: '#f8f9fa', borderRadius: 16, padding: '20px 16px', marginBottom: 24 }}>
+              <div style={{ background: th.pageBg === '#ffffff' || th.pageBg === '#fff5f8' || th.pageBg === '#fdf6ee' ? '#f8f9fa' : th.cardBg, borderRadius: 16, padding: '20px 16px', marginBottom: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                   <span style={{ fontSize: 20 }}>⭐⭐⭐⭐⭐</span>
-                  <span style={{ fontWeight: 700, fontSize: 16, color: '#111' }}>4.9/5</span>
+                  <span style={{ fontWeight: 700, fontSize: 16, color: th.text }}>4.9/5</span>
                   <span style={{ color: '#888', fontSize: 14 }}>({reviewCount} {m.dir === 'rtl' ? 'تقييم' : 'reviews'})</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {reviews.slice(0, 3).map((review, i) => (
-                    <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', border: '1px solid #e5e7eb' }}>
+                    <div key={i} style={{ background: th.cardBg, borderRadius: 12, padding: '12px 14px', border: `1px solid ${th.cardBorder}` }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: primaryColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: th.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
                             {review.name[0]}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: '#111' }}>{review.name}</div>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: th.text }}>{review.name}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                               <span style={{ color: '#f59e0b', fontSize: 12 }}>{'⭐'.repeat(review.rating)}</span>
                               <span style={{ fontSize: 10, color: '#10b981', fontWeight: 500 }}>✓ {m.dir === 'rtl' ? 'مشتري موثق' : 'Verified buyer'}</span>
@@ -868,7 +1030,7 @@ export default function LandingPage() {
                         </div>
                         <span style={{ fontSize: 11, color: '#aaa' }}>{review.date}</span>
                       </div>
-                      <p style={{ fontSize: 14, color: '#374151', lineHeight: 1.5, margin: 0 }}>{review.comment}</p>
+                      <p style={{ fontSize: 14, color: th.subtext, lineHeight: 1.5, margin: 0 }}>{review.comment}</p>
                     </div>
                   ))}
                 </div>
@@ -878,7 +1040,7 @@ export default function LandingPage() {
                     setShowAllReviews(true)
                     setTimeout(() => allReviewsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
                   }}
-                  style={{ width: '100%', marginTop: 12, padding: '10px', background: 'none', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  style={{ width: '100%', marginTop: 12, padding: '10px', background: 'none', border: `1px solid ${th.cardBorder}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: th.subtext, cursor: 'pointer', fontFamily: 'inherit' }}>
                   {m.dir === 'rtl' ? `عرض جميع التقييمات (${reviewCount})` : `View all reviews (${reviewCount})`}
                 </button>
               </div>
@@ -886,8 +1048,8 @@ export default function LandingPage() {
           )
         })()}
 
-        <div ref={formRef} style={{ background: '#f0f0f0', border: '1px solid #d1d5db', borderRadius: 16, padding: 28, maxWidth: 600, margin: '0 auto' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 18, textAlign: 'center', color: '#111' }}>
+        <div ref={formRef} style={{ background: th.formBg, border: `1px solid ${th.cardBorder}`, borderRadius: 16, padding: 28, maxWidth: 600, margin: '0 auto' }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 18, textAlign: 'center', color: th.text }}>
             {m.orderFormTitle}
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -906,7 +1068,7 @@ export default function LandingPage() {
             {isMapAddress && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <label style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>
+                  <label style={{ fontSize: 14, fontWeight: 700, color: th.text }}>
                     📍 {m.dir === 'rtl' ? 'تحديد موقع التوصيل' : 'Delivery Location'}
                     {!store?.location_required && (
                       <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af', marginRight: 6, marginLeft: 6 }}>
@@ -961,7 +1123,7 @@ export default function LandingPage() {
                 <p style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', marginBottom: 10 }}>
                   {m.dir === 'rtl' ? 'أو حرك الدبوس على الخريطة يدوياً' : 'Or drag the pin on the map manually'}
                 </p>
-                <div id="lp-map" style={{ height: 220, borderRadius: 12, border: '1.5px solid #e5e7eb', marginBottom: 10, overflow: 'hidden', position: 'relative', zIndex: 1 }} />
+                <div id="lp-map" style={{ height: 220, borderRadius: 12, border: `1.5px solid ${th.cardBorder}`, marginBottom: 10, overflow: 'hidden', position: 'relative', zIndex: 1 }} />
                 {pickedLocation && (
                   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'rgba(59,130,246,0.05)', border: '1.5px solid #3b82f6', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
                     <span style={{ fontSize: 16 }}>✅</span>
@@ -975,8 +1137,8 @@ export default function LandingPage() {
             )}
 
             {store?.show_quantity && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px' }}>
-                <span style={{ fontSize: 14, color: '#555' }}>{m.qtyLabel}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: th.cardBg, border: `1px solid ${th.cardBorder}`, borderRadius: 8, padding: '10px 14px' }}>
+                <span style={{ fontSize: 14, color: th.subtext }}>{m.qtyLabel}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <button onClick={() => setQty(q => Math.max(1, q - 1))} style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #d1d5db', background: '#f3f4f6', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
                   <span style={{ fontSize: 16, fontWeight: 700, minWidth: 24, textAlign: 'center' }}>{qty}</span>
@@ -995,14 +1157,14 @@ export default function LandingPage() {
               />
             )}
 
-            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#555' }}>
+            <div style={{ background: th.cardBg, border: `1px solid ${th.cardBorder}`, borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: th.subtext }}>
                 <span>{m.shippingLabel}</span>
-                <span style={{ color: shippingCost === 0 ? '#16a34a' : '#111', fontWeight: 600 }}>
+                <span style={{ color: shippingCost === 0 ? '#16a34a' : th.text, fontWeight: 600 }}>
                   {shippingCost === 0 ? (m.freeShipping || 'شحن مجاني ✓') : `${shippingCost} ${store?.currency}`}
                 </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 800, color: '#111' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 800, color: th.text }}>
                 <span>{m.totalLabel}</span>
                 <span>{total} {store?.currency}</span>
               </div>
@@ -1027,9 +1189,9 @@ export default function LandingPage() {
                 handleSubmit()
               }}
               disabled={submitting}
-              style={{ background: submitting ? '#9ca3af' : primaryColor, color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontSize: 18, fontWeight: 800, cursor: submitting ? 'not-allowed' : 'pointer', width: '100%' }}
+              style={{ background: submitting ? '#9ca3af' : th.accent, color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontSize: 18, fontWeight: 800, cursor: submitting ? 'not-allowed' : 'pointer', width: '100%' }}
             >
-              {submitting ? '...' : (shippingCost === 0 ? (m.ctaFree || 'اطلب الان والتوصيل مجاني 🚀') : (m.cta || 'اطلب الان 🚀'))}
+              {submitting ? '...' : (shippingCost === 0 ? (m.ctaFree || `اطلب الان والتوصيل مجاني ${th.ctaSuffix}`) : (m.cta || `اطلب الان ${th.ctaSuffix}`))}
             </button>
           </div>
         </div>
@@ -1039,22 +1201,22 @@ export default function LandingPage() {
           const { reviews, reviewCount } = getReviews()
           return (
             <div ref={allReviewsRef} className="lp-checkout" style={{ paddingBottom: 32 }}>
-              <div style={{ background: '#f8f9fa', borderRadius: 16, padding: '20px 16px' }}>
+              <div style={{ background: th.pageBg === '#ffffff' || th.pageBg === '#fff5f8' || th.pageBg === '#fdf6ee' ? '#f8f9fa' : th.cardBg, borderRadius: 16, padding: '20px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                   <span style={{ fontSize: 20 }}>⭐⭐⭐⭐⭐</span>
-                  <span style={{ fontWeight: 700, fontSize: 16, color: '#111' }}>4.9/5</span>
+                  <span style={{ fontWeight: 700, fontSize: 16, color: th.text }}>4.9/5</span>
                   <span style={{ color: '#888', fontSize: 14 }}>({reviewCount} {m.dir === 'rtl' ? 'تقييم' : 'reviews'})</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {reviews.map((review, i) => (
-                    <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', border: '1px solid #e5e7eb' }}>
+                    <div key={i} style={{ background: th.cardBg, borderRadius: 12, padding: '12px 14px', border: `1px solid ${th.cardBorder}` }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: primaryColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: th.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
                             {review.name[0]}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: '#111' }}>{review.name}</div>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: th.text }}>{review.name}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                               <span style={{ color: '#f59e0b', fontSize: 12 }}>{'⭐'.repeat(review.rating)}</span>
                               <span style={{ fontSize: 10, color: '#10b981', fontWeight: 500 }}>✓ {m.dir === 'rtl' ? 'مشتري موثق' : 'Verified buyer'}</span>
@@ -1063,7 +1225,7 @@ export default function LandingPage() {
                         </div>
                         <span style={{ fontSize: 11, color: '#aaa' }}>{review.date}</span>
                       </div>
-                      <p style={{ fontSize: 14, color: '#374151', lineHeight: 1.5, margin: 0 }}>{review.comment}</p>
+                      <p style={{ fontSize: 14, color: th.subtext, lineHeight: 1.5, margin: 0 }}>{review.comment}</p>
                     </div>
                   ))}
                 </div>
@@ -1075,23 +1237,23 @@ export default function LandingPage() {
 
       {/* Sticky bottom bar */}
       {showSticky && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #e5e7eb', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, zIndex: 100, boxShadow: '0 -4px 20px rgba(0,0,0,0.1)' }}>
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: th.cardBg, borderTop: `1px solid ${th.cardBorder}`, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, zIndex: 100, boxShadow: '0 -4px 20px rgba(0,0,0,0.1)' }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>{product?.price} {store?.currency}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: th.text }}>{product?.price} {store?.currency}</div>
             {product?.compare_at_price && <div style={{ fontSize: 12, color: '#999', textDecoration: 'line-through' }}>{product.compare_at_price} {store?.currency}</div>}
           </div>
-          <button onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} style={{ background: primaryColor, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 24px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
-            {m.ctaShort} 🚀
+          <button onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} style={{ background: th.accent, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 24px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+            {m.ctaShort} {th.ctaSuffix}
           </button>
         </div>
       )}
 
       {/* Social proof popup */}
       {showSocial && socialProof && (
-        <div style={{ position: 'fixed', bottom: 20, left: 16, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '10px 14px', boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 101, maxWidth: 260, display: 'flex', alignItems: 'center', gap: 10, animation: 'slideIn 0.3s ease' }}>
+        <div style={{ position: 'fixed', bottom: 20, left: 16, background: th.cardBg, border: `1px solid ${th.cardBorder}`, borderRadius: 12, padding: '10px 14px', boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 101, maxWidth: 260, display: 'flex', alignItems: 'center', gap: 10, animation: 'slideIn 0.3s ease' }}>
           <div style={{ fontSize: 28 }}>🛍️</div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#111', direction: m.dir as any }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: th.text, direction: m.dir as any }}>
               {m.dir === 'rtl' ? `${socialProof.name} من ${socialProof.region}` : `${socialProof.name} from ${socialProof.region}`}
             </div>
             <div style={{ fontSize: 12, color: '#16a34a' }}>

@@ -343,6 +343,9 @@ export default function NewProductPage() {
   const previewPrice = mode === 'url' ? sellingPrice : manualPrice
   const previewOriginal = mode === 'url' ? getOriginalPrice() : manualComparePrice
   const previewDiscount = mode === 'url' ? discountPercent : (manualComparePrice && manualPrice ? Math.round((1 - parseFloat(manualPrice) / parseFloat(manualComparePrice)) * 100).toString() : '')
+  const shippingCost = needsShipping
+    ? (productShipping === 'free' ? 0 : parseFloat(productShippingCost) || 0)
+    : (store.shipping_type === 'static' ? (store.static_shipping_cost || 0) : 0)
   const displayGallery = imagePreviews.length > 0 ? imagePreviews : scrapedImages
 
   return (
@@ -682,116 +685,218 @@ export default function NewProductPage() {
             {error && <div className="bg-[#3a1414] border border-[#f87171]/20 rounded-lg px-3 py-2.5"><p className="text-[#f87171] text-sm">{error}</p></div>}
 
             {/* Live preview */}
-            <div className="bg-white rounded-xl overflow-hidden border border-[#2a2d35] w-full" style={{ direction: store?.language === 'ar' ? 'rtl' : 'ltr', fontFamily: 'system-ui, Arial, sans-serif' }}>
+            <div className="bg-white rounded-xl overflow-hidden border border-[#2a2d35] w-full" style={{ direction: store?.language === 'ar' ? 'rtl' : 'ltr', fontFamily: 'system-ui, Arial, sans-serif', color: '#111' }}>
 
-              {/* Urgency bar */}
-              <div style={{ background: '#ef4444', color: '#fff', padding: '10px 20px', textAlign: 'center', fontSize: 14, fontWeight: 600 }}>
-                🔥 {aiContent.urgency_text}
+              {/* Urgency top bar */}
+              <div style={{ background: '#ef4444', color: '#fff', padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600 }}>
+                ⏱️ ينتهي العرض في: 00 أيام · 22 ساعات · 47 دقيقة · 13 ثانية
+                {Number(shippingCost) === 0 && <span> · 🚚 شحن مجاني</span>}
               </div>
 
-              {/* Two column */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, padding: '40px 48px' }}>
+              {/* Two column — desktop */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, padding: '32px 40px' }}>
 
                 {/* Image side */}
                 <div style={{ order: store?.language === 'ar' ? 2 : 1 }}>
                   {(coverPreview || displayGallery.length > 0) ? (
                     <div>
-                      <div style={{ position: 'relative' }}>
-                        <img
-                          src={previewActiveImg === 0 ? (coverPreview || displayGallery[0]) : displayGallery[previewActiveImg - (coverPreview ? 1 : 0)]}
-                          style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: 12, display: 'block' }}
-                        />
-                        {/* Nav arrows */}
-                        {(coverPreview ? 1 : 0) + displayGallery.length > 1 && (
-                          <>
-                            <button
-                              onClick={() => setPreviewActiveImg(i => Math.max(0, i - 1))}
-                              style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', color: '#fff', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            >‹</button>
-                            <button
-                              onClick={() => setPreviewActiveImg(i => Math.min((coverPreview ? 1 : 0) + displayGallery.length - 1, i + 1))}
-                              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', color: '#fff', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            >›</button>
-                          </>
-                        )}
-                      </div>
-                      {/* Thumbnails */}
+                      <img
+                        src={previewActiveImg === 0 ? (coverPreview || displayGallery[0]) : displayGallery[previewActiveImg - (coverPreview ? 1 : 0)]}
+                        style={{ width: '100%', aspectRatio: '1/1', objectFit: 'contain', borderRadius: 12, display: 'block', background: '#f8f9fa' }}
+                      />
                       <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                        {coverPreview && (
-                          <img src={coverPreview} onClick={() => setPreviewActiveImg(0)} style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: previewActiveImg === 0 ? `2px solid ${store?.primary_color || '#2563eb'}` : '2px solid #e5e7eb' }} />
-                        )}
+                        {coverPreview && <img src={coverPreview} onClick={() => setPreviewActiveImg(0)} style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: previewActiveImg === 0 ? `2px solid ${store?.primary_color || '#2563eb'}` : '2px solid #e5e7eb' }} />}
                         {displayGallery.map((src, i) => (
                           <img key={i} src={src} onClick={() => setPreviewActiveImg(coverPreview ? i + 1 : i)} style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: previewActiveImg === (coverPreview ? i + 1 : i) ? `2px solid ${store?.primary_color || '#2563eb'}` : '2px solid #e5e7eb' }} />
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <div style={{ width: '100%', aspectRatio: '1/1', background: '#f3f4f6', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8, color: '#9ca3af' }}>
-                      <div style={{ fontSize: 48 }}>📸</div>
-                      <div style={{ fontSize: 13 }}>Product images appear here</div>
-                    </div>
+                    <div style={{ width: '100%', aspectRatio: '1/1', background: '#f3f4f6', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>📦</div>
                   )}
                 </div>
 
                 {/* Info side */}
                 <div style={{ order: store?.language === 'ar' ? 1 : 2 }}>
                   <span style={{ background: '#f3f4f6', color: '#555', fontSize: 12, padding: '3px 10px', borderRadius: 99 }}>الأكثر مبيعاً</span>
-                  <h1 style={{ fontSize: 26, fontWeight: 800, margin: '10px 0 8px', color: '#111', lineHeight: 1.3 }}>{aiContent.headline}</h1>
-                  <p style={{ fontSize: 15, color: '#555', margin: '0 0 16px', lineHeight: 1.6 }}>{aiContent.subheadline}</p>
+                  <h1 style={{ fontSize: 24, fontWeight: 800, margin: '10px 0 8px', lineHeight: 1.3 }}>{aiContent.headline}</h1>
+                  <p style={{ fontSize: 14, color: '#555', margin: '0 0 14px', lineHeight: 1.5 }}>{aiContent.subheadline}</p>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 28, fontWeight: 800, color: '#111' }}>{previewPrice} {store?.currency}</span>
+                  {/* Price */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 28, fontWeight: 800 }}>{previewPrice} {store?.currency}</span>
                     {previewOriginal && <span style={{ fontSize: 16, color: '#999', textDecoration: 'line-through' }}>{previewOriginal} {store?.currency}</span>}
-                    {previewDiscount && <span style={{ background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>{previewDiscount}% OFF</span>}
+                    {previewDiscount && <span style={{ background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>{previewDiscount}% خصم</span>}
                   </div>
 
-                  <div style={{ background: '#fff5f5', border: '1px solid #fee2e2', borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}>
+                  {/* Timer */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>🔥 ينتهي العرض في</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {[{v:'00',l:'أيام'},{v:'22',l:'ساعات'},{v:'47',l:'دقائق'},{v:'13',l:'ثواني'}].map((t,i) => (
+                        <div key={i} style={{ flex: 1, background: '#1f2937', color: '#fff', borderRadius: 8, padding: '8px 4px', textAlign: 'center' }}>
+                          <div style={{ fontSize: 20, fontWeight: 800 }}>{t.v}</div>
+                          <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2 }}>{t.l}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Stock bar */}
+                  <div style={{ marginBottom: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13 }}>
-                      <span style={{ color: '#ef4444', fontWeight: 700 }}>🔥 فقط متبقي 9 قطعة</span>
+                      <span style={{ color: '#ef4444', fontWeight: 700 }}>🔥 تبقى 9 قطعة فقط</span>
+                      <span style={{ color: '#9ca3af', fontSize: 11 }}>اطلب قبل نفاذ الكمية</span>
                     </div>
-                    <div style={{ background: '#fee2e2', borderRadius: 99, height: 6 }}>
-                      <div style={{ background: '#ef4444', height: '100%', width: '60%', borderRadius: 99 }} />
+                    <div style={{ background: '#e5e7eb', borderRadius: 99, height: 10, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', borderRadius: 99, background: 'linear-gradient(to left,#ef4444,#f97316,#22c55e)', width: '60%' }} />
                     </div>
                   </div>
 
+                  {/* Benefits */}
                   {aiContent.benefits?.map((b: string, i: number) => (
-                    <div key={i} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 14, color: '#222' }}>
+                    <div key={i} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 13, color: '#222' }}>
                       <span>✅</span><span>{b}</span>
                     </div>
                   ))}
 
-                  <button style={{ width: '100%', background: store?.primary_color || '#2563eb', color: '#fff', border: 'none', borderRadius: 10, padding: '14px', fontSize: 16, fontWeight: 800, cursor: 'pointer', marginTop: 16, marginBottom: 8 }}>
-                    {aiContent.cta_text}
-                  </button>
-                  <div style={{ textAlign: 'center', fontSize: 13, color: '#16a34a' }}>🛡️ {aiContent.trust_text}</div>
+                  {/* Trust badges */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginTop: 14, marginBottom: 14 }}>
+                    {[
+                      { icon: '💵', text: 'الدفع عند الاستلام' },
+                      { icon: '🚚', text: Number(shippingCost) === 0 ? 'شحن مجاني' : 'توصيل سريع' },
+                      { icon: '↩️', text: 'إرجاع مجاني' },
+                      { icon: '✅', text: 'منتج أصلي' },
+                    ].map((b, i) => (
+                      <div key={i} style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '6px 4px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 16, marginBottom: 2 }}>{b.icon}</div>
+                        <div style={{ fontSize: 9, color: '#555' }}>{b.text}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* CTA */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button style={{ flex: 2, background: store?.primary_color || '#2563eb', color: '#fff', border: 'none', borderRadius: 10, padding: '12px', fontSize: 15, fontWeight: 800, cursor: 'pointer' }}>
+                      {Number(shippingCost) === 0 ? 'اطلب الآن والتوصيل مجاني 🚀' : 'اطلب الآن 🚀'}
+                    </button>
+                    <button style={{ flex: 1, background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                      أضف للسلة
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Order form preview */}
-              <div style={{ borderTop: '1px solid #e5e7eb', padding: '32px 48px', background: '#f9fafb' }}>
+              {/* Product details section */}
+              {aiContent.description_long && (
+                <div style={{ margin: '0 40px 24px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, overflow: 'hidden' }}>
+                  <div style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 4, height: 20, background: store?.primary_color || '#2563eb', borderRadius: 99 }} />
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>تفاصيل المنتج</span>
+                  </div>
+                  <div style={{ padding: 20 }}>
+                    {aiContent.benefits?.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 8, marginBottom: 16 }}>
+                        {aiContent.benefits.map((b: string, i: number) => (
+                          <div key={i} style={{ display: 'flex', gap: 8, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: '8px 10px' }}>
+                            <span>✅</span><span style={{ fontSize: 12, color: '#374151' }}>{b}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.9 }}>{aiContent.description_long}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 16 }}>
+                      {aiContent.urgency_text && (
+                        <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>⚡</span><span style={{ fontSize: 12, color: '#c2410c', fontWeight: 600 }}>{aiContent.urgency_text}</span>
+                        </div>
+                      )}
+                      {aiContent.trust_text && (
+                        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>🛡️</span><span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>{aiContent.trust_text}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Reviews */}
+              <div style={{ padding: '0 40px 24px' }}>
+                <div style={{ background: '#f8f9fa', borderRadius: 16, padding: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <span>⭐⭐⭐⭐⭐</span>
+                    <span style={{ fontWeight: 700, fontSize: 15 }}>4.9/5</span>
+                    <span style={{ color: '#888', fontSize: 13 }}>(18 تقييم)</span>
+                  </div>
+                  {[
+                    { name: 'محمد أحمد', comment: 'منتج ممتاز! وصل بسرعة والجودة أحسن من المتوقع 🔥', rating: 5 },
+                    { name: 'خالد محمد', comment: 'وصل في 3 أيام وشغال تمام، نصحت فيه كل أصحابي', rating: 5 },
+                    { name: 'سامي العمري', comment: 'المنتج كويس بس التغليف كان بسيط شوية، غير كده تمام', rating: 4 },
+                  ].map((r, i) => (
+                    <div key={i} style={{ background: '#fff', borderRadius: 10, padding: '10px 12px', border: '1px solid #e5e7eb', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: store?.primary_color || '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13 }}>{r.name[0]}</div>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
+                          <div style={{ fontSize: 11, color: '#10b981' }}>✓ مشتري موثق {'⭐'.repeat(r.rating)}</div>
+                        </div>
+                      </div>
+                      <p style={{ fontSize: 13, color: '#374151', margin: 0 }}>{r.comment}</p>
+                    </div>
+                  ))}
+                  <div style={{ textAlign: 'center', padding: '8px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#6b7280' }}>عرض جميع التقييمات (18)</div>
+                </div>
+              </div>
+
+              {/* Checkout form */}
+              <div style={{ padding: '24px 40px 40px', background: '#f0f0f0', borderTop: '1px solid #e5e7eb' }}>
                 <div style={{ maxWidth: 520, margin: '0 auto' }}>
-                  <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, textAlign: 'center', color: '#111' }}>
-                    {store?.language === 'ar' ? 'يرجى ادخال معلوماتك لإكمال الطلب' : 'Enter your details to complete order'}
+                  <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, textAlign: 'center' }}>
+                    يرجى ادخال معلوماتك لإكمال الطلب
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {['الاسم', 'رقم الهاتف', 'المنطقة / المحافظة'].map((p, i) => (
-                      <div key={i} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '11px 14px', color: '#9ca3af', fontSize: 14 }}>{p}</div>
-                    ))}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '11px 14px', fontSize: 14 }}>
-                      <span style={{ color: '#555' }}>الإجمالي</span>
-                      <span style={{ fontWeight: 700 }}>{previewPrice} {store?.currency}</span>
+                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '11px 14px', color: '#9ca3af', fontSize: 14 }}>الاسم</div>
+                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '11px 14px', color: '#9ca3af', fontSize: 14, direction: 'ltr', textAlign: 'right' }}>05xxxxxxxx</div>
+
+                    {(!store?.address_mode || store?.address_mode === 'text') && (
+                      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '11px 14px', color: '#9ca3af', fontSize: 14 }}>العنوان تفصيلي (منطقة، مدينة، حي)</div>
+                    )}
+                    {store?.address_mode === 'map' && (
+                      <div style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', color: '#fff', borderRadius: 12, padding: '14px', fontSize: 14, fontWeight: 700, textAlign: 'center' }}>
+                        📡 اضغط هنا لتحديد موقعك تلقائياً
+                      </div>
+                    )}
+                    {store?.show_quantity && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '11px 14px', fontSize: 14 }}>
+                        <span style={{ color: '#555' }}>عدد القطع</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <span style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #d1d5db', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</span>
+                          <span style={{ fontWeight: 700 }}>1</span>
+                          <span style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #d1d5db', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</span>
+                        </div>
+                      </div>
+                    )}
+                    {store?.show_note && (
+                      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '11px 14px', color: '#9ca3af', fontSize: 14 }}>ملاحظات إضافية (اختياري)</div>
+                    )}
+                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#555', marginBottom: 6 }}>
+                        <span>تكلفة الشحن</span>
+                        <span style={{ color: Number(shippingCost) === 0 ? '#16a34a' : '#111', fontWeight: 600 }}>{Number(shippingCost) === 0 ? 'شحن مجاني ✓' : `${shippingCost} ${store?.currency}`}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 800 }}>
+                        <span>الإجمالي</span>
+                        <span>{previewPrice} {store?.currency}</span>
+                      </div>
                     </div>
-                    <div style={{ background: store?.primary_color || '#2563eb', color: '#fff', borderRadius: 10, padding: '14px', fontSize: 16, fontWeight: 800, textAlign: 'center' }}>
-                      {aiContent.cta_text} 🚀
+                    <div style={{ background: store?.primary_color || '#2563eb', color: '#fff', borderRadius: 12, padding: '16px', fontSize: 17, fontWeight: 800, textAlign: 'center' }}>
+                      {Number(shippingCost) === 0 ? 'اطلب الآن والتوصيل مجاني 🚀' : 'اطلب الآن 🚀'}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Description */}
-              <div style={{ padding: '24px 48px 40px', fontSize: 15, color: '#444', lineHeight: 1.9, borderTop: '1px solid #e5e7eb' }}>
-                {aiContent.description_long}
-              </div>
             </div>
           </div>
         )}

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import * as XLSX from 'xlsx'
 
 const ADMIN_EMAILS = ['admin@mantoog.com']
 
@@ -71,7 +72,7 @@ export default function AdminPage() {
 
     const { data: ordersData } = await supabase
       .from('orders')
-      .select('*, stores(name, currency, merchant_id)')
+      .select('*, stores(name, currency, merchant_id), products(title)')
       .order('created_at', { ascending: false })
       .limit(500)
 
@@ -222,6 +223,25 @@ export default function AdminPage() {
     a.href = url
     a.download = `mantoog-orders-${Date.now()}.csv`
     a.click()
+  }
+
+  const exportOrdersExcel = () => {
+    const rows = filteredOrders.map((order: any) => ({
+      'الاسم': order.customer_name || '',
+      'الهاتف': order.customer_phone || '',
+      'المنتج': order.products?.title || '',
+      'العنوان': [order.address_line1, order.address_governorate].filter(Boolean).join(', ') || '',
+      'المبلغ': order.total_price || '',
+      'العملة': order.currency || '',
+      'الحالة': order.status || '',
+      'التاريخ': new Date(order.created_at).toLocaleString('ar-EG'),
+      'المتجر': order.stores?.name || '',
+      'رابط الموقع': order.map_link || '',
+    }))
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Orders')
+    XLSX.writeFile(wb, `orders-${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
   const filteredMerchants = merchants.filter(m =>
@@ -479,10 +499,16 @@ export default function AdminPage() {
               <div className="flex items-center gap-2 mr-auto">
                 <span className="text-xs text-[#4a4e60]">{filteredOrders.length} orders</span>
               </div>
-              <button onClick={exportOrdersCSV}
-                className="text-xs bg-[#1f2229] hover:bg-[#2a2d35] border border-[#2a2d35] text-[#8b8fa8] hover:text-white px-3 py-2 rounded-lg transition-colors">
-                📥 Export CSV
-              </button>
+              <div className="flex gap-2">
+                <button onClick={exportOrdersCSV}
+                  className="text-xs bg-[#1f2229] hover:bg-[#2a2d35] border border-[#2a2d35] text-[#8b8fa8] hover:text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5">
+                  📥 CSV
+                </button>
+                <button onClick={exportOrdersExcel}
+                  className="text-xs bg-[#14321f] hover:bg-[#1a4a2a] border border-[#4ade80]/20 text-[#4ade80] hover:text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5">
+                  📊 Excel
+                </button>
+              </div>
             </div>
 
             <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
@@ -490,11 +516,7 @@ export default function AdminPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#2a2d35]">
-                      {['Store', 'Customer', 'Phone'].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
-                      ))}
-                      <th className="text-left px-4 py-3 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">📍</th>
-                      {['Address', 'Merchant', 'Amount', 'Status', 'Date'].map(h => (
+                      {['Store', 'Product', 'Customer', 'Phone', 'Address', 'Merchant', 'Amount', 'Status', 'Date', '📍'].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -503,18 +525,9 @@ export default function AdminPage() {
                     {filteredOrders.slice(0, 100).map((order) => (
                       <tr key={order.id} className="border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors">
                         <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">{order.stores?.name || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">{order.products?.title || '—'}</td>
                         <td className="px-4 py-3 text-sm">{order.customer_name || '—'}</td>
                         <td className="px-4 py-3 text-xs text-[#8b8fa8]">{order.customer_phone || '—'}</td>
-                        <td className="px-4 py-3">
-                          {order.map_link ? (
-                            <a href={order.map_link} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-xs text-[#3b82f6] hover:text-white bg-[#1a3a5c] hover:bg-[#3b82f6] px-2.5 py-1.5 rounded-lg transition-colors font-medium whitespace-nowrap">
-                              🗺️ Location
-                            </a>
-                          ) : (
-                            <span className="text-xs text-[#4a4e60]">—</span>
-                          )}
-                        </td>
                         <td className="px-4 py-3 text-xs text-[#8b8fa8]">
                           {[order.address_line1, order.address_governorate].filter(Boolean).join(', ') || '—'}
                         </td>
@@ -531,6 +544,16 @@ export default function AdminPage() {
                         </td>
                         <td className="px-4 py-3 text-xs text-[#4a4e60] whitespace-nowrap">
                           {new Date(order.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}
+                        </td>
+                        <td className="px-4 py-3">
+                          {order.map_link ? (
+                            <a href={order.map_link} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs text-[#3b82f6] hover:text-white bg-[#1a3a5c] hover:bg-[#3b82f6] px-2.5 py-1.5 rounded-lg transition-colors font-medium whitespace-nowrap">
+                              🗺️ Location
+                            </a>
+                          ) : (
+                            <span className="text-xs text-[#4a4e60]">—</span>
+                          )}
                         </td>
                       </tr>
                     ))}

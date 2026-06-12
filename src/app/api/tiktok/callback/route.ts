@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { fetchAdvertiserInfo } from '@/lib/tiktok/server'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,7 +9,7 @@ const supabase = createClient(
 
 const TIKTOK = 'https://business-api.tiktok.com/open_api/v1.3'
 const back = (req: NextRequest, s: string) =>
-  NextResponse.redirect(new URL(`/dashboard/settings?tiktok=${s}`, req.url))
+  NextResponse.redirect(new URL(`/dashboard/tiktok?tiktok=${s}`, req.url))
 
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams
@@ -28,6 +29,9 @@ export async function GET(req: NextRequest) {
     }),
   })
   const tokenJson = await tokenRes.json()
+  console.log('secret length:', process.env.TIKTOK_CLIENT_SECRET?.length)
+  console.log('app_id:', process.env.TIKTOK_CLIENT_KEY)
+  console.log('TT tokenJson:', JSON.stringify(tokenJson))
   if (tokenJson.code !== 0) { console.error('TT token', tokenJson); return back(req, 'error_token') }
 
   const { access_token, refresh_token, advertiser_ids = [], scope } = tokenJson.data
@@ -42,12 +46,20 @@ export async function GET(req: NextRequest) {
     }
   } catch (e) { console.warn('advertiser names', e) }
 
-  const rows = advertisers.map((a: any) => ({
-    store_id: storeId, merchant_id: merchantId,
-    advertiser_id: a.advertiser_id, advertiser_name: a.advertiser_name,
-    access_token, refresh_token: refresh_token ?? null,
-    scope: Array.isArray(scope) ? scope.join(',') : scope ?? null,
-    status: 'active', updated_at: new Date().toISOString(),
+  const rows = await Promise.all(advertisers.map(async (a: any) => {
+    let currency: string | null = null
+    try {
+      const info = await fetchAdvertiserInfo({ advertiser_id: a.advertiser_id, access_token })
+      if (info.code === 0) currency = info.data?.list?.[0]?.currency ?? null
+    } catch (e) { console.warn('advertiser currency', e) }
+    return {
+      store_id: storeId, merchant_id: merchantId,
+      advertiser_id: a.advertiser_id, advertiser_name: a.advertiser_name,
+      access_token, refresh_token: refresh_token ?? null,
+      scope: Array.isArray(scope) ? scope.join(',') : scope ?? null,
+      currency,
+      status: 'active', updated_at: new Date().toISOString(),
+    }
   }))
 
   const { error } = await supabase.from('tiktok_connections')

@@ -12,6 +12,7 @@ const navItems = [
   { key: 'research', path: '/dashboard/products/research', icon: '🏆' },
   { key: 'tiktokSpy', path: '/dashboard/tiktok-spy', icon: 'https://img.magnific.com/premium-vector/tik-tok-logo_578229-290.jpg?semt=ais_hybrid&w=740&q=80', isImage: true },
   { key: 'orders', path: '/dashboard/orders', icon: '🛒' },
+  { key: 'tiktokAds', path: '/dashboard/tiktok', icon: '🎵' },
   { key: 'ads', path: '/dashboard/ads', icon: '📣' },
   { key: 'analytics', path: '/dashboard/analytics', icon: '📊' },
   { key: 'billing', path: '/dashboard/billing', icon: '💳' },

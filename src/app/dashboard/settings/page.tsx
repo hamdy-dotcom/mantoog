@@ -47,7 +47,6 @@ export default function SettingsPage() {
   const [metaPixelId, setMetaPixelId] = useState('')
   const [tiktokPixelId, setTiktokPixelId] = useState('')
   const [savingPixels, setSavingPixels] = useState(false)
-  const [tiktokOAuthNotice, setTiktokOAuthNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [addressMode, setAddressMode] = useState<'text' | 'map'>('text')
   const [locationRequired, setLocationRequired] = useState(false)
   const [showQuantity, setShowQuantity] = useState(false)
@@ -94,41 +93,6 @@ export default function SettingsPage() {
     }
     init()
   }, [])
-
-  useEffect(() => {
-    const tiktok = new URLSearchParams(window.location.search).get('tiktok')
-    if (!tiktok) return
-
-    setActiveTab('pixels')
-    if (tiktok === 'connected') {
-      setTiktokOAuthNotice({
-        type: 'success',
-        text: lang === 'ar' ? 'تم ربط حساب TikTok Ads بنجاح.' : 'TikTok Ads account connected successfully.',
-      })
-    } else {
-      const errors: Record<string, { ar: string; en: string }> = {
-        error_state: {
-          ar: 'فشل التحقق من OAuth. حاول الربط مرة أخرى.',
-          en: 'OAuth verification failed. Please try connecting again.',
-        },
-        error_token: {
-          ar: 'فشل الحصول على رمز الوصول من TikTok.',
-          en: 'Failed to get an access token from TikTok.',
-        },
-        error_db: {
-          ar: 'فشل حفظ الاتصال. تأكد من إعداد قاعدة البيانات.',
-          en: 'Failed to save the connection. Check your database setup.',
-        },
-      }
-      const msg = errors[tiktok] || errors.error_state
-      setTiktokOAuthNotice({
-        type: 'error',
-        text: lang === 'ar' ? msg.ar : msg.en,
-      })
-    }
-
-    router.replace('/dashboard/settings')
-  }, [lang, router])
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -440,17 +404,6 @@ export default function SettingsPage() {
 
           {activeTab === 'pixels' && (
             <div className="space-y-6">
-              {tiktokOAuthNotice && (
-                <div className={`rounded-xl px-4 py-3 text-sm border ${
-                  tiktokOAuthNotice.type === 'success'
-                    ? 'bg-[#14321f] border-[#4ade80]/20 text-[#4ade80]'
-                    : 'bg-[#3a1414] border-[#f87171]/20 text-[#f87171]'
-                }`}>
-                  {tiktokOAuthNotice.type === 'success' ? '✓ ' : '✕ '}
-                  {tiktokOAuthNotice.text}
-                </div>
-              )}
-
               <div>
                 <h2 className="text-white font-semibold mb-1">{lang === 'ar' ? 'ربط بكسل الإعلانات' : 'Connect ad pixels'}</h2>
                 <p className="text-[#8b8fa8] text-sm">{lang === 'ar' ? 'أضف بكسل Meta وTikTok لتتبع أداء إعلاناتك وتحسين التحويل' : 'Add your Meta and TikTok pixels to track ad performance and optimize conversions'}</p>
@@ -535,12 +488,6 @@ export default function SettingsPage() {
                     <span className="text-[#60a5fa] mx-1">InitiateCheckout</span> ·
                     <span className="text-[#4ade80] mx-1">PlaceAnOrder</span>
                   </div>
-                  <a
-                    href="/api/tiktok/connect"
-                    className="inline-flex items-center justify-center rounded-lg bg-black px-4 py-2 text-white font-medium"
-                  >
-                    {lang === 'ar' ? 'ربط TikTok Ads' : 'Connect TikTok Ads'}
-                  </a>
                 </div>
               </div>
 

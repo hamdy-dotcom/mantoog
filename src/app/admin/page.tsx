@@ -287,8 +287,26 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-[#0f1117] text-white">
+      <style>{`
+  .admin-header { display: flex; align-items: center; justify-content: space-between; padding: 16px; background: #1a1d24; border-bottom: 1px solid #2a2d35; flex-wrap: wrap; gap: 8px; }
+  .admin-tabs { display: flex; overflow-x: auto; gap: 4px; padding: 12px 16px; border-bottom: 1px solid #2a2d35; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .admin-tabs::-webkit-scrollbar { display: none; }
+  .admin-tab { white-space: nowrap; flex-shrink: 0; }
+  .admin-content { padding: 16px; }
+  .admin-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .admin-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; border: 1px solid #2a2d35; }
+  .admin-table-wrap table { min-width: 700px; }
+  .admin-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .admin-search { width: 100%; }
+  @media (min-width: 768px) {
+    .admin-content { padding: 24px; }
+    .admin-stats-grid { grid-template-columns: repeat(4, 1fr); }
+    .admin-search { width: 256px; }
+    .admin-table-wrap table { min-width: unset; }
+  }
+`}</style>
       {/* Header */}
-      <div className="border-b border-[#2a2d35] px-8 py-4 flex items-center justify-between sticky top-0 bg-[#0f1117] z-10">
+      <div className="admin-header sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <img src="/logo.svg" alt="Mantoog" className="w-16 h-16 object-contain" />
           <div>
@@ -309,12 +327,12 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="p-8">
+      <div className="admin-content">
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl w-fit mb-8">
+        <div className="admin-tabs mb-8">
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'}`}>
+              className={`admin-tab px-5 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'}`}>
               {tab.label}
             </button>
           ))}
@@ -324,7 +342,7 @@ export default function AdminPage() {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="admin-stats-grid">
               {[
                 { label: 'Total Merchants', value: stats.totalMerchants, color: '#60a5fa' },
                 { label: 'Active Stores', value: stats.activeStores, color: '#4ade80' },
@@ -424,15 +442,15 @@ export default function AdminPage() {
         {/* MERCHANTS */}
         {activeTab === 'merchants' && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
+            <div className="admin-filters">
               <input value={merchantSearch} onChange={e => setMerchantSearch(e.target.value)}
                 placeholder="Search by email or store name..."
-                className="bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] w-72" />
+                className="admin-search bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6]" />
               <span className="text-xs text-[#4a4e60]">{filteredMerchants.length} merchants</span>
             </div>
 
-            <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="bg-[#1a1d24] rounded-xl overflow-hidden">
+              <div className="admin-table-wrap">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#2a2d35]">
@@ -484,10 +502,10 @@ export default function AdminPage() {
         {/* ORDERS */}
         {activeTab === 'orders' && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="admin-filters">
               <input value={orderSearch} onChange={e => setOrderSearch(e.target.value)}
                 placeholder="Search customer, phone, store..."
-                className="bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] w-64" />
+                className="admin-search bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6]" />
               <div className="flex gap-1 flex-wrap">
                 {ORDER_STATUSES.map(s => (
                   <button key={s} onClick={() => setOrderStatusFilter(s)}
@@ -511,8 +529,8 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="bg-[#1a1d24] rounded-xl overflow-hidden">
+              <div className="admin-table-wrap">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#2a2d35]">
@@ -666,17 +684,17 @@ export default function AdminPage() {
 
         {activeTab === 'products' && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="admin-filters">
               <input value={productSearch} onChange={e => setProductSearch(e.target.value)}
                 placeholder="Search by product name or merchant..."
-                className="bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] w-72" />
+                className="admin-search bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6]" />
               <span className="text-xs text-[#4a4e60]">
                 {allProducts.filter(p => !productSearch || p.title?.toLowerCase().includes(productSearch.toLowerCase()) || p.stores?.name?.toLowerCase().includes(productSearch.toLowerCase())).length} products
               </span>
             </div>
 
-            <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="bg-[#1a1d24] rounded-xl overflow-hidden">
+              <div className="admin-table-wrap">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#2a2d35]">

@@ -96,15 +96,22 @@ function normalizeDateRange(start: string, end: string) {
 function dashboardErrorText(error: string | null, lang: string) {
   if (!error) return ''
   if (error === 'no_active_account') {
-    return lang === 'ar' ? 'اختر حساب معلن من القائمة أعلاه.' : 'Pick an advertiser account above.'
+    return lang === 'ar' ? 'اختر حساباً من القائمة أعلاه لعرض الأداء.' : 'Select an account above to view performance.'
   }
   if (error === 'fetch_failed') {
-    return lang === 'ar' ? 'تعذر تحميل تقرير TikTok.' : 'Could not load TikTok report.'
+    return lang === 'ar' ? 'تعذر تحميل بيانات TikTok.' : 'Could not load TikTok data.'
   }
   if (error === 'invalid_date_range') {
     return lang === 'ar' ? 'تاريخ النهاية يجب أن يكون في نفس يوم البداية أو بعده.' : 'End date must be on or after the start date.'
   }
-  return error
+  if (error === 'tiktok_error') {
+    return lang === 'ar' ? 'تعذر تحميل بيانات TikTok.' : 'Could not load TikTok data.'
+  }
+  return lang === 'ar' ? 'تعذر تحميل بيانات TikTok.' : 'Could not load TikTok data.'
+}
+
+function canRetryDashboard(error: string | null) {
+  return error === 'fetch_failed' || error === 'tiktok_error'
 }
 
 function SparkTooltip({ active, payload, format }: any) {
@@ -201,17 +208,73 @@ function DashboardSkeleton() {
     <div className="space-y-6 animate-pulse">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[1, 2, 3].map(i => (
-          <div key={i} className="h-40 bg-[#1a1d24] border border-[#2a2d35] rounded-2xl" />
+          <div key={i} className="h-[168px] bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-5">
+            <div className="h-3 w-24 bg-[#2a2d35] rounded mb-3" />
+            <div className="h-8 w-32 bg-[#2a2d35] rounded mb-4" />
+            <div className="h-[80px] bg-[#2a2d35]/60 rounded" />
+          </div>
         ))}
       </div>
-      <div className="h-8 bg-[#1a1d24] border border-[#2a2d35] rounded-full w-full max-w-md" />
-      <div className="h-72 bg-[#1a1d24] border border-[#2a2d35] rounded-2xl" />
+      <div className="flex flex-wrap gap-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-8 w-28 bg-[#1a1d24] border border-[#2a2d35] rounded-full" />
+        ))}
+      </div>
+      <div className="h-[360px] bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-5">
+        <div className="flex justify-between mb-4">
+          <div className="h-4 w-48 bg-[#2a2d35] rounded" />
+          <div className="h-6 w-36 bg-[#2a2d35] rounded-full" />
+        </div>
+        <div className="h-[280px] bg-[#2a2d35]/40 rounded-xl" />
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="h-20 bg-[#1a1d24] border border-[#2a2d35] rounded-xl" />
+          <div key={i} className="h-[72px] bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4">
+            <div className="h-3 w-16 bg-[#2a2d35] rounded mb-2" />
+            <div className="h-5 w-20 bg-[#2a2d35] rounded" />
+          </div>
         ))}
       </div>
-      <div className="h-64 bg-[#1a1d24] border border-[#2a2d35] rounded-2xl" />
+    </div>
+  )
+}
+
+function HeaderSkeleton() {
+  return (
+    <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-4 md:px-5 md:py-4 mb-6 animate-pulse">
+      <div className="h-5 w-40 bg-[#2a2d35] rounded mb-2" />
+      <div className="h-4 w-64 bg-[#2a2d35]/60 rounded" />
+    </div>
+  )
+}
+
+function ReauthBanner({ lang }: { lang: string }) {
+  return (
+    <div className="bg-[#1a1d24] border border-[#f87171]/30 rounded-2xl px-5 py-6 mb-6 text-center">
+      <div className="text-[#f87171] text-sm font-medium mb-1">
+        {lang === 'ar' ? 'انتهت صلاحية اتصال TikTok' : 'Your TikTok connection expired'}
+      </div>
+      <p className="text-[#8b8fa8] text-sm mb-4">
+        {lang === 'ar' ? 'أعد الربط لمتابعة إدارة حملاتك.' : 'Reconnect to continue managing your campaigns.'}
+      </p>
+      <a
+        href="/api/tiktok/connect"
+        className="inline-flex items-center justify-center rounded-lg bg-[#3b82f6] px-5 py-2 text-sm text-white font-medium hover:bg-[#2563eb] transition-colors"
+      >
+        {lang === 'ar' ? 'إعادة الربط' : 'Reconnect'}
+      </a>
+    </div>
+  )
+}
+
+function DashboardEmptyState({ lang }: { lang: string }) {
+  return (
+    <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl px-5 py-12 text-center">
+      <p className="text-[#8b8fa8] text-sm">
+        {lang === 'ar'
+          ? 'لا توجد بيانات حملات لهذه الفترة — جرّب نطاق تاريخ أوسع.'
+          : 'No campaign data for this period — try a wider date range.'}
+      </p>
     </div>
   )
 }
@@ -233,8 +296,9 @@ export default function TikTokAdsPage() {
   const [dateError, setDateError] = useState<string | null>(null)
   const [adCurrency, setAdCurrency] = useState('USD')
   const [reportRows, setReportRows] = useState<DailyRow[]>([])
-  const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [dashboardLoading, setDashboardLoading] = useState(true)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
+  const [reauthRequired, setReauthRequired] = useState(false)
   const [customRangeOpen, setCustomRangeOpen] = useState(false)
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
   const customRangeRef = useRef<HTMLDivElement>(null)
@@ -281,21 +345,32 @@ export default function TikTokAdsPage() {
       if (reportData.error === 'no_active_account') {
         setDashboardError('no_active_account')
         setReportRows([])
+        setDashboardLoading(false)
+        return
+      }
+      if (reportData.error === 'reauth_required') {
+        setReauthRequired(true)
+        setDashboardError(null)
+        setReportRows([])
+        setDashboardLoading(false)
         return
       }
       if (reportData.error === 'invalid_date_range') {
         setDashboardError('invalid_date_range')
         setReportRows([])
+        setDashboardLoading(false)
         return
       }
       if (reportData.error) {
-        setDashboardError(reportData.message || reportData.error)
+        setDashboardError(reportData.error === 'tiktok_error' ? 'tiktok_error' : 'fetch_failed')
         setReportRows([])
+        setDashboardLoading(false)
         return
       }
 
       setReportRows(parseReportRows(reportData.data || []))
       if (reportData.currency) setAdCurrency(reportData.currency)
+      setReauthRequired(false)
     } catch {
       setDashboardError('fetch_failed')
       setReportRows([])
@@ -320,7 +395,11 @@ export default function TikTokAdsPage() {
 
   useEffect(() => {
     if (loading || !connections.length) return
-    if (connections.some(c => c.is_active)) fetchDashboard(appliedStart, appliedEnd)
+    if (connections.some(c => c.is_active)) {
+      fetchDashboard(appliedStart, appliedEnd)
+    } else {
+      setDashboardLoading(false)
+    }
   }, [loading, connections, appliedStart, appliedEnd, fetchDashboard])
 
   useEffect(() => {
@@ -341,6 +420,7 @@ export default function TikTokAdsPage() {
     if (!tiktok) return
 
     if (tiktok === 'connected') {
+      setReauthRequired(false)
       setNotice({
         type: 'success',
         text: lang === 'ar' ? 'تم ربط حساب TikTok Ads بنجاح.' : 'TikTok Ads account connected successfully.',
@@ -469,8 +549,12 @@ export default function TikTokAdsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0f1117] flex items-center justify-center">
-        <div className="text-[#8b8fa8] text-sm">Loading...</div>
+      <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
+        <Sidebar store={store} />
+        <main className="flex-1 p-6 md:p-8 overflow-auto pb-24 md:pb-8 mt-14 md:mt-0">
+          <HeaderSkeleton />
+          <DashboardSkeleton />
+        </main>
       </div>
     )
   }
@@ -671,116 +755,130 @@ export default function TikTokAdsPage() {
           </div>
         </div>
 
-        {connections.length > 0 && !hasActiveAccount && (
-          <div className="bg-[#3a2800] border border-[#fbbf24]/20 rounded-xl px-4 py-3 text-sm text-[#fbbf24] mb-6">
-            {lang === 'ar' ? 'اختر حساب معلن من القائمة أعلاه لعرض بيانات الأداء.' : 'Pick an advertiser account above to view performance data.'}
+        {reauthRequired && <ReauthBanner lang={lang} />}
+
+        {connections.length > 0 && !hasActiveAccount && !reauthRequired && (
+          <div className="bg-[#1a1d24] border border-[#fbbf24]/20 rounded-xl px-4 py-8 text-center mb-6">
+            <p className="text-[#fbbf24] text-sm">
+              {lang === 'ar' ? 'اختر حساباً من القائمة أعلاه لعرض الأداء.' : 'Select an account above to view performance.'}
+            </p>
           </div>
         )}
 
-        {connections.length > 0 && hasActiveAccount && (
-          <>
-            {dashboardLoading && <DashboardSkeleton />}
-
-            {!dashboardLoading && dashboardError && (
-              <div className={`rounded-xl px-4 py-3 text-sm border ${
+        {connections.length > 0 && hasActiveAccount && !reauthRequired && (
+          <div className="space-y-6">
+            {dashboardLoading ? (
+              <DashboardSkeleton />
+            ) : dashboardError ? (
+              <div className={`rounded-xl px-4 py-4 text-sm border ${
                 dashboardError === 'no_active_account'
                   ? 'bg-[#3a2800] border-[#fbbf24]/20 text-[#fbbf24]'
                   : 'bg-[#3a1414] border-[#f87171]/20 text-[#f87171]'
               }`}>
-                {dashboardErrorText(dashboardError, lang)}
-              </div>
-            )}
-
-            {!dashboardLoading && !dashboardError && (
-              <div className="space-y-6">
-                {reportRows.length > 0 && (
-                <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="rounded-2xl border border-[#3b82f6]/20 bg-gradient-to-br from-[#1a3a5c] to-[#1a1d24] p-5">
-                    <div className="text-xs text-[#60a5fa] uppercase tracking-wider mb-1">
-                      {lang === 'ar' ? 'الإنفاق اليومي' : 'Daily Spend'}
-                    </div>
-                    <div className="text-3xl font-bold text-white mb-1">{fmtMoney(totals.spend, 0)}</div>
-                    <HeroSparkline data={reportRows} dataKey="spend" color="#60a5fa" formatValue={(n) => fmtMoney(n, 0)} />
-                  </div>
-
-                  <div className="rounded-2xl border border-[#4ade80]/20 bg-gradient-to-br from-[#14321f] to-[#1a1d24] p-5">
-                    <div className="text-xs text-[#4ade80] uppercase tracking-wider mb-1">
-                      {lang === 'ar' ? 'التحويلات اليومية' : 'Daily Conversions'}
-                    </div>
-                    <div className="text-3xl font-bold text-white mb-1">{fmtNum(totals.conversions)}</div>
-                    <HeroSparkline data={reportRows} dataKey="conversion" color="#4ade80" formatValue={(n) => fmtNum(n)} />
-                  </div>
-
-                  <div className="rounded-2xl border border-[#a78bfa]/20 bg-gradient-to-br from-[#2e1f4d] to-[#1a1d24] p-5">
-                    <div className="text-xs text-[#a78bfa] uppercase tracking-wider mb-1">
-                      {lang === 'ar' ? 'CTR اليومي' : 'Daily CTR'}
-                    </div>
-                    <div className="text-3xl font-bold text-white mb-1">{fmtPct(rates.ctr)}</div>
-                    <HeroSparkline data={reportRows} dataKey="ctr" color="#a78bfa" formatValue={(n) => fmtPct(n)} />
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { k: 'CTR', v: fmtPct(rates.ctr) },
-                    { k: 'CVR', v: fmtPct(rates.cvr) },
-                    { k: 'CPA', v: fmtMoney(rates.cpa) },
-                    { k: 'ROAS', v: fmtNum(rates.roas, 2) },
-                  ].map(r => (
-                    <div key={r.k} className="bg-[#1a1d24] border border-[#2a2d35] rounded-full px-3 py-1.5 text-xs flex items-center gap-2">
-                      <span className="text-[#4a4e60]">{r.k}</span>
-                      <span className="text-white font-semibold">{r.v}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-white font-semibold text-sm">
-                      {lang === 'ar' ? 'اتجاه الإنفاق والتحويلات' : 'Spend & conversions trend'}
-                    </h2>
-                    <span className="text-xs text-[#4a4e60] bg-[#0f1117] border border-[#2a2d35] px-2.5 py-1 rounded-full">
-                      {appliedStart} — {appliedEnd}
-                    </span>
-                  </div>
-                  <ResponsiveContainer width="100%" height={280}>
-                    <ComposedChart data={reportRows} margin={{ top: 8, right: dir === 'rtl' ? 0 : 8, left: dir === 'rtl' ? 8 : 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2a2d35" vertical={false} />
-                      <XAxis dataKey="label" tick={{ fill: '#4a4e60', fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis yAxisId="spend" orientation={dir === 'rtl' ? 'right' : 'left'} tick={{ fill: '#60a5fa', fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
-                      <YAxis yAxisId="conv" orientation={dir === 'rtl' ? 'left' : 'right'} tick={{ fill: '#4ade80', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
-                      <Tooltip content={<ChartTooltip currency={adCurrency} lang={lang} />} />
-                      <Bar yAxisId="spend" dataKey="spend" name={lang === 'ar' ? 'الإنفاق' : 'Spend'} fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={36} />
-                      <Line yAxisId="conv" type="monotone" dataKey="conversion" name={lang === 'ar' ? 'التحويلات' : 'Conversions'} stroke="#4ade80" strokeWidth={2.5} dot={{ r: 3, fill: '#4ade80' }} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {metricCards.map(card => (
-                    <div key={card.label} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 hover:border-[#3b82f6]/30 transition-colors">
-                      <div className="text-xs text-[#4a4e60] mb-1">{card.label}</div>
-                      <div className="text-lg font-bold text-white">{card.value}</div>
-                    </div>
-                  ))}
-                </div>
-                </>
+                <p>{dashboardErrorText(dashboardError, lang)}</p>
+                {canRetryDashboard(dashboardError) && (
+                  <button
+                    type="button"
+                    onClick={() => fetchDashboard(appliedStart, appliedEnd)}
+                    className="mt-3 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#2a2d35] text-white hover:bg-[#3a3d48] transition-colors"
+                  >
+                    {lang === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+                  </button>
                 )}
-
-                <TikTokCampaignTable
-                  advertiserId={activeAdvertiserId}
-                  currency={adCurrency}
-                  lang={lang}
-                  dateStart={appliedStart}
-                  dateEnd={appliedEnd}
-                  fmtMoney={fmtMoney}
-                  fmtNum={fmtNum}
-                  fmtPct={fmtPct}
-                />
               </div>
+            ) : (
+              <>
+                {reportRows.length === 0 ? (
+                  <DashboardEmptyState lang={lang} />
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="rounded-2xl border border-[#3b82f6]/20 bg-gradient-to-br from-[#1a3a5c] to-[#1a1d24] p-5">
+                        <div className="text-xs text-[#60a5fa] uppercase tracking-wider mb-1">
+                          {lang === 'ar' ? 'الإنفاق اليومي' : 'Daily Spend'}
+                        </div>
+                        <div className="text-3xl font-bold text-white mb-1">{fmtMoney(totals.spend, 0)}</div>
+                        <HeroSparkline data={reportRows} dataKey="spend" color="#60a5fa" formatValue={(n) => fmtMoney(n, 0)} />
+                      </div>
+
+                      <div className="rounded-2xl border border-[#4ade80]/20 bg-gradient-to-br from-[#14321f] to-[#1a1d24] p-5">
+                        <div className="text-xs text-[#4ade80] uppercase tracking-wider mb-1">
+                          {lang === 'ar' ? 'التحويلات اليومية' : 'Daily Conversions'}
+                        </div>
+                        <div className="text-3xl font-bold text-white mb-1">{fmtNum(totals.conversions)}</div>
+                        <HeroSparkline data={reportRows} dataKey="conversion" color="#4ade80" formatValue={(n) => fmtNum(n)} />
+                      </div>
+
+                      <div className="rounded-2xl border border-[#a78bfa]/20 bg-gradient-to-br from-[#2e1f4d] to-[#1a1d24] p-5">
+                        <div className="text-xs text-[#a78bfa] uppercase tracking-wider mb-1">
+                          {lang === 'ar' ? 'CTR اليومي' : 'Daily CTR'}
+                        </div>
+                        <div className="text-3xl font-bold text-white mb-1">{fmtPct(rates.ctr)}</div>
+                        <HeroSparkline data={reportRows} dataKey="ctr" color="#a78bfa" formatValue={(n) => fmtPct(n)} />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { k: 'CTR', v: fmtPct(rates.ctr) },
+                        { k: 'CVR', v: fmtPct(rates.cvr) },
+                        { k: 'CPA', v: fmtMoney(rates.cpa) },
+                        { k: 'ROAS', v: fmtNum(rates.roas, 2) },
+                      ].map(r => (
+                        <div key={r.k} className="bg-[#1a1d24] border border-[#2a2d35] rounded-full px-3 py-1.5 text-xs flex items-center gap-2">
+                          <span className="text-[#4a4e60]">{r.k}</span>
+                          <span className="text-white font-semibold">{r.v}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-white font-semibold text-sm">
+                          {lang === 'ar' ? 'اتجاه الإنفاق والتحويلات' : 'Spend & conversions trend'}
+                        </h2>
+                        <span className="text-xs text-[#4a4e60] bg-[#0f1117] border border-[#2a2d35] px-2.5 py-1 rounded-full">
+                          {appliedStart} — {appliedEnd}
+                        </span>
+                      </div>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <ComposedChart data={reportRows} margin={{ top: 8, right: dir === 'rtl' ? 0 : 8, left: dir === 'rtl' ? 8 : 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#2a2d35" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fill: '#4a4e60', fontSize: 11 }} axisLine={false} tickLine={false} />
+                          <YAxis yAxisId="spend" orientation={dir === 'rtl' ? 'right' : 'left'} tick={{ fill: '#60a5fa', fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
+                          <YAxis yAxisId="conv" orientation={dir === 'rtl' ? 'left' : 'right'} tick={{ fill: '#4ade80', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
+                          <Tooltip content={<ChartTooltip currency={adCurrency} lang={lang} />} />
+                          <Bar yAxisId="spend" dataKey="spend" name={lang === 'ar' ? 'الإنفاق' : 'Spend'} fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                          <Line yAxisId="conv" type="monotone" dataKey="conversion" name={lang === 'ar' ? 'التحويلات' : 'Conversions'} stroke="#4ade80" strokeWidth={2.5} dot={{ r: 3, fill: '#4ade80' }} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                      {metricCards.map(card => (
+                        <div key={card.label} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 hover:border-[#3b82f6]/30 transition-colors">
+                          <div className="text-xs text-[#4a4e60] mb-1">{card.label}</div>
+                          <div className="text-lg font-bold text-white">{card.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
             )}
-          </>
+
+            <TikTokCampaignTable
+              advertiserId={activeAdvertiserId}
+              currency={adCurrency}
+              lang={lang}
+              dateStart={appliedStart}
+              dateEnd={appliedEnd}
+              fmtMoney={fmtMoney}
+              fmtNum={fmtNum}
+              fmtPct={fmtPct}
+              onReauthRequired={() => setReauthRequired(true)}
+            />
+          </div>
         )}
       </main>
     </div>

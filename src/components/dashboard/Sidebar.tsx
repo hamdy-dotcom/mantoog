@@ -1,20 +1,48 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
+import TikTokIcon from '@/components/icons/TikTokIcon'
 
-const navItems = [
+type NavItem = {
+  key: string
+  path: string
+  icon?: string
+  isImage?: boolean
+  Icon?: ComponentType
+}
+
+const NAV_ICON_BOX = 'inline-flex w-5 h-5 shrink-0 items-center justify-center'
+
+function NavIcon({ item, emojiClassName }: { item: NavItem; emojiClassName?: string }) {
+  if (item.Icon) {
+    const Icon = item.Icon
+    return (
+      <span className={NAV_ICON_BOX} aria-hidden>
+        <Icon />
+      </span>
+    )
+  }
+  if (item.isImage) {
+    return (
+      <span className={NAV_ICON_BOX}>
+        <img src={item.icon} alt="" className="w-full h-full rounded object-cover" />
+      </span>
+    )
+  }
+  return <span className={emojiClassName}>{item.icon}</span>
+}
+
+const navItems: NavItem[] = [
   { key: 'dashboard', path: '/dashboard', icon: '🏠' },
   { key: 'products', path: '/dashboard/products', icon: '📦' },
   { key: 'research', path: '/dashboard/products/research', icon: '🏆' },
   { key: 'tiktokSpy', path: '/dashboard/tiktok-spy', icon: 'https://img.magnific.com/premium-vector/tik-tok-logo_578229-290.jpg?semt=ais_hybrid&w=740&q=80', isImage: true },
   { key: 'orders', path: '/dashboard/orders', icon: '🛒' },
-  { key: 'tiktokAds', path: '/dashboard/tiktok', icon: '🎵' },
-  { key: 'ads', path: '/dashboard/ads', icon: '📣' },
-  { key: 'analytics', path: '/dashboard/analytics', icon: '📊' },
+  { key: 'tiktokAds', path: '/dashboard/tiktok', Icon: TikTokIcon },
   { key: 'billing', path: '/dashboard/billing', icon: '💳' },
   { key: 'settings', path: '/dashboard/settings', icon: '⚙️' },
 ]
@@ -92,11 +120,7 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
             return (
               <button key={item.path} onClick={() => router.push(item.path)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${active ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:bg-[#1f2229] hover:text-white'}`}>
-                {item.isImage ? (
-                  <img src={item.icon} alt="" style={{ width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }} />
-                ) : (
-                  <span className="text-base">{item.icon}</span>
-                )}
+                <NavIcon item={item} emojiClassName="text-base shrink-0" />
                 <span className="flex-1 text-start">{tr[item.key as keyof typeof tr] as string}</span>
               </button>
             )
@@ -146,11 +170,7 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
             return (
               <button key={item.path} onClick={() => router.push(item.path)}
                 className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-all min-w-0 ${active ? 'text-[#3b82f6]' : 'text-[#4a4e60]'}`}>
-                {item.isImage ? (
-                  <img src={item.icon} alt="" style={{ width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }} />
-                ) : (
-                  <span className="text-xl">{item.icon}</span>
-                )}
+                <NavIcon item={item} emojiClassName="text-xl shrink-0" />
                 <span className="text-xs truncate max-w-[50px] text-center" style={{fontSize:'9px'}}>
                   {tr[item.key as keyof typeof tr] as string}
                 </span>

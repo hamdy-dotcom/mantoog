@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveOrThrow, updateBid } from '@/lib/tiktok/mutations'
 import type { BidField, EntityLevel } from '@/lib/tiktok/types'
+import { respondMutationResult } from '@/lib/tiktok/api-errors'
 
 export async function POST(req: NextRequest) {
   try {
-    const { connection } = await resolveOrThrow()
+    const { connection, store } = await resolveOrThrow()
     const { level, entity_id, bid_price, is_smart_plus, bid_field, bid_type, deep_bid_type } = await req.json()
     const price = parseFloat(String(bid_price ?? ''))
     if (!entity_id || !Number.isFinite(price) || price <= 0) {
@@ -24,9 +25,8 @@ export async function POST(req: NextRequest) {
     )
     if ('error' in result) {
       console.warn('[tiktok/entity/bid] failed:', result.message, { level, entity_id, bid_field, bid_type })
-      return NextResponse.json(result, { status: result.error === 'tiktok_error' ? 502 : 400 })
     }
-    return NextResponse.json(result)
+    return respondMutationResult(result, { storeId: store.id, advertiserId: connection.advertiser_id })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: e.status || 500 })
   }

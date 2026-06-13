@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveOrThrow, toggleEntities, updateBudget } from '@/lib/tiktok/mutations'
 import type { EntityLevel } from '@/lib/tiktok/types'
+import { finalizeMutationResult } from '@/lib/tiktok/server'
+import { jsonForTikTokFailure, respondMutationResult } from '@/lib/tiktok/api-errors'
 
 export async function POST(req: NextRequest) {
   try {
-    const { connection } = await resolveOrThrow()
+    const { connection, store } = await resolveOrThrow()
+    const ctx = { storeId: store.id, advertiserId: connection.advertiser_id }
     const { level, action, entity_ids, budget, smart_plus_ids } = await req.json()
     const ids = Array.isArray(entity_ids) ? entity_ids.map(String).filter(Boolean) : []
     const smartPlusSet = new Set(
@@ -16,14 +19,12 @@ export async function POST(req: NextRequest) {
 
     if (action === 'pause') {
       const result = await toggleEntities(connection, level as EntityLevel, ids, 'DISABLE', smartPlusSet)
-      if ('error' in result) return NextResponse.json(result, { status: 502 })
-      return NextResponse.json(result)
+      return respondMutationResult(result, ctx)
     }
 
     if (action === 'resume') {
       const result = await toggleEntities(connection, level as EntityLevel, ids, 'ENABLE', smartPlusSet)
-      if ('error' in result) return NextResponse.json(result, { status: 502 })
-      return NextResponse.json(result)
+      return respondMutationResult(result, ctx)
     }
 
     if (action === 'set_budget') {
@@ -35,7 +36,13 @@ export async function POST(req: NextRequest) {
       for (const id of ids) {
         const isSmartPlus = smartPlusSet.has(id)
         const r = await updateBudget(connection, level as EntityLevel, id, budgetNum, isSmartPlus)
-        if ('error' in r) errors.push(`${id}: ${r.message || r.error}`)
+        if ('error' in r) {
+          const mapped = await finalizeMutationResult(r, ctx)
+          if ('error' in mapped && mapped.error === 'reauth_required') {
+            return jsonForTikTokFailure(mapped)
+          }
+          errors.push(`${id}: ${('message' in mapped ? mapped.message : undefined) || mapped.error || r.message || r.error}`)
+        }
       }
       if (errors.length) return NextResponse.json({ error: 'partial_failure', messages: errors }, { status: 502 })
       return NextResponse.json({ ok: true })

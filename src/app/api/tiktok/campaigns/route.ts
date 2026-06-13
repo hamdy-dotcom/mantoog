@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { fetchEntitiesForStore } from '@/lib/tiktok/entities'
 import { ENTITY_LEVELS, type EntityLevel } from '@/lib/tiktok/types'
 import { parseQueryDates, resolveActiveConnection } from '@/lib/tiktok/server'
+import { jsonForTikTokFailure } from '@/lib/tiktok/api-errors'
 
 export async function GET(req: NextRequest) {
   const dates = parseQueryDates(req.nextUrl.searchParams)
@@ -34,7 +35,10 @@ export async function GET(req: NextRequest) {
   )
 
   if ('error' in result) {
-    return NextResponse.json({ error: result.error, code: result.code, message: result.message })
+    if (result.error === 'reauth_required' || result.error === 'tiktok_error') {
+      return jsonForTikTokFailure(result)
+    }
+    return NextResponse.json(result)
   }
 
   if (entityId) {

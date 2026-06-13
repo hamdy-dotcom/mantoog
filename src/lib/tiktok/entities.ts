@@ -1,5 +1,5 @@
 import {
-  TIKTOK, campaignPageSize, fetchIntegratedReport, num, resolveAdvertiserCurrency,
+  TIKTOK, campaignPageSize, fetchIntegratedReport, num, resolveAdvertiserCurrency, tiktokApiFailure,
 } from '@/lib/tiktok/server'
 import {
   detectSmartPlus,
@@ -535,7 +535,9 @@ export async function fetchEntitiesForStore(
       ),
     ])
     if (reportJson.code !== 0) {
-      return { error: 'tiktok_error' as const, code: reportJson.code, message: reportJson.message }
+      return tiktokApiFailure(reportJson.code, reportJson.message, {
+        storeId, advertiserId: connection.advertiser_id,
+      })
     }
     const metaMap: Record<string, Meta> = {}
     if (metaJson.code === 0) {
@@ -563,7 +565,9 @@ export async function fetchEntitiesForStore(
       ),
     ])
     if (reportJson.code !== 0) {
-      return { error: 'tiktok_error' as const, code: reportJson.code, message: reportJson.message }
+      return tiktokApiFailure(reportJson.code, reportJson.message, {
+        storeId, advertiserId: connection.advertiser_id,
+      })
     }
     const adgroupList = metaJson.code === 0 ? metaJson.data?.list || [] : []
     const campaignIds = adgroupList.map((g: Record<string, unknown>) => String(g.campaign_id || ''))
@@ -607,7 +611,9 @@ export async function fetchEntitiesForStore(
       ),
     ])
     if (reportJson.code !== 0) {
-      return { error: 'tiktok_error' as const, code: reportJson.code, message: reportJson.message }
+      return tiktokApiFailure(reportJson.code, reportJson.message, {
+        storeId, advertiserId: connection.advertiser_id,
+      })
     }
     const adList = metaJson.code === 0 ? metaJson.data?.list || [] : []
     const smartPlusCampaignIds = await resolveSmartPlusCampaignIds(
@@ -654,7 +660,9 @@ export async function fetchEntitiesForStore(
   }
 
   if (reportJson.code !== 0) {
-    return { error: 'tiktok_error' as const, code: reportJson.code, message: reportJson.message }
+    return tiktokApiFailure(reportJson.code, reportJson.message, {
+      storeId, advertiserId: connection.advertiser_id,
+    })
   }
 
   const metaMap: Record<string, Meta> = {}

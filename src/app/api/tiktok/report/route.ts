@@ -5,7 +5,9 @@ import {
   reportPageSize,
   resolveActiveConnection,
   resolveAdvertiserCurrency,
+  tiktokApiFailure,
 } from '@/lib/tiktok/server'
+import { jsonForTikTokFailure } from '@/lib/tiktok/api-errors'
 
 export async function GET(req: NextRequest) {
   const dates = parseQueryDates(req.nextUrl.searchParams)
@@ -39,7 +41,11 @@ export async function GET(req: NextRequest) {
   ])
 
   if (json.code !== 0) {
-    return NextResponse.json({ error: 'tiktok_error', code: json.code, message: json.message })
+    const failure = await tiktokApiFailure(json.code, json.message, {
+      storeId: store.id,
+      advertiserId: connection.advertiser_id,
+    })
+    return jsonForTikTokFailure(failure)
   }
 
   return NextResponse.json({

@@ -253,6 +253,7 @@ export default function HomePage() {
           <div className="font-bold text-white">Mantoog</div>
           <div className="text-xs text-[#4a4e60]">© 2026 Mantoog. {ar ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}</div>
           <div className="flex gap-4 text-xs text-[#4a4e60]">
+            <a href="/privacy" className="hover:text-white transition-colors">{ar ? 'سياسة الخصوصية' : 'Privacy Policy'}</a>
             <a href="/login" className="hover:text-white transition-colors">{ar ? 'تسجيل الدخول' : 'Login'}</a>
             <a href="/signup" className="hover:text-white transition-colors">{ar ? 'إنشاء حساب' : 'Sign up'}</a>
           </div>

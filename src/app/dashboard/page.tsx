@@ -1,11 +1,25 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
+import DashboardFiltersBar, { DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from '@/components/dashboard/DashboardFiltersBar'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
+import { daysBetween } from '@/lib/dashboard/date-range'
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+
+function applyOrderFilters(orders: any[], filters: DashboardFilters) {
+  return orders.filter(o => {
+    const day = o.created_at?.slice(0, 10)
+    if (!day || day < filters.dateStart || day > filters.dateEnd) return false
+    if (filters.productId && o.product_id !== filters.productId) return false
+    if (filters.region && o.address_governorate !== filters.region) return false
+    if (filters.status && o.status !== filters.status) return false
+    return true
+  })
+}
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-[#3a2800] text-[#fbbf24]',
@@ -17,15 +31,40 @@ const STATUS_COLORS: Record<string, string> = {
   returned: 'bg-[#3a1414] text-[#f87171]',
 }
 
+function yDomain(data: { count: number }[]) {
+  const values = data.map(d => d.count)
+  if (!values.length) return [0, 1]
+  const max = Math.max(...values)
+  const pad = max === 0 ? 1 : Math.max(max * 0.15, 1)
+  return [0, max + pad]
+}
+
+function OrdersChartTooltip({ active, payload, label, lang }: {
+  active?: boolean
+  payload?: { value: number }[]
+  label?: string
+  lang: string
+}) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-2.5 py-1.5 text-xs shadow-xl">
+      <div className="text-[#8b8fa8] mb-0.5">{label}</div>
+      <div className="text-white font-semibold">
+        {payload[0].value} {lang === 'ar' ? 'طلب' : 'orders'}
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const [merchant, setMerchant] = useState<any>(null)
   const [store, setStore] = useState<any>(null)
   const [credits, setCredits] = useState<any>(null)
   const [orders, setOrders] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
-  const [stats, setStats] = useState({ orders: 0, revenue: 0, delivered: 0, pending: 0, cancelled: 0 })
   const [loading, setLoading] = useState(true)
   const [showCreditsModal, setShowCreditsModal] = useState(false)
+  const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS)
   const router = useRouter()
   const supabase = createClient()
   const { lang, dir } = useLang()
@@ -36,43 +75,136 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data: merchantData } = await supabase.from('merchants').select('*').eq('id', user.id).single()
-      setMerchant(merchantData)
+      const [
+        { data: merchantData },
+        { data: storeData },
+        { data: creditsData },
+        { data: ordersData },
+        { data: productsData },
+      ] = await Promise.all([
+        supabase.from('merchants').select('*').eq('id', user.id).single(),
+        supabase.from('stores').select('*').eq('merchant_id', user.id).single(),
+        supabase.from('order_credits').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false }).limit(1).single(),
+        supabase.from('orders').select('*, products(title, images)').eq('merchant_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('products').select('id, title, images, status, created_at').eq('merchant_id', user.id).order('created_at', { ascending: false }),
+      ])
 
-      const { data: storeData } = await supabase.from('stores').select('*').eq('merchant_id', user.id).single()
       if (!storeData) { router.push('/dashboard/setup'); return }
+
+      setMerchant(merchantData)
       setStore(storeData)
-
-      const { data: creditsData } = await supabase.from('order_credits').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false }).limit(1).single()
       setCredits(creditsData)
-
-      const { data: ordersData } = await supabase
-        .from('orders')
-        .select('*, products(title, images)')
-        .eq('merchant_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5)
       setOrders(ordersData || [])
 
-      const { data: allOrders } = await supabase.from('orders').select('total_price, status').eq('merchant_id', user.id)
-      if (allOrders) {
-        const revenue = allOrders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + Number(o.total_price), 0)
-        setStats({
-          orders: allOrders.length,
-          revenue,
-          delivered: allOrders.filter(o => o.status === 'delivered').length,
-          pending: allOrders.filter(o => o.status === 'pending').length,
-          cancelled: allOrders.filter(o => o.status === 'cancelled').length,
-        })
-      }
+      const productList = productsData || []
+      if (productList.length) {
+        const { data: landingPagesData } = await supabase
+          .from('landing_pages')
+          .select('product_id, visits')
+          .in('product_id', productList.map(p => p.id))
 
-      const { data: productsData } = await supabase.from('products').select('id, title, images, status').eq('merchant_id', user.id).order('created_at', { ascending: false }).limit(5)
-      setProducts(productsData || [])
+        setProducts(productList.map(p => ({
+          ...p,
+          landing_pages: landingPagesData?.filter(lp => lp.product_id === p.id) || [],
+        })))
+      } else {
+        setProducts([])
+      }
 
       setLoading(false)
     }
     init()
   }, [])
+
+  const filteredOrders = useMemo(
+    () => applyOrderFilters(orders, filters),
+    [orders, filters]
+  )
+
+  const regionOptions = useMemo(() => {
+    const regions = new Set<string>()
+    orders.forEach(o => {
+      if (o.address_governorate) regions.add(o.address_governorate)
+    })
+    return [...regions].sort((a, b) => a.localeCompare(b, lang === 'ar' ? 'ar' : 'en'))
+  }, [orders, lang])
+
+  const recentOrders = useMemo(
+    () => [...filteredOrders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5),
+    [filteredOrders]
+  )
+
+  const metrics = useMemo(() => {
+    const totalOrders = filteredOrders.length
+    const deliveredOrders = filteredOrders.filter(o => o.status === 'delivered').length
+    const cancelledOrders = filteredOrders.filter(o => o.status === 'cancelled').length
+    const pendingOrders = filteredOrders.filter(o => o.status === 'pending').length
+    const totalRevenue = filteredOrders
+      .filter(o => o.status === 'delivered')
+      .reduce((sum, o) => sum + Number(o.total_price), 0)
+    const deliveryRate = totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : 0
+    const cancellationRate = totalOrders > 0 ? Math.round((cancelledOrders / totalOrders) * 100) : 0
+
+    const productsInScope = filters.productId
+      ? products.filter(p => p.id === filters.productId)
+      : products
+
+    const productOrderCounts = productsInScope.map(p => {
+      const orderCount = filteredOrders.filter(o => o.product_id === p.id).length
+      const visits = p.landing_pages?.[0]?.visits || 0
+      const conversionRate = visits > 0 ? (orderCount / visits) * 100 : 0
+      return { ...p, count: orderCount, visits, conversionRate }
+    }).filter(p => p.count > 0).sort((a, b) => b.count - a.count).slice(0, 5)
+
+    const withVisits = productsInScope
+      .map(p => {
+        const orderCount = filteredOrders.filter(o => o.product_id === p.id).length
+        const visits = p.landing_pages?.[0]?.visits || 0
+        return visits > 0 ? (orderCount / visits) * 100 : null
+      })
+      .filter((r): r is number => r !== null)
+
+    const conversionRate = withVisits.length > 0
+      ? withVisits.reduce((sum, r) => sum + r, 0) / withVisits.length
+      : 0
+
+    const rangeDays = daysBetween(filters.dateStart, filters.dateEnd)
+    const ordersByDay = rangeDays.map(day => ({
+      date: day,
+      label: day.slice(5),
+      count: filteredOrders.filter(o => o.created_at?.slice(0, 10) === day).length,
+    }))
+
+    const statusBreakdown = [
+      { key: 'pending', label: lang === 'ar' ? 'قيد الانتظار' : 'Pending', count: pendingOrders, color: '#fbbf24' },
+      { key: 'delivered', label: lang === 'ar' ? 'تم التسليم' : 'Delivered', count: deliveredOrders, color: '#4ade80' },
+      { key: 'cancelled', label: lang === 'ar' ? 'ملغي' : 'Cancelled', count: cancelledOrders, color: '#f87171' },
+    ]
+
+    const govCounts: Record<string, number> = {}
+    filteredOrders.forEach(o => {
+      if (o.address_governorate) {
+        govCounts[o.address_governorate] = (govCounts[o.address_governorate] || 0) + 1
+      }
+    })
+    const topGovs = Object.entries(govCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
+
+    return {
+      totalOrders,
+      totalRevenue,
+      deliveryRate,
+      deliveredOrders,
+      cancellationRate,
+      cancelledOrders,
+      conversionRate,
+      productOrderCounts,
+      ordersByDay,
+      statusBreakdown,
+      topGovs,
+    }
+  }, [filteredOrders, products, filters.productId, filters.dateStart, filters.dateEnd, lang])
+
+  const chartDomain = useMemo(() => yDomain(metrics.ordersByDay), [metrics.ordersByDay])
 
   if (loading) {
     return (
@@ -82,14 +214,38 @@ export default function DashboardPage() {
     )
   }
 
+  const periodSub = lang === 'ar' ? 'في الفترة المحددة' : 'In selected period'
+
+  const kpiCards = [
+    { label: tr.totalOrders, value: metrics.totalOrders, sub: periodSub },
+    { label: tr.revenue, value: `${metrics.totalRevenue.toLocaleString()} ${store?.currency}`, sub: lang === 'ar' ? 'من الطلبات المُسلَّمة' : 'From delivered orders' },
+    {
+      label: lang === 'ar' ? 'معدل التسليم' : 'Delivery rate',
+      value: `${metrics.deliveryRate}%`,
+      sub: lang === 'ar' ? `${metrics.deliveredOrders} تم التسليم` : `${metrics.deliveredOrders} delivered`,
+      color: metrics.deliveryRate >= 50 ? 'text-[#4ade80]' : 'text-[#f87171]',
+    },
+    {
+      label: lang === 'ar' ? 'معدل الإلغاء' : 'Cancellation rate',
+      value: `${metrics.cancellationRate}%`,
+      sub: lang === 'ar' ? `${metrics.cancelledOrders} ملغي` : `${metrics.cancelledOrders} cancelled`,
+      color: metrics.cancellationRate <= 20 ? 'text-[#4ade80]' : 'text-[#f87171]',
+    },
+    {
+      label: lang === 'ar' ? 'معدل التحويل' : 'Conversion rate',
+      value: `${metrics.conversionRate.toFixed(1)}%`,
+      sub: lang === 'ar' ? 'طلبات / زيارات الصفحة' : 'Orders / landing page visits',
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
       <Sidebar store={store} credits={credits} />
 
-      <main className="flex-1 p-6 md:p-8 overflow-auto pb-24 md:pb-8 mt-14 md:mt-0">
+      <main className="flex-1 p-6 md:p-8 overflow-auto pb-24 md:pb-8 mt-14 md:mt-0 space-y-5">
 
         {/* Header */}
-        <div className="mb-8 flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold text-white">
               {tr.welcomeBack}{merchant?.full_name ? `, ${merchant.full_name.split(' ')[0]}` : ''} 👋
@@ -98,15 +254,23 @@ export default function DashboardPage() {
           </div>
           <button
             onClick={() => router.push('/dashboard/products/new')}
-            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shrink-0"
           >
             {tr.addProduct}
           </button>
         </div>
 
+        <DashboardFiltersBar
+          lang={lang}
+          filters={filters}
+          onChange={setFilters}
+          products={products.map(p => ({ id: p.id, title: p.title }))}
+          regions={regionOptions}
+        />
+
         {/* Credits warning */}
         {credits && credits.credits_remaining <= 20 && credits.credits_remaining > 0 && (
-          <div className="mb-6 bg-[#3a2800] border border-[#fbbf24]/30 rounded-xl p-4 flex items-center justify-between">
+          <div className="bg-[#3a2800] border border-[#fbbf24]/30 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <span className="text-2xl">⚠️</span>
               <div>
@@ -121,7 +285,7 @@ export default function DashboardPage() {
         )}
 
         {credits && credits.credits_remaining === 0 && (
-          <div className="mb-6 bg-[#3a1414] border border-[#f87171]/30 rounded-xl p-4 flex items-center justify-between">
+          <div className="bg-[#3a1414] border border-[#f87171]/30 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <span className="text-2xl">🚫</span>
               <div>
@@ -135,116 +299,178 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* KPI Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          {[
-            { label: tr.totalOrders, value: stats.orders, icon: '🛒', sub: lang === 'ar' ? 'إجمالي الطلبات' : 'All time' },
-            { label: tr.revenue, value: `${stats.revenue.toLocaleString()} ${store?.currency}`, icon: '💰', sub: lang === 'ar' ? 'من الطلبات المُسلَّمة' : 'From delivered orders' },
-            { label: lang === 'ar' ? 'تم التسليم' : 'Delivered', value: stats.delivered, icon: '✅', sub: lang === 'ar' ? `${stats.orders > 0 ? Math.round((stats.delivered / stats.orders) * 100) : 0}% معدل التسليم` : `${stats.orders > 0 ? Math.round((stats.delivered / stats.orders) * 100) : 0}% delivery rate` },
-            { label: tr.freeCreditsLeft, value: credits?.credits_remaining ?? 100, icon: '🎯', sub: lang === 'ar' ? 'طلب متبقي' : 'Orders remaining', highlight: (credits?.credits_remaining ?? 100) <= 20 },
-          ].map((s, i) => (
-            <div key={i} className={`bg-[#1a1d24] border rounded-xl p-3 md:p-5 ${s.highlight ? 'border-[#f59e0b]/40' : 'border-[#2a2d35]'}`}>
-              <div className="flex items-center justify-between mb-2 md:mb-3">
-                <div className="text-[10px] md:text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{s.label}</div>
-                <span className="text-base md:text-xl">{s.icon}</span>
-              </div>
-              <div className={`text-xl md:text-2xl lg:text-3xl font-bold mb-1 ${s.highlight ? 'text-[#f59e0b]' : 'text-white'}`}>{s.value}</div>
-              <div className="text-xs text-[#8b8fa8]">{s.sub}</div>
+        {/* Stat cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+          {kpiCards.map((kpi, i) => (
+            <div key={i} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-3 md:p-4">
+              <div className="text-[10px] md:text-xs font-medium text-[#4a4e60] uppercase tracking-wider mb-1.5">{kpi.label}</div>
+              <div className={`text-xl md:text-2xl font-bold mb-0.5 ${kpi.color || 'text-white'}`}>{kpi.value}</div>
+              <div className="text-[11px] text-[#8b8fa8]">{kpi.sub}</div>
             </div>
           ))}
         </div>
 
-        {/* Order status mini stats */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {[
-            { label: lang === 'ar' ? 'قيد الانتظار' : 'Pending', value: stats.pending, color: 'text-[#fbbf24]', bg: 'bg-[#3a2800]' },
-            { label: lang === 'ar' ? 'تم التسليم' : 'Delivered', value: stats.delivered, color: 'text-[#4ade80]', bg: 'bg-[#14321f]' },
-            { label: lang === 'ar' ? 'ملغي' : 'Cancelled', value: stats.cancelled, color: 'text-[#f87171]', bg: 'bg-[#3a1414]' },
-          ].map((s, i) => (
-            <div key={i} className={`${s.bg} border border-[#2a2d35] rounded-xl p-4 flex items-center justify-between`}>
-              <span className="text-sm text-[#8b8fa8]">{s.label}</span>
-              <span className={`text-xl font-bold ${s.color}`}>{s.value}</span>
-            </div>
-          ))}
-        </div>
+        {/* Daily orders + Order status */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4">
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 md:p-5">
+            <h2 className="text-white font-medium text-sm mb-3">
+              {lang === 'ar' ? 'الطلبات اليومية' : 'Daily orders'}
+            </h2>
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart
+                data={metrics.ordersByDay}
+                margin={{ top: 8, right: dir === 'rtl' ? 0 : 4, left: dir === 'rtl' ? 4 : 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="dashboard-orders-gradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.45} />
+                    <stop offset="100%" stopColor="#60a5fa" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="label" tick={{ fill: '#4a4e60', fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <YAxis hide domain={chartDomain} allowDecimals={false} />
+                <Tooltip content={<OrdersChartTooltip lang={lang} />} />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#60a5fa"
+                  strokeWidth={2}
+                  fill="url(#dashboard-orders-gradient)"
+                  dot={{ r: 2.5, fill: '#60a5fa', strokeWidth: 0 }}
+                  activeDot={{ r: 4, fill: '#60a5fa' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
 
-        <div className="grid grid-cols-1 gap-4">
-
-          {/* Recent orders */}
-          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#2a2d35] flex items-center justify-between">
-              <h2 className="text-white font-medium">{lang === 'ar' ? 'آخر الطلبات' : 'Recent orders'}</h2>
-              <button onClick={() => router.push('/dashboard/orders')} className="text-xs text-[#3b82f6] hover:underline">
-                {lang === 'ar' ? 'عرض الكل' : 'View all'}
-              </button>
-            </div>
-            {orders.length === 0 ? (
-              <div className="p-12 text-center">
-                <div className="text-4xl mb-3">📋</div>
-                <div className="text-white font-medium mb-1">{lang === 'ar' ? 'لا توجد طلبات بعد' : 'No orders yet'}</div>
-                <div className="text-[#8b8fa8] text-sm">{lang === 'ar' ? 'ستظهر الطلبات هنا عند وصولها' : 'Orders will appear here when they arrive'}</div>
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 md:p-5 flex flex-col">
+            <h2 className="text-white font-medium text-sm mb-3">
+              {lang === 'ar' ? 'حالة الطلبات' : 'Order status'}
+            </h2>
+            {metrics.totalOrders === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-[#4a4e60] text-sm min-h-[160px]">
+                {lang === 'ar' ? 'لا توجد طلبات بعد' : 'No orders yet'}
               </div>
             ) : (
-              <div>
-                {orders.map(order => (
-                  <div key={order.id} className="flex items-center gap-4 px-5 py-3.5 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-white font-medium truncate">{order.customer_name}</div>
-                      <div className="text-xs text-[#4a4e60]">{order.customer_phone}</div>
+              <div className="flex-1 flex flex-col justify-center gap-4 min-h-[160px]">
+                {metrics.statusBreakdown.map(s => (
+                  <div key={s.key}>
+                    <div className="flex justify-between mb-1.5">
+                      <span className="text-xs text-[#8b8fa8]">{s.label}</span>
+                      <span className="text-xs font-medium" style={{ color: s.color }}>
+                        {s.count} ({metrics.totalOrders > 0 ? Math.round((s.count / metrics.totalOrders) * 100) : 0}%)
+                      </span>
                     </div>
-                    <div className="text-xs text-[#8b8fa8] truncate max-w-[120px]">{order.products?.title}</div>
-                    <div className="text-sm text-white font-medium whitespace-nowrap">{order.total_price} {order.currency}</div>
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${STATUS_COLORS[order.status] || 'bg-[#1f2229] text-[#8b8fa8]'}`}>
-                      {order.status}
-                    </span>
-                    <div className="text-xs text-[#4a4e60] whitespace-nowrap">{new Date(order.created_at).toLocaleDateString()}</div>
+                    <div className="h-2 bg-[#2a2d35] rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${metrics.totalOrders > 0 ? (s.count / metrics.totalOrders) * 100 : 0}%`,
+                          background: s.color,
+                          minWidth: s.count > 0 ? '4px' : 0,
+                        }}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
+        </div>
 
-          {/* Recent products */}
-          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#2a2d35] flex items-center justify-between">
-              <h2 className="text-white font-medium">{lang === 'ar' ? 'المنتجات' : 'Products'}</h2>
-              <button onClick={() => router.push('/dashboard/products')} className="text-xs text-[#3b82f6] hover:underline">
-                {lang === 'ar' ? 'عرض الكل' : 'View all'}
-              </button>
-            </div>
-            {products.length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="text-3xl mb-3">📦</div>
-                <div className="text-white font-medium text-sm mb-1">{tr.addFirstProduct}</div>
-                <button onClick={() => router.push('/dashboard/products/new')} className="mt-3 text-xs text-[#3b82f6] hover:underline">{tr.addNew}</button>
-              </div>
+        {/* Top products + Top regions */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 md:p-5">
+            <h2 className="text-white font-medium text-sm mb-3">{lang === 'ar' ? 'أفضل المنتجات' : 'Top products'}</h2>
+            {metrics.productOrderCounts.length === 0 ? (
+              <div className="text-[#4a4e60] text-sm py-4">{lang === 'ar' ? 'لا توجد منتجات بعد' : 'No products yet'}</div>
             ) : (
-              <div>
-                {products.map(p => (
-                  <div key={p.id} className="flex items-center gap-3 px-5 py-3 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors cursor-pointer" onClick={() => router.push(`/dashboard/products/${p.id}`)}>
+              <div className="space-y-2.5">
+                {metrics.productOrderCounts.map((p, i) => (
+                  <div key={p.id} className="flex items-center gap-3">
+                    <span className="text-xs text-[#4a4e60] w-4 shrink-0">{i + 1}</span>
                     {p.images?.[0] ? (
-                      <img src={p.images[0]} alt="" className="w-9 h-9 rounded-lg object-cover border border-[#2a2d35] shrink-0" />
+                      <img src={p.images[0]} alt="" className="w-8 h-8 rounded-lg object-cover border border-[#2a2d35] shrink-0" />
                     ) : (
-                      <div className="w-9 h-9 rounded-lg bg-[#0f1117] border border-[#2a2d35] flex items-center justify-center text-sm shrink-0">📦</div>
+                      <div className="w-8 h-8 rounded-lg bg-[#0f1117] border border-[#2a2d35] flex items-center justify-center text-xs shrink-0">📦</div>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-white truncate">{p.title}</div>
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${p.status === 'active' ? 'bg-[#14321f] text-[#4ade80]' : 'bg-[#1f2229] text-[#8b8fa8]'}`}>{p.status}</span>
+                      <div className="text-xs text-[#4a4e60]">
+                        {p.count} {lang === 'ar' ? 'طلب' : 'orders'} · {p.visits} {lang === 'ar' ? 'زيارة' : 'visits'} ·{' '}
+                        <span className={p.conversionRate >= 2 ? 'text-[#4ade80]' : 'text-[#f87171]'}>
+                          {p.conversionRate.toFixed(1)}% CVR
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
-                <div className="px-5 py-3">
-                  <button onClick={() => router.push('/dashboard/products/new')} className="w-full text-xs text-[#3b82f6] hover:text-white border border-dashed border-[#2a2d35] hover:border-[#3b82f6] rounded-lg py-2 transition-colors">
-                    {tr.addNew}
-                  </button>
-                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 md:p-5">
+            <h2 className="text-white font-medium text-sm mb-3">{lang === 'ar' ? 'أفضل المناطق' : 'Top regions'}</h2>
+            {metrics.topGovs.length === 0 ? (
+              <div className="text-[#4a4e60] text-sm py-4">{lang === 'ar' ? 'لا توجد طلبات بعد' : 'No orders yet'}</div>
+            ) : (
+              <div className="space-y-2.5">
+                {metrics.topGovs.map(([gov, count]) => (
+                  <div key={gov}>
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm text-white truncate pe-2">{gov}</span>
+                      <span className="text-xs text-[#8b8fa8] shrink-0">
+                        {count} {lang === 'ar' ? 'طلب' : 'orders'}
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-[#2a2d35] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#3b82f6] rounded-full"
+                        style={{ width: `${(count / metrics.topGovs[0][1]) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
+
+        {/* Latest orders */}
+        <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-[#2a2d35] flex items-center justify-between">
+            <h2 className="text-white font-medium text-sm">{lang === 'ar' ? 'آخر الطلبات' : 'Latest orders'}</h2>
+            <button onClick={() => router.push('/dashboard/orders')} className="text-xs text-[#3b82f6] hover:underline">
+              {lang === 'ar' ? 'عرض الكل' : 'View all'}
+            </button>
+          </div>
+          {recentOrders.length === 0 ? (
+            <div className="p-10 text-center">
+              <div className="text-3xl mb-2">📋</div>
+              <div className="text-white font-medium text-sm mb-1">{lang === 'ar' ? 'لا توجد طلبات بعد' : 'No orders yet'}</div>
+              <div className="text-[#8b8fa8] text-xs">{lang === 'ar' ? 'ستظهر الطلبات هنا عند وصولها' : 'Orders will appear here when they arrive'}</div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              {recentOrders.map(order => (
+                <div key={order.id} className="flex items-center gap-3 md:gap-4 px-5 py-3 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors min-w-[480px] md:min-w-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-white font-medium truncate">{order.customer_name}</div>
+                    <div className="text-xs text-[#4a4e60]">{order.customer_phone}</div>
+                  </div>
+                  <div className="text-xs text-[#8b8fa8] truncate max-w-[120px] hidden sm:block">{order.products?.title}</div>
+                  <div className="text-sm text-white font-medium whitespace-nowrap">{order.total_price} {order.currency}</div>
+                  <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${STATUS_COLORS[order.status] || 'bg-[#1f2229] text-[#8b8fa8]'}`}>
+                    {order.status}
+                  </span>
+                  <div className="text-xs text-[#4a4e60] whitespace-nowrap hidden md:block">{new Date(order.created_at).toLocaleDateString()}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
 
-      {/* Credits modal */}
       {showCreditsModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-6 w-full max-w-lg">

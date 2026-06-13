@@ -45,10 +45,6 @@ export default function ResearchPage() {
   const [importingId, setImportingId] = useState<string | null>(null)
   const [importedIds, setImportedIds] = useState<Set<string>>(new Set())
 
-  // Hot on Mantoog
-  const [hotProducts, setHotProducts] = useState<any[]>([])
-  const [hotLoading, setHotLoading] = useState(false)
-
   // Analyzer
   const [analyzerUrl, setAnalyzerUrl] = useState('')
   const [analyzerResult, setAnalyzerResult] = useState<any>(null)
@@ -81,7 +77,6 @@ export default function ResearchPage() {
       setLoading(false)
 
       fetchBestsellers(country, 'all', 'amazon')
-      fetchHotProducts(country)
     }
     init()
   }, [])
@@ -115,20 +110,6 @@ export default function ResearchPage() {
       setScrapeLoaded(true)
     } catch {}
     setScrapeLoading(false)
-  }
-
-  const fetchHotProducts = async (country: string) => {
-    setHotLoading(true)
-    try {
-      const res = await fetch('/api/hot-on-mantoog', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ country }),
-      })
-      const data = await res.json()
-      setHotProducts(data.products || [])
-    } catch {}
-    setHotLoading(false)
   }
 
   const handleImport = async (product: any) => {
@@ -182,7 +163,6 @@ export default function ResearchPage() {
 
   const tabs = [
     { id: 'bestsellers', icon: '🏆', label: lang === 'ar' ? 'الأكثر مبيعاً' : 'Bestsellers' },
-    { id: 'hot', icon: '🔥', label: lang === 'ar' ? 'الأكثر طلباً على Mantoog' : 'Hot on Mantoog' },
     { id: 'analyzer', icon: '🤖', label: lang === 'ar' ? 'محلل المنتجات' : 'Analyzer' },
     { id: 'profit', icon: '💰', label: lang === 'ar' ? 'حاسبة الربح' : 'Profit Calc' },
   ]
@@ -427,77 +407,6 @@ export default function ResearchPage() {
                       </div>
                     </div>
                   )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* HOT ON MANTOOG */}
-          {activeTab === 'hot' && (
-            <div>
-              <div className="text-xs text-[#4a4e60] mb-5 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#f97316] animate-pulse inline-block" />
-                {lang === 'ar'
-                  ? `المنتجات الأكثر طلباً على Mantoog في ${COUNTRY_LABELS[storeCountry] || storeCountry} خلال آخر 30 يوم`
-                  : `Top ordered products on Mantoog in ${COUNTRY_LABELS[storeCountry] || storeCountry} in the last 30 days`
-                }
-              </div>
-
-              {hotLoading && (
-                <div className="flex flex-col items-center justify-center py-24 gap-4">
-                  <div className="text-5xl animate-pulse">🔥</div>
-                  <div className="text-white font-medium">{lang === 'ar' ? 'جاري تحليل بيانات Mantoog...' : 'Analyzing Mantoog data...'}</div>
-                </div>
-              )}
-
-              {!hotLoading && hotProducts.length === 0 && (
-                <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-12 text-center max-w-lg">
-                  <div className="text-5xl mb-4">📊</div>
-                  <div className="text-white font-medium mb-2">{lang === 'ar' ? 'لا توجد بيانات بعد' : 'No data yet'}</div>
-                  <div className="text-[#8b8fa8] text-sm">
-                    {lang === 'ar'
-                      ? 'هذا القسم سيعرض المنتجات الأكثر مبيعاً عبر متاجر Mantoog كلما نمت المنصة'
-                      : 'This section will show the top-selling products across all Mantoog stores as the platform grows'
-                    }
-                  </div>
-                </div>
-              )}
-
-              {!hotLoading && hotProducts.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {hotProducts.map((product, idx) => (
-                    <div key={product.id} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden hover:border-[#f97316] transition-all">
-                      <div className="relative">
-                        {product.images?.[0] ? (
-                          <img src={product.images[0]} alt={product.title} className="w-full aspect-square object-contain bg-[#0f1117]" />
-                        ) : (
-                          <div className="w-full aspect-square bg-[#0f1117] flex items-center justify-center text-4xl">📦</div>
-                        )}
-                        <div className="absolute top-2 left-2 bg-[#f97316] text-white text-xs font-bold px-2 py-1 rounded-full">
-                          #{idx + 1}
-                        </div>
-                      </div>
-                      <div className="p-4">
-                        <h3 className="text-sm font-semibold text-white mb-2 line-clamp-2">{product.title}</h3>
-                        <div className="grid grid-cols-2 gap-2 mb-3">
-                          <div className="bg-[#0f1117] rounded-lg p-2 text-center">
-                            <div className="text-xs text-[#4a4e60]">{lang === 'ar' ? 'الطلبات' : 'Orders'}</div>
-                            <div className="text-sm font-bold text-[#f97316]">{product.orderCount}</div>
-                          </div>
-                          <div className="bg-[#0f1117] rounded-lg p-2 text-center">
-                            <div className="text-xs text-[#4a4e60]">{lang === 'ar' ? 'التسليم' : 'Delivery'}</div>
-                            <div className={`text-sm font-bold ${product.deliveryRate >= 50 ? 'text-[#4ade80]' : 'text-[#f87171]'}`}>{product.deliveryRate}%</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-white font-bold">{product.price} {product.currency}</span>
-                          {product.compare_at_price && (
-                            <span className="text-xs text-[#4a4e60] line-through">{product.compare_at_price}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               )}
             </div>

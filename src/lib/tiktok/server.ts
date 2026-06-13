@@ -160,3 +160,61 @@ export const num = (v: unknown) => {
   const n = parseFloat(String(v ?? ''))
   return Number.isFinite(n) ? n : 0
 }
+
+/** TikTok auth/token failure codes (40001, 401xx, revoked-token messages). */
+export function isTikTokAuthError(code: unknown, message?: string): boolean {
+  const c = Number(code)
+  if (Number.isFinite(c)) {
+    if (c === 40001) return true
+    if (c >= 40100 && c < 40200) return true
+  }
+  const msg = String(message || '').toLowerCase()
+  if (msg.includes('access token') && (msg.includes('invalid') || msg.includes('expired') || msg.includes('revoked'))) {
+    return true
+  }
+  if (msg.includes('token') && msg.includes('revok')) return true
+  return false
+}
+
+export async function markConnectionExpired(storeId: string, advertiserId: string) {
+  const { error } = await supabaseAdmin
+    .from('tiktok_connections')
+    .update({
+      status: 'expired',
+      is_active: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('store_id', storeId)
+    .eq('advertiser_id', advertiserId)
+
+  if (error) console.error('[tiktok] markConnectionExpired failed:', error.message)
+}
+
+export type TikTokApiFailure =
+  | { error: 'reauth_required' }
+  | { error: 'tiktok_error'; code?: number; message?: string }
+
+export async function tiktokApiFailure(
+  code: number | undefined,
+  message: string | undefined,
+  ctx?: { storeId: string; advertiserId: string }
+): Promise<TikTokApiFailure> {
+  if (isTikTokAuthError(code, message) && ctx) {
+    await markConnectionExpired(ctx.storeId, ctx.advertiserId)
+    return { error: 'reauth_required' }
+  }
+  return { error: 'tiktok_error', code, message }
+}
+
+export async function finalizeMutationResult<T extends Record<string, unknown>>(
+  result: T | { error: string; code?: number; message?: string },
+  ctx: { storeId: string; advertiserId: string }
+): Promise<T | TikTokApiFailure | { error: string; code?: number; message?: string }> {
+  if (!result || typeof result !== 'object' || !('error' in result)) return result
+  const err = result as { error: string; code?: number; message?: string }
+  if (err.error === 'reauth_required') return { error: 'reauth_required' }
+  if (err.error === 'tiktok_error') {
+    return tiktokApiFailure(err.code, err.message, ctx)
+  }
+  return err
+}

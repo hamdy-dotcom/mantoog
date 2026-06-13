@@ -134,10 +134,24 @@ function isTopSpendTier(row: EntityRow, all: EntityRow[]) {
 
 function TableSkeleton() {
   return (
-    <div className="animate-pulse px-5 py-4 space-y-3">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="h-10 bg-[#2a2d35] rounded-lg" />
-      ))}
+    <div className="animate-pulse">
+      <div className="px-5 py-4 border-b border-[#2a2d35] flex gap-3">
+        <div className="h-8 w-32 bg-[#2a2d35] rounded-lg" />
+        <div className="h-8 w-40 bg-[#2a2d35]/60 rounded-lg" />
+      </div>
+      <div className="px-5 py-3 border-b border-[#2a2d35] flex gap-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-7 w-20 bg-[#2a2d35] rounded-lg" />
+        ))}
+      </div>
+      <div className="px-5 py-3 border-b border-[#2a2d35]">
+        <div className="h-4 bg-[#2a2d35]/60 rounded w-full" />
+      </div>
+      <div className="px-5 py-4 space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-10 bg-[#2a2d35] rounded-lg" />
+        ))}
+      </div>
     </div>
   )
 }
@@ -153,16 +167,18 @@ type Props = {
   fmtMoney: (n: number, digits?: number) => string
   fmtNum: (n: number, digits?: number) => string
   fmtPct: (n: number) => string
+  onReauthRequired?: () => void
 }
 
 export default function TikTokCampaignTable({
-  advertiserId, lang, dateStart, dateEnd, fmtMoney, fmtNum, fmtPct,
+  advertiserId, lang, dateStart, dateEnd, fmtMoney, fmtNum, fmtPct, onReauthRequired,
 }: Props) {
   const [level, setLevel] = useState<EntityLevel>('campaigns')
   const [levelOpen, setLevelOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [items, setItems] = useState<EntityRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [toast, setToast] = useState<Toast | null>(null)
   const [confirmPause, setConfirmPause] = useState<EntityRow | null>(null)
   const [confirmBulkPause, setConfirmBulkPause] = useState(false)
@@ -222,22 +238,41 @@ export default function TikTokCampaignTable({
     readOnly: raw.readOnly,
   })
 
+  const handleApiReauth = useCallback((data: { error?: string }) => {
+    if (data.error === 'reauth_required') {
+      onReauthRequired?.()
+      return true
+    }
+    return false
+  }, [onReauthRequired])
+
   const fetchItems = useCallback(async (lvl: EntityLevel) => {
     setLoading(true)
+    setFetchError(null)
     setSelected(new Set())
     try {
       const q = `?level=${lvl}&start_date=${dateStart}&end_date=${dateEnd}`
       const res = await fetch(`/api/tiktok/campaigns${q}`)
       const data = await res.json()
+      if (handleApiReauth(data)) {
+        setItems([])
+        return
+      }
+      if (data.error) {
+        setFetchError(data.error === 'tiktok_error' ? 'tiktok_error' : 'fetch_failed')
+        setItems([])
+        return
+      }
       if (data.items) setItems(data.items.map((r: EntityRow) => normalizeItem(r)))
       else if (data.campaigns) setItems(data.campaigns.map((c: EntityRow) => normalizeItem(c)))
       else setItems([])
     } catch {
+      setFetchError('fetch_failed')
       setItems([])
     } finally {
       setLoading(false)
     }
-  }, [dateStart, dateEnd])
+  }, [dateStart, dateEnd, handleApiReauth])
 
   const refetchItem = useCallback(async (entityId: string) => {
     const q = `?level=${level}&start_date=${dateStart}&end_date=${dateEnd}&entity_id=${entityId}`
@@ -285,6 +320,10 @@ export default function TikTokCampaignTable({
         body: JSON.stringify({ level, entity_id: row.id, status: newStatus, is_smart_plus: row.is_smart_plus }),
       })
       const data = await res.json()
+      if (handleApiReauth(data)) {
+        setItems(prev => prev.map(r => r.id === row.id ? { ...r, operation_status: prevStatus } : r))
+        return
+      }
       if (!res.ok || data.error) {
         setItems(prev => prev.map(r => r.id === row.id ? { ...r, operation_status: prevStatus } : r))
         showError(data.message || (lang === 'ar' ? 'فشل تحديث الحالة' : 'Failed to update status'))
@@ -323,6 +362,10 @@ export default function TikTokCampaignTable({
         body: JSON.stringify({ level, entity_id: row.id, name: trimmed, is_smart_plus: row.is_smart_plus }),
       })
       const data = await res.json()
+      if (handleApiReauth(data)) {
+        setItems(prevItems => prevItems.map(r => r.id === row.id ? { ...r, name: prev } : r))
+        return
+      }
       if (!res.ok || data.error) {
         setItems(prevItems => prevItems.map(r => r.id === row.id ? { ...r, name: prev } : r))
         showError(data.message || (lang === 'ar' ? 'فشل إعادة التسمية' : 'Failed to rename'))
@@ -350,6 +393,10 @@ export default function TikTokCampaignTable({
         body: JSON.stringify({ level, entity_id: row.id, budget: val, is_smart_plus: row.is_smart_plus }),
       })
       const data = await res.json()
+      if (handleApiReauth(data)) {
+        setItems(prev => prev.map(r => r.id === row.id ? { ...r, budget: prevBudget } : r))
+        return
+      }
       if (!res.ok || data.error) {
         setItems(prev => prev.map(r => r.id === row.id ? { ...r, budget: prevBudget } : r))
         showError(data.message || (lang === 'ar' ? 'فشل تحديث الميزانية' : 'Failed to update budget'))
@@ -385,6 +432,10 @@ export default function TikTokCampaignTable({
         }),
       })
       const data = await res.json()
+      if (handleApiReauth(data)) {
+        setItems(prev => prev.map(r => r.id === row.id ? { ...r, bid_price: prevBid, bid_editable: prevEditable } : r))
+        return
+      }
       if (!res.ok || data.error) {
         const smartPlusBlocked = row.is_smart_plus && (
           level === 'campaigns'
@@ -429,6 +480,12 @@ export default function TikTokCampaignTable({
         }),
       })
       const data = await res.json()
+      if (handleApiReauth(data)) {
+        setItems(prev => prev.map(r => r.id === scheduleRow.id
+          ? { ...r, schedule_start_time: prevStart, schedule_end_time: prevEnd }
+          : r))
+        return
+      }
       if (!res.ok || data.error) {
         setItems(prev => prev.map(r => r.id === scheduleRow.id
           ? { ...r, schedule_start_time: prevStart, schedule_end_time: prevEnd }
@@ -455,6 +512,7 @@ export default function TikTokCampaignTable({
         body: JSON.stringify({ level, entity_id: row.id, is_smart_plus: row.is_smart_plus }),
       })
       const data = await res.json()
+      if (handleApiReauth(data)) return
       if (!res.ok || data.error) {
         showError(data.message || (lang === 'ar' ? 'فشل النسخ' : 'Failed to duplicate'))
         return
@@ -537,6 +595,10 @@ export default function TikTokCampaignTable({
         body: JSON.stringify({ level, action, entity_ids: ids, budget, smart_plus_ids: smartPlusIds }),
       })
       const data = await res.json()
+      if (handleApiReauth(data)) {
+        setItems(prevItems)
+        return
+      }
       if (!res.ok || data.error) {
         setItems(prevItems)
         showError(data.message || data.messages?.join(', ') || (lang === 'ar' ? 'فشل الإجراء الجماعي' : 'Bulk action failed'))
@@ -592,10 +654,22 @@ export default function TikTokCampaignTable({
   }[level]
 
   const emptyLabel = {
-    campaigns: { en: 'No campaigns for this period.', ar: 'لا توجد حملات لهذه الفترة.' },
-    adgroups: { en: 'No ad groups for this period.', ar: 'لا توجد مجموعات إعلانات.' },
-    ads: { en: 'No ads for this period.', ar: 'لا توجد إعلانات.' },
-    videos: { en: 'No video data for this period.', ar: 'لا توجد بيانات فيديو.' },
+    campaigns: {
+      en: 'No campaign data for this period — try a wider date range.',
+      ar: 'لا توجد بيانات حملات لهذه الفترة — جرّب نطاق تاريخ أوسع.',
+    },
+    adgroups: {
+      en: 'No ad group data for this period — try a wider date range.',
+      ar: 'لا توجد بيانات مجموعات إعلانات لهذه الفترة — جرّب نطاق تاريخ أوسع.',
+    },
+    ads: {
+      en: 'No ad data for this period — try a wider date range.',
+      ar: 'لا توجد بيانات إعلانات لهذه الفترة — جرّب نطاق تاريخ أوسع.',
+    },
+    videos: {
+      en: 'No video data for this period — try a wider date range.',
+      ar: 'لا توجد بيانات فيديو لهذه الفترة — جرّب نطاق تاريخ أوسع.',
+    },
   }[level]
 
   const menuItem = 'block w-full text-start px-3 py-2 text-xs text-[#c8cad4] hover:text-white hover:bg-[#1a1d24] transition-colors disabled:opacity-40 disabled:pointer-events-none'
@@ -663,6 +737,19 @@ export default function TikTokCampaignTable({
 
         {loading ? (
           <TableSkeleton />
+        ) : fetchError ? (
+          <div className="px-5 py-12 text-center">
+            <p className="text-sm text-[#f87171] mb-3">
+              {lang === 'ar' ? 'تعذر تحميل بيانات الحملات.' : 'Could not load campaign data.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => fetchItems(level)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#2a2d35] text-white hover:bg-[#3a3d48] transition-colors"
+            >
+              {lang === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+            </button>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="px-5 py-12 text-center text-sm text-[#4a4e60]">
             {lang === 'ar' ? emptyLabel.ar : emptyLabel.en}

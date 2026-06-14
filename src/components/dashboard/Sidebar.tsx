@@ -47,6 +47,19 @@ const navItems: NavItem[] = [
   { key: 'settings', path: '/dashboard/settings', icon: '⚙️' },
 ]
 
+/** Primary destinations for mobile bottom bar (includes TikTok Ads). */
+const MOBILE_BOTTOM_NAV_KEYS = [
+  'dashboard',
+  'products',
+  'orders',
+  'tiktokAds',
+  'research',
+] as const
+
+const mobileBottomNavItems = MOBILE_BOTTOM_NAV_KEYS.map(
+  key => navItems.find(item => item.key === key)!
+)
+
 export default function Sidebar({ store, credits }: { store: any; credits?: any }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -166,26 +179,39 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
       </aside>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#1a1d24] border-t border-[#2a2d35] px-2 py-2 safe-area-bottom" dir={dir}>
-        <div className="flex items-center justify-around">
-          {navItems.slice(0, 5).map(item => {
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#1a1d24] border-t border-[#2a2d35] pb-[env(safe-area-inset-bottom,0px)]"
+        dir={dir}
+        aria-label={lang === 'ar' ? 'التنقل الرئيسي' : 'Main navigation'}
+      >
+        <div className="flex items-stretch overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-1 py-2 gap-0.5">
+          {mobileBottomNavItems.map(item => {
             const active = isNavActive(item.path)
             return (
-              <button key={item.path} onClick={() => router.push(item.path)}
-                className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-all min-w-0 ${active ? 'text-[#3b82f6]' : 'text-[#4a4e60]'}`}>
+              <button
+                key={item.path}
+                type="button"
+                onClick={() => router.push(item.path)}
+                className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition-all min-w-[3.5rem] max-w-[4.5rem] flex-shrink-0 flex-1 ${active ? 'text-[#3b82f6]' : 'text-[#4a4e60]'}`}
+              >
                 <NavIcon item={item} emojiClassName="text-xl shrink-0" />
-                <span className="text-xs truncate max-w-[50px] text-center" style={{fontSize:'9px'}}>
+                <span className="text-[9px] leading-tight text-center line-clamp-2 w-full">
                   {tr[item.key as keyof typeof tr] as string}
                 </span>
               </button>
             )
           })}
-          {/* More button */}
           <button
+            type="button"
             onClick={() => router.push('/dashboard/settings')}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-all ${pathname.includes('settings') ? 'text-[#3b82f6]' : 'text-[#4a4e60]'}`}>
-            <span className="text-xl">⚙️</span>
-            <span style={{fontSize:'9px'}}>{lang === 'ar' ? 'المزيد' : 'More'}</span>
+            className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl transition-all min-w-[3.5rem] max-w-[4.5rem] flex-shrink-0 flex-1 ${
+              pathname.includes('settings') || pathname.includes('billing') ? 'text-[#3b82f6]' : 'text-[#4a4e60]'
+            }`}
+          >
+            <span className="text-xl shrink-0">⚙️</span>
+            <span className="text-[9px] leading-tight text-center line-clamp-2 w-full">
+              {lang === 'ar' ? 'المزيد' : 'More'}
+            </span>
           </button>
         </div>
       </nav>

@@ -147,6 +147,7 @@ export async function fetchIntegratedReport(
     dimensions: string[]
     page_size?: number
     metrics?: string[]
+    filtering?: string
   }
 ) {
   const params = new URLSearchParams({
@@ -160,6 +161,7 @@ export async function fetchIntegratedReport(
     page: '1',
     page_size: String(opts.page_size ?? 30),
   })
+  if (opts.filtering) params.set('filtering', opts.filtering)
 
   const res = await fetch(`${TIKTOK}/report/integrated/get/?${params}`, {
     headers: { 'Access-Token': connection.access_token },

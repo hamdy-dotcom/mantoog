@@ -305,9 +305,10 @@ export default function TikTokAdsPage() {
   const [reauthRequired, setReauthRequired] = useState(false)
   const [activeTab, setActiveTab] = useState<TikTokTabId>('dashboard')
   const [customRangeOpen, setCustomRangeOpen] = useState(false)
-  const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   const customRangeRef = useRef<HTMLDivElement>(null)
-  const headerMenuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -412,9 +413,6 @@ export default function TikTokAdsPage() {
       if (customRangeRef.current && !customRangeRef.current.contains(e.target as Node)) {
         setCustomRangeOpen(false)
       }
-      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) {
-        setHeaderMenuOpen(false)
-      }
     }
     document.addEventListener('mousedown', onPointerDown)
     return () => document.removeEventListener('mousedown', onPointerDown)
@@ -456,6 +454,71 @@ export default function TikTokAdsPage() {
     setActiveAccountSaved(true)
     setTimeout(() => setActiveAccountSaved(false), 3000)
     fetchDashboard(appliedStart, appliedEnd)
+    setRefreshKey(k => k + 1)
+  }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    setNotice(null)
+    try {
+      const list = await loadConnections()
+      if (list.some((c: { is_active: boolean }) => c.is_active)) {
+        await fetchDashboard(appliedStart, appliedEnd)
+      }
+      setReauthRequired(false)
+      setRefreshKey(k => k + 1)
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  const handleDisconnect = async () => {
+    const accountLabel = activeAccountName || activeAdvertiserId
+    const confirmed = window.confirm(
+      lang === 'ar'
+        ? `فصل حساب TikTok Ads "${accountLabel}"؟ ستحتاج لإعادة الربط لإدارة الحملات.`
+        : `Disconnect TikTok Ads account "${accountLabel}"? You will need to reconnect to manage campaigns.`
+    )
+    if (!confirmed) return
+
+    setDisconnecting(true)
+    setNotice(null)
+    try {
+      const res = await fetch('/api/tiktok/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ advertiser_id: activeAdvertiserId }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setNotice({
+          type: 'error',
+          text: lang === 'ar' ? 'تعذر فصل الحساب.' : 'Could not disconnect account.',
+        })
+        return
+      }
+      setReauthRequired(false)
+      setReportRows([])
+      setDashboardError(null)
+      const list = await loadConnections()
+      if (!list.length) {
+        setActiveAdvertiserId('')
+      } else if (!list.some((c: { is_active: boolean }) => c.is_active)) {
+        setActiveAdvertiserId(list[0]?.advertiser_id || '')
+      }
+      setNotice({
+        type: 'success',
+        text: lang === 'ar' ? 'تم فصل حساب TikTok Ads.' : 'TikTok Ads account disconnected.',
+      })
+      setRefreshKey(k => k + 1)
+    } catch {
+      setNotice({
+        type: 'error',
+        text: lang === 'ar' ? 'تعذر فصل الحساب.' : 'Could not disconnect account.',
+      })
+    } finally {
+      setDisconnecting(false)
+    }
   }
 
   const applyShortcut = (kind: '7' | '30' | 'today') => {
@@ -594,30 +657,7 @@ export default function TikTokAdsPage() {
         )}
 
         <div className="relative bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-4 md:px-5 md:py-4 mb-6 shadow-sm shadow-black/20">
-          {connections.length > 0 && (
-            <div className="absolute top-3 end-3 z-10" ref={headerMenuRef}>
-              <button
-                type="button"
-                onClick={() => { setHeaderMenuOpen(v => !v); setCustomRangeOpen(false) }}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-[#8b8fa8] hover:text-white hover:bg-[#2a2d35] transition-colors"
-                aria-label={lang === 'ar' ? 'المزيد' : 'More options'}
-              >
-                <span className="text-lg leading-none">⋯</span>
-              </button>
-              {headerMenuOpen && (
-                <div className="absolute end-0 mt-1 min-w-[140px] bg-[#0f1117] border border-[#2a2d35] rounded-lg py-1 shadow-xl">
-                  <a
-                    href="/api/tiktok/connect"
-                    className="block px-3 py-2 text-xs text-[#8b8fa8] hover:text-white hover:bg-[#1a1d24] transition-colors"
-                  >
-                    {lang === 'ar' ? 'إعادة الربط' : 'Reconnect'}
-                  </a>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-5 pe-10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-5">
             <div className="flex items-start gap-3 shrink-0">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -646,31 +686,57 @@ export default function TikTokAdsPage() {
               </div>
             ) : (
               <div className="flex flex-col xl:flex-row flex-1 items-stretch xl:items-center justify-end gap-3 xl:gap-4 min-w-0">
-                <div className="flex flex-col gap-1 shrink-0">
-                  <span className="text-[10px] text-[#4a4e60] uppercase tracking-wider font-medium">
-                    {lang === 'ar' ? 'الحساب النشط' : 'Active account'}
-                  </span>
-                  <div className="relative group">
-                    <AccountIcon className="absolute start-2.5 top-1/2 -translate-y-1/2 text-[#4a4e60] pointer-events-none group-hover:text-[#8b8fa8] transition-colors" />
-                    <select
-                      value={activeAdvertiserId}
-                      onChange={e => handleSetActiveAdvertiser(e.target.value)}
-                      className="appearance-none bg-[#0f1117] border border-[#2a2d35] hover:border-[#3b82f6]/40 rounded-lg ps-8 pe-8 py-2 text-sm text-white min-w-[200px] max-w-[240px] truncate focus:outline-none focus:border-[#3b82f6] transition-colors cursor-pointer"
-                      title={activeAccountName}
-                    >
-                      {connections.map(c => (
-                        <option key={c.advertiser_id} value={c.advertiser_id}>
-                          {c.advertiser_name || c.advertiser_id}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDownIcon className="absolute end-2.5 top-1/2 -translate-y-1/2 text-[#4a4e60] pointer-events-none group-hover:text-[#8b8fa8] transition-colors" />
-                  </div>
-                  {activeAccountSaved && (
-                    <span className="text-[10px] text-[#4ade80]">
-                      {lang === 'ar' ? '✓ تم الحفظ' : '✓ Saved'}
+                <div className="flex flex-col sm:flex-row sm:items-end gap-3 min-w-0">
+                  <div className="flex flex-col gap-1 shrink-0 min-w-0">
+                    <span className="text-[10px] text-[#4a4e60] uppercase tracking-wider font-medium">
+                      {lang === 'ar' ? 'الحساب النشط' : 'Active account'}
                     </span>
-                  )}
+                    <div className="relative group">
+                      <AccountIcon className="absolute start-2.5 top-1/2 -translate-y-1/2 text-[#4a4e60] pointer-events-none group-hover:text-[#8b8fa8] transition-colors" />
+                      <select
+                        value={activeAdvertiserId}
+                        onChange={e => handleSetActiveAdvertiser(e.target.value)}
+                        className="appearance-none bg-[#0f1117] border border-[#2a2d35] hover:border-[#3b82f6]/40 rounded-lg ps-8 pe-8 py-2 text-sm text-white min-w-[200px] max-w-full sm:max-w-[240px] truncate focus:outline-none focus:border-[#3b82f6] transition-colors cursor-pointer"
+                        title={activeAccountName}
+                      >
+                        {connections.map(c => (
+                          <option key={c.advertiser_id} value={c.advertiser_id}>
+                            {c.advertiser_name || c.advertiser_id}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDownIcon className="absolute end-2.5 top-1/2 -translate-y-1/2 text-[#4a4e60] pointer-events-none group-hover:text-[#8b8fa8] transition-colors" />
+                    </div>
+                    {activeAccountSaved && (
+                      <span className="text-[10px] text-[#4ade80]">
+                        {lang === 'ar' ? '✓ تم الحفظ' : '✓ Saved'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleRefresh}
+                      disabled={refreshing || disconnecting}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2d35] bg-[#0f1117] px-3 py-2 text-xs font-medium text-[#8b8fa8] hover:text-white hover:border-[#3b82f6]/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className={refreshing ? 'animate-spin' : ''} aria-hidden>↻</span>
+                      {refreshing
+                        ? (lang === 'ar' ? 'جاري التحديث...' : 'Refreshing...')
+                        : (lang === 'ar' ? 'تحديث' : 'Refresh')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDisconnect}
+                      disabled={refreshing || disconnecting || !activeAdvertiserId}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#3a1414] bg-[#3a1414]/30 px-3 py-2 text-xs font-medium text-[#f87171] hover:bg-[#3a1414]/50 hover:border-[#f87171]/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {disconnecting
+                        ? (lang === 'ar' ? 'جاري الفصل...' : 'Disconnecting...')
+                        : (lang === 'ar' ? 'فصل' : 'Disconnect')}
+                    </button>
+                  </div>
                 </div>
 
                 {hasActiveAccount && (
@@ -695,7 +761,7 @@ export default function TikTokAdsPage() {
                     <div className="relative" ref={customRangeRef}>
                       <button
                         type="button"
-                        onClick={() => { setCustomRangeOpen(v => !v); setHeaderMenuOpen(false) }}
+                        onClick={() => setCustomRangeOpen(v => !v)}
                         className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                           isCustomRangeActive || customRangeOpen
                             ? 'border-[#3b82f6]/50 bg-[#3b82f6]/10 text-white'
@@ -894,6 +960,7 @@ export default function TikTokAdsPage() {
             )}
             {activeTab === 'winners' && hasActiveAccount && (
               <TikTokWinnersTab
+                key={`winners-${refreshKey}`}
                 lang={lang}
                 dir={dir}
                 advertiserId={activeAdvertiserId}
@@ -908,6 +975,7 @@ export default function TikTokAdsPage() {
 
             {activeTab === 'campaigns' && hasActiveAccount && (
               <TikTokCampaignTable
+                key={`campaigns-${refreshKey}`}
                 advertiserId={activeAdvertiserId}
                 currency={adCurrency}
                 lang={lang}

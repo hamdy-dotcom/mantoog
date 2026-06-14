@@ -37,9 +37,39 @@ export type ScaleSignal = {
 }
 
 function reportConfig(level: WinnerLevel) {
-  if (level === 'campaigns') return { data_level: 'AUCTION_CAMPAIGN', idKey: 'campaign_id' }
-  if (level === 'adgroups') return { data_level: 'AUCTION_ADGROUP', idKey: 'adgroup_id' }
-  return { data_level: 'AUCTION_AD', idKey: 'ad_id' }
+  if (level === 'campaigns') {
+    return { data_level: 'AUCTION_CAMPAIGN', idKey: 'campaign_id', filterField: 'campaign_ids' }
+  }
+  if (level === 'adgroups') {
+    return { data_level: 'AUCTION_ADGROUP', idKey: 'adgroup_id', filterField: 'adgroup_ids' }
+  }
+  return { data_level: 'AUCTION_AD', idKey: 'ad_id', filterField: 'ad_ids' }
+}
+
+function entityReportFilter(filterField: string, entityId: string) {
+  return JSON.stringify([
+    {
+      field_name: filterField,
+      filter_type: 'IN',
+      filter_value: JSON.stringify([entityId]),
+    },
+  ])
+}
+
+function readEntityPeriodTotals(
+  list: Array<{ dimensions?: Record<string, unknown>; metrics?: Record<string, unknown> }>,
+  idKey: string,
+  entityId: string
+) {
+  let spend = 0
+  let conversions = 0
+  for (const row of list) {
+    if (String(row.dimensions?.[idKey] || '') !== entityId) continue
+    const m = row.metrics || {}
+    spend += num(m.spend)
+    conversions += num(m.conversion)
+  }
+  return { spend, conversions }
 }
 
 function cpaFrom(spend: number, conversions: number): number | null {
@@ -141,7 +171,8 @@ export async function fetchScaleSignal(
   const currency = await resolveAdvertiserCurrency(connection, storeId)
   const timezone = await resolveTimezone(connection, currency)
   const today = todayInTimezone(timezone)
-  const { data_level, idKey } = reportConfig(level)
+  const { data_level, idKey, filterField } = reportConfig(level)
+  const filtering = entityReportFilter(filterField, entityId)
 
   const metrics = ['spend', 'conversion', 'cost_per_conversion']
 
@@ -152,6 +183,7 @@ export async function fetchScaleSignal(
       data_level,
       dimensions: [idKey],
       metrics,
+      filtering,
       page_size: 10,
     }),
     fetchIntegratedReport(connection, {
@@ -160,6 +192,7 @@ export async function fetchScaleSignal(
       data_level,
       dimensions: [idKey],
       metrics,
+      filtering,
       page_size: 10,
     }),
     fetchIntegratedReport(connection, {
@@ -168,12 +201,16 @@ export async function fetchScaleSignal(
       data_level,
       dimensions: [idKey, 'stat_time_day'],
       metrics,
+      filtering,
       page_size: 50,
     }),
   ])
 
   if (todayReport.code !== 0) {
     return { error: 'tiktok_error', message: todayReport.message, code: todayReport.code }
+  }
+  if (periodReport.code !== 0) {
+    return { error: 'tiktok_error', message: periodReport.message, code: periodReport.code }
   }
 
   let todaySpend = 0
@@ -191,11 +228,10 @@ export async function fetchScaleSignal(
 
   let periodSpend = 0
   let periodConv = 0
-  for (const row of periodReport.data?.list || []) {
-    if (String(row.dimensions?.[idKey] || '') !== entityId) continue
-    const m = row.metrics || {}
-    periodSpend += num(m.spend)
-    periodConv += num(m.conversion)
+  if (periodReport.code === 0) {
+    const totals = readEntityPeriodTotals(periodReport.data?.list || [], idKey, entityId)
+    periodSpend = totals.spend
+    periodConv = totals.conversions
   }
 
   const periodDays = Math.max(1, Math.ceil(

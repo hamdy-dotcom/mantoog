@@ -169,7 +169,7 @@ export default function TikTokScaleModal({
     try {
       const budgetQ = baseBudget ? `&daily_budget=${baseBudget}` : ''
       const smartQ = row.is_smart_plus ? '&is_smart_plus=true' : ''
-      const q = `?level=${row.level}&entity_id=${row.id}&start_date=${dateStart}&end_date=${dateEnd}${budgetQ}${smartQ}`
+      const q = `?level=${scaleLevel}&entity_id=${scaleEntityId}&start_date=${dateStart}&end_date=${dateEnd}${budgetQ}${smartQ}`
       const res = await fetch(`/api/tiktok/scale-signal${q}`)
       const data = await res.json()
       if (data.error === 'reauth_required') {
@@ -193,7 +193,7 @@ export default function TikTokScaleModal({
     } finally {
       setLoadingSignal(false)
     }
-  }, [row.id, row.level, row.is_smart_plus, row.name, scaleEntityId, dateStart, dateEnd, baseBudget, onReauthRequired])
+  }, [scaleLevel, scaleEntityId, dateStart, dateEnd, baseBudget, row.is_smart_plus, onReauthRequired])
 
   useEffect(() => {
     fetchSignal()
@@ -467,6 +467,14 @@ export default function TikTokScaleModal({
                 {lang === 'ar' ? 'تحويلات النهارده:' : 'Today\'s conversions:'}{' '}
                 <span className="text-white font-bold">{fmtNum(signal.today.conversions)}</span>
               </p>
+
+              <p className="text-xs text-[#8b8fa8]">
+                {lang === 'ar' ? 'تحويلات الفترة:' : 'Conversions in period:'}{' '}
+                <span className="text-white font-bold">{fmtNum(signal.period_conversions)}</span>
+                <span className="text-[#4a4e60] ms-1" dir="ltr">
+                  ({dateStart} – {dateEnd})
+                </span>
+              </p>
             </div>
 
             {/* Recommendation banner */}
@@ -483,8 +491,8 @@ export default function TikTokScaleModal({
                 {signal.warnings.includes('learning') && (
                   <p className="text-[11px] text-[#fbbf24] bg-[#2a2800]/50 border border-[#fbbf24]/20 rounded-lg px-3 py-2">
                     {lang === 'ar'
-                      ? '⚠️ أقل من 50 تحويل — لسه في مرحلة التعلم، التكبير الكبير مخاطرة.'
-                      : '⚠️ Under 50 conversions — still learning; big scaling is risky.'}
+                      ? `⚠️ ${fmtNum(signal.period_conversions)} تحويل في الفترة — أقل من 50؛ لسه في مرحلة التعلم، التكبير الكبير مخاطرة.`
+                      : `⚠️ ${fmtNum(signal.period_conversions)} conversions in period — under 50; still learning, big scaling is risky.`}
                   </p>
                 )}
                 {signal.warnings.includes('declining') && (

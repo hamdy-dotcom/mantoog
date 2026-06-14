@@ -8,6 +8,7 @@ import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import { getAuthenticatedUser, loadMerchantStore, signOutAndGoToLogin } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
+import { formatStoreUrlDisplay, getStoreShareUrl } from '@/lib/site-url'
 
 const currencies = [
   { code: 'EGP', label: 'Egyptian Pound', flag: '🇪🇬' },
@@ -22,6 +23,42 @@ const presetColors = [
   '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
   '#10b981', '#ef4444', '#06b6d4', '#f97316',
 ]
+
+function StoreUrlDisplay({
+  slug,
+  label,
+  copyLabel,
+  copiedLabel,
+  copied,
+  onCopy,
+}: {
+  slug?: string | null
+  label: string
+  copyLabel: string
+  copiedLabel: string
+  copied: boolean
+  onCopy: () => void
+}) {
+  return (
+    <div className="bg-[#0f1117] border border-[#2a2d35] rounded-lg px-4 py-3">
+      <div className="text-xs text-[#4a4e60] mb-1">{label}</div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm text-[#3b82f6] font-mono break-all">
+          {slug ? formatStoreUrlDisplay(slug) : '—'}
+        </div>
+        {slug && (
+          <button
+            type="button"
+            onClick={onCopy}
+            className="shrink-0 text-xs bg-[#1f2229] hover:bg-[#2a2d35] border border-[#2a2d35] hover:border-[#3b82f6] text-[#8b8fa8] hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {copied ? copiedLabel : copyLabel}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const { lang, dir } = useLang()
@@ -58,9 +95,21 @@ export default function SettingsPage() {
   // Merchant fields
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
+  const [urlCopied, setUrlCopied] = useState(false)
 
   const router = useRouter()
   const supabase = createClient()
+
+  const copyStoreUrl = async () => {
+    if (!store?.slug) return
+    try {
+      await navigator.clipboard.writeText(getStoreShareUrl(store.slug))
+      setUrlCopied(true)
+      setTimeout(() => setUrlCopied(false), 2000)
+    } catch {
+      // clipboard may be unavailable; best-effort only
+    }
+  }
 
   useEffect(() => {
     const init = async () => {
@@ -272,10 +321,14 @@ export default function SettingsPage() {
                 </div>
               </Section>
               <Section title={tr.storeUrl}>
-                <div className="bg-[#0f1117] border border-[#2a2d35] rounded-lg px-4 py-3">
-                  <div className="text-xs text-[#4a4e60] mb-1">Your store slug</div>
-                  <div className="text-sm text-[#3b82f6] font-mono">localhost:3000/{store?.slug}/[product-id]</div>
-                </div>
+                <StoreUrlDisplay
+                  slug={store?.slug}
+                  label={tr.storeLink}
+                  copyLabel={tr.copy}
+                  copiedLabel={tr.copied}
+                  copied={urlCopied}
+                  onCopy={copyStoreUrl}
+                />
               </Section>
             </>
           )}
@@ -664,10 +717,14 @@ export default function SettingsPage() {
                 </ol>
               </div>
               <Field label={tr.customDomain} value={customDomain} onChange={setCustomDomain} placeholder="yourstore.com" />
-              <div className="bg-[#0f1117] border border-[#2a2d35] rounded-lg px-4 py-3">
-                <div className="text-xs text-[#4a4e60] mb-1">Current store URL</div>
-                <div className="text-sm text-[#3b82f6] font-mono">localhost:3000/{store?.slug}</div>
-              </div>
+              <StoreUrlDisplay
+                slug={store?.slug}
+                label={tr.storeLink}
+                copyLabel={tr.copy}
+                copiedLabel={tr.copied}
+                copied={urlCopied}
+                onCopy={copyStoreUrl}
+              />
             </Section>
           )}
 

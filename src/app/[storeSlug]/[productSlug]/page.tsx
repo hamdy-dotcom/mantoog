@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation'
 import FashionTheme from '@/components/landing/FashionTheme'
 import BeautyTheme from '@/components/landing/BeautyTheme'
 import HomeTheme from '@/components/landing/HomeTheme'
+import { getOrderAttributionPayload, initAttributionFromLanding } from '@/lib/analytics/attribution'
 
 const MARKET: Record<string, any> = {
   EGP: {
@@ -204,6 +205,10 @@ export default function LandingPage() {
   const allReviewsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    initAttributionFromLanding()
+  }, [])
+
+  useEffect(() => {
     const load = async () => {
       const storeSlug = params.storeSlug as string
       const productSlug = params.productSlug as string
@@ -386,30 +391,42 @@ export default function LandingPage() {
     setSubmitting(true)
     const orderQty = store?.show_quantity ? submitQty : 1
     const orderTotal = product.price * orderQty + shippingCost
-    const { error } = await supabase.from('orders').insert({
-      store_id: store.id,
-      merchant_id: store.merchant_id,
-      product_id: product.id,
-      customer_name: submitName,
-      customer_phone: submitPhone,
-      address_governorate: region,
-      address_line1: isMapAddress ? (pickedLocation?.address || '') : submitAddress,
-      address_country: store.currency === 'EGP' ? 'EG' : store.currency === 'SAR' ? 'SA' : 'AE',
-      quantity: orderQty,
-      note: store?.show_note ? submitNote : null,
-      unit_price: product.price,
-      total_price: orderTotal,
-      currency: store.currency,
-      shipping_price: shippingCost,
-      payment_method: 'cod',
-      status: 'pending',
-      lat: pickedLocation?.lat || null,
-      lng: pickedLocation?.lng || null,
-      map_link: pickedLocation ? `https://maps.google.com/?q=${pickedLocation.lat},${pickedLocation.lng}` : null,
-      location_address: pickedLocation?.address || null,
-    })
+    let orderOk = false
+    try {
+      const response = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          store_id: store.id,
+          merchant_id: store.merchant_id,
+          product_id: product.id,
+          customer_name: submitName,
+          customer_phone: submitPhone,
+          address_governorate: region,
+          address_line1: isMapAddress ? (pickedLocation?.address || '') : submitAddress,
+          address_country: store.currency === 'EGP' ? 'EG' : store.currency === 'SAR' ? 'SA' : 'AE',
+          quantity: orderQty,
+          note: store?.show_note ? submitNote : null,
+          unit_price: product.price,
+          total_price: orderTotal,
+          currency: store.currency,
+          shipping_price: shippingCost,
+          payment_method: 'cod',
+          status: 'pending',
+          lat: pickedLocation?.lat || null,
+          lng: pickedLocation?.lng || null,
+          map_link: pickedLocation ? `https://maps.google.com/?q=${pickedLocation.lat},${pickedLocation.lng}` : null,
+          location_address: pickedLocation?.address || null,
+          attribution: getOrderAttributionPayload(),
+        }),
+      })
+      const result = await response.json()
+      orderOk = response.ok && result.success
+    } catch {
+      orderOk = false
+    }
     setSubmitting(false)
-    if (!error) {
+    if (orderOk) {
       if (typeof window !== 'undefined') {
         if ((window as any).fbq) {
           (window as any).fbq('track', 'Purchase', {

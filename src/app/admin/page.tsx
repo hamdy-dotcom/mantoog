@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import * as XLSX from 'xlsx'
+import { ORDER_ATTRIBUTION_FIELDS, ORDER_ATTRIBUTION_LABELS } from '@/lib/analytics/attribution'
 
 const ADMIN_EMAILS = ['admin@mantoog.com']
 
@@ -203,9 +204,23 @@ export default function AdminPage() {
     setLoadingProducts(false)
   }
 
+  const csvCell = (value: unknown) => {
+    const str = value == null ? '' : String(value)
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`
+    }
+    return str
+  }
+
+  const attributionRow = (order: any) =>
+    ORDER_ATTRIBUTION_FIELDS.map(field => order[field] ?? '')
+
   const exportOrdersCSV = () => {
     const filtered = filteredOrders
-    const headers = ['Store', 'Customer', 'Phone', 'Governorate', 'Amount', 'Currency', 'Status', 'Date']
+    const headers = [
+      'Store', 'Customer', 'Phone', 'Governorate', 'Amount', 'Currency', 'Status', 'Date',
+      ...ORDER_ATTRIBUTION_FIELDS.map(field => ORDER_ATTRIBUTION_LABELS[field]),
+    ]
     const rows = filtered.map(o => [
       o.stores?.name || '',
       o.customer_name || '',
@@ -215,8 +230,9 @@ export default function AdminPage() {
       o.stores?.currency || '',
       o.status || '',
       new Date(o.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }),
+      ...attributionRow(o),
     ])
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const csv = [headers, ...rows].map(r => r.map(csvCell).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -237,6 +253,9 @@ export default function AdminPage() {
       'التاريخ': new Date(order.created_at).toLocaleString('ar-EG'),
       'المتجر': order.stores?.name || '',
       'رابط الموقع': order.map_link || '',
+      ...Object.fromEntries(
+        ORDER_ATTRIBUTION_FIELDS.map(field => [ORDER_ATTRIBUTION_LABELS[field], order[field] ?? ''])
+      ),
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
@@ -534,7 +553,7 @@ export default function AdminPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#2a2d35]">
-                      {['Store', 'Product', 'Customer', 'Phone', 'Address', 'Merchant', 'Amount', 'Status', 'Date', '📍'].map(h => (
+                      {['Store', 'Product', 'Customer', 'Phone', 'Address', 'Merchant', 'Amount', 'Status', 'Date', '📍', ...ORDER_ATTRIBUTION_FIELDS.map(f => ORDER_ATTRIBUTION_LABELS[f])].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -573,6 +592,11 @@ export default function AdminPage() {
                             <span className="text-xs text-[#4a4e60]">—</span>
                           )}
                         </td>
+                        {ORDER_ATTRIBUTION_FIELDS.map(field => (
+                          <td key={field} className="px-4 py-3 text-xs text-[#8b8fa8] max-w-[200px] truncate whitespace-nowrap" title={order[field] ?? ''}>
+                            {order[field] ?? '—'}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>

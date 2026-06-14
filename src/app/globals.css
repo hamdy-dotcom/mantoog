@@ -3,6 +3,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --dashboard-mobile-header-height: 3rem;
+  --dashboard-mobile-bottom-nav-height: 4.5rem;
 }
 
 @theme inline {

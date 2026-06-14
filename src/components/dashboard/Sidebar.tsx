@@ -77,12 +77,15 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
   return (
     <>
       {/* Mobile Top Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-[#1a1d24] border-b border-[#2a2d35] px-4 py-3 flex items-center justify-between" dir={dir}>
-        <div className="flex items-center gap-2">
-          <img src="/logo.svg" alt="Mantoog" className="w-20 h-20 object-contain" />
-          <span className="text-white text-sm font-semibold truncate max-w-[120px]">{store?.name}</span>
+      <div
+        className="md:hidden fixed top-0 left-0 right-0 z-50 bg-[#1a1d24] border-b border-[#2a2d35] px-3 pb-2 flex items-center justify-between gap-2 h-[calc(var(--dashboard-mobile-header-height)+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)]"
+        dir={dir}
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <img src="/logo.svg" alt="Mantoog" className="h-8 w-8 object-contain shrink-0" />
+          <span className="text-white text-sm font-semibold truncate">{store?.name}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
             className="text-xs border border-[#2a2d35] text-[#8b8fa8] px-2.5 py-1.5 rounded-lg">
             {lang === 'ar' ? 'EN' : 'ع'}

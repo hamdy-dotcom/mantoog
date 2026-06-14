@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
+import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import DashboardFiltersBar, { DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from '@/components/dashboard/DashboardFiltersBar'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
@@ -239,22 +240,22 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
+    <div className="min-h-screen bg-[#0f1117] flex w-full min-w-0" dir={dir}>
       <Sidebar store={store} credits={credits} />
 
-      <main className="flex-1 p-6 md:p-8 overflow-auto pb-24 md:pb-8 mt-14 md:mt-0 space-y-5">
+      <main className={`${DASHBOARD_MAIN_CLASS} space-y-5`}>
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold text-white">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-semibold text-white">
               {tr.welcomeBack}{merchant?.full_name ? `, ${merchant.full_name.split(' ')[0]}` : ''} 👋
             </h1>
             <p className="text-[#8b8fa8] text-sm mt-1">{tr.storeToday}</p>
           </div>
           <button
             onClick={() => router.push('/dashboard/products/new')}
-            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shrink-0"
+            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shrink-0 self-start sm:self-auto"
           >
             {tr.addProduct}
           </button>
@@ -451,19 +452,29 @@ export default function DashboardPage() {
               <div className="text-[#8b8fa8] text-xs">{lang === 'ar' ? 'ستظهر الطلبات هنا عند وصولها' : 'Orders will appear here when they arrive'}</div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="divide-y divide-[#2a2d35]">
               {recentOrders.map(order => (
-                <div key={order.id} className="flex items-center gap-3 md:gap-4 px-5 py-3 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors min-w-[480px] md:min-w-0">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-white font-medium truncate">{order.customer_name}</div>
-                    <div className="text-xs text-[#4a4e60]">{order.customer_phone}</div>
+                <div key={order.id} className="px-4 sm:px-5 py-3 hover:bg-[#1f2229] transition-colors">
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm text-white font-medium truncate">{order.customer_name}</div>
+                      <div className="text-xs text-[#4a4e60]">{order.customer_phone}</div>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap shrink-0 ${STATUS_COLORS[order.status] || 'bg-[#1f2229] text-[#8b8fa8]'}`}>
+                      {order.status}
+                    </span>
                   </div>
-                  <div className="text-xs text-[#8b8fa8] truncate max-w-[120px] hidden sm:block">{order.products?.title}</div>
-                  <div className="text-sm text-white font-medium whitespace-nowrap">{order.total_price} {order.currency}</div>
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${STATUS_COLORS[order.status] || 'bg-[#1f2229] text-[#8b8fa8]'}`}>
-                    {order.status}
-                  </span>
-                  <div className="text-xs text-[#4a4e60] whitespace-nowrap hidden md:block">{new Date(order.created_at).toLocaleDateString()}</div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8b8fa8]">
+                    {order.products?.title && (
+                      <span className="truncate max-w-full">{order.products.title}</span>
+                    )}
+                    <span className="text-sm text-white font-medium whitespace-nowrap">
+                      {order.total_price} {order.currency}
+                    </span>
+                    <span className="text-[#4a4e60] whitespace-nowrap">
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

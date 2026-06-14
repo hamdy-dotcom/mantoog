@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
+import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import TikTokCampaignTable from '@/components/dashboard/TikTokCampaignTable'
 import TikTokTabBar, { type TikTokTabId } from '@/components/dashboard/TikTokTabBar'
 import { TikTokBulkLaunchTabPanel, TikTokCreateAdTab } from '@/components/dashboard/TikTokTabPanels'
@@ -555,7 +556,7 @@ export default function TikTokAdsPage() {
     return (
       <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
         <Sidebar store={store} />
-        <main className="flex-1 p-6 md:p-8 overflow-auto pb-24 md:pb-8 mt-14 md:mt-0">
+        <main className={DASHBOARD_MAIN_CLASS}>
           <HeaderSkeleton />
           <DashboardSkeleton />
         </main>
@@ -580,7 +581,7 @@ export default function TikTokAdsPage() {
     <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
       <Sidebar store={store} />
 
-      <main className="flex-1 p-6 md:p-8 overflow-auto pb-24 md:pb-8 mt-14 md:mt-0">
+      <main className={DASHBOARD_MAIN_CLASS}>
         {notice && (
           <div className={`rounded-xl px-4 py-3 text-sm border mb-4 ${
             notice.type === 'success'

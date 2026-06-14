@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
+import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 
@@ -54,10 +55,10 @@ export default function ProductsPage() {
       <Sidebar store={store} />
 
       {/* Main */}
-      <main className="flex-1 p-6 md:p-8 overflow-auto pb-24 md:pb-8 mt-14 md:mt-0">
+      <main className={DASHBOARD_MAIN_CLASS}>
 
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-semibold text-white">{tr.productsTitle}</h1>
             <p className="text-[#8b8fa8] text-sm mt-1">{products.length} product{products.length !== 1 ? 's' : ''} in your store</p>

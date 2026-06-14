@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
 import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
+import { loadMerchantStore } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 
@@ -19,21 +20,14 @@ export default function ProductsPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-
-      const { data: storeData } = await supabase
-        .from('stores')
-        .select('*')
-        .eq('merchant_id', user.id)
-        .single()
-      if (!storeData) { router.push('/dashboard/setup'); return }
-      setStore(storeData)
+      const ctx = await loadMerchantStore(supabase, router, '*')
+      if (!ctx) return
+      setStore(ctx.store)
 
       const { data: productsData } = await supabase
         .from('products')
         .select('*, landing_pages(id, published)')
-        .eq('merchant_id', user.id)
+        .eq('merchant_id', ctx.user.id)
         .order('created_at', { ascending: false })
       setProducts(productsData || [])
       setLoading(false)

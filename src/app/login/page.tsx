@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
+import { recordActivity } from '@/lib/auth/client'
 
 export default function LoginPage() {
   const { lang, dir, setLang } = useLang()
@@ -30,6 +31,7 @@ export default function LoginPage() {
       return
     }
 
+    recordActivity()
     router.push('/dashboard')
   }
 

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { recordActivity } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 
@@ -86,6 +87,7 @@ export default function SignupPage() {
       }, { onConflict: 'id' })
     }
 
+    recordActivity()
     router.push('/dashboard/setup')
   }
 

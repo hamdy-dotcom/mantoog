@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
 import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import DashboardFiltersBar, { DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from '@/components/dashboard/DashboardFiltersBar'
+import { loadMerchantStore } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 import { daysBetween } from '@/lib/dashboard/date-range'
@@ -73,24 +74,21 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      const ctx = await loadMerchantStore(supabase, router, '*')
+      if (!ctx) return
+      const { user, store: storeData } = ctx
 
       const [
         { data: merchantData },
-        { data: storeData },
         { data: creditsData },
         { data: ordersData },
         { data: productsData },
       ] = await Promise.all([
         supabase.from('merchants').select('*').eq('id', user.id).single(),
-        supabase.from('stores').select('*').eq('merchant_id', user.id).single(),
         supabase.from('order_credits').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false }).limit(1).single(),
         supabase.from('orders').select('*, products(title, images)').eq('merchant_id', user.id).order('created_at', { ascending: true }),
         supabase.from('products').select('id, title, images, status, created_at').eq('merchant_id', user.id).order('created_at', { ascending: false }),
       ])
-
-      if (!storeData) { router.push('/dashboard/setup'); return }
 
       setMerchant(merchantData)
       setStore(storeData)

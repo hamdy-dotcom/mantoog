@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
 import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
+import { loadMerchantStore } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 
 const COUNTRY_LABELS: Record<string, string> = {
@@ -63,17 +64,14 @@ export default function ResearchPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      const { data: storeData } = await supabase.from('stores').select('*').eq('merchant_id', user.id).single()
-      if (!storeData) { router.push('/dashboard/setup'); return }
-      setStore(storeData)
-      const { data: creditsData } = await supabase.from('order_credits').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false }).limit(1).single()
+      const ctx = await loadMerchantStore(supabase, router, '*')
+      if (!ctx) return
+      setStore(ctx.store)
+      const { data: creditsData } = await supabase.from('order_credits').select('*').eq('merchant_id', ctx.user.id).order('created_at', { ascending: false }).limit(1).single()
       setCredits(creditsData)
 
-      // Auto-detect country from store currency
       const countryMap: Record<string, string> = { EGP: 'EG', SAR: 'SA', AED: 'AE', MAD: 'MA', DZD: 'DZ' }
-      const country = countryMap[storeData.currency] || 'EG'
+      const country = countryMap[String(ctx.store.currency)] || 'EG'
       setStoreCountry(country)
       setLoading(false)
 

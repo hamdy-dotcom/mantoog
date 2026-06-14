@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
 import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
+import { getAuthenticatedUser, loadMerchantStore, signOutAndGoToLogin } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 
@@ -47,11 +48,9 @@ export default function NewProductPage() {
 
   useEffect(() => {
     const getStore = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      const { data } = await supabase.from('stores').select('*').eq('merchant_id', user.id).single()
-      if (!data) { router.push('/dashboard/setup'); return }
-      setStore(data)
+      const ctx = await loadMerchantStore(supabase, router, '*')
+      if (!ctx) return
+      setStore(ctx.store)
     }
     getStore()
   }, [])
@@ -196,8 +195,11 @@ export default function NewProductPage() {
     setError('')
     setSaving(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    const user = await getAuthenticatedUser(supabase)
+    if (!user) {
+      await signOutAndGoToLogin(router)
+      return
+    }
 
     const uploadedUrls: string[] = []
 
@@ -280,8 +282,11 @@ export default function NewProductPage() {
   const handleSave = async () => {
     setSaving(true)
     setError('')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    const user = await getAuthenticatedUser(supabase)
+    if (!user) {
+      await signOutAndGoToLogin(router)
+      return
+    }
 
     const uploadedUrls: string[] = []
     const allFiles = coverFile ? [coverFile, ...imageFiles] : imageFiles

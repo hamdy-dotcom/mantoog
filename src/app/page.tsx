@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { resolvePostLoginRoute } from '@/lib/auth/client'
 
 export default function HomePage() {
   const [lang, setLang] = useState<'ar' | 'en'>('ar')
@@ -11,7 +13,11 @@ export default function HomePage() {
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    const supabase = createClient()
+    resolvePostLoginRoute(supabase).then(route => {
+      if (route) router.replace(route)
+    })
+  }, [router])
 
   const content = {
     ar: {

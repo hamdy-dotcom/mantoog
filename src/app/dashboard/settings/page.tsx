@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
 import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
+import { getAuthenticatedUser, loadMerchantStore, signOutAndGoToLogin } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 
@@ -63,33 +64,33 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      const ctx = await loadMerchantStore(supabase, router, '*')
+      if (!ctx) return
+      const { user, store: storeData } = ctx
+      const store = storeData as Record<string, any>
 
       const { data: merchantData } = await supabase.from('merchants').select('*').eq('id', user.id).single()
       setMerchant(merchantData)
       setFullName(merchantData?.full_name || '')
       setPhone(merchantData?.phone || '')
 
-      const { data: storeData } = await supabase.from('stores').select('*').eq('merchant_id', user.id).single()
-      if (!storeData) { router.push('/dashboard/setup'); return }
-      setStore(storeData)
-      setStoreName(storeData.name || '')
-      setCurrency(storeData.currency || 'EGP')
-      setLanguage(storeData.language || 'ar')
-      setPrimaryColor(storeData.primary_color || '#3b82f6')
-      setTheme(storeData.theme || 'classic')
-      setShippingType(storeData.shipping_type || 'static')
-      setStaticShippingCost(storeData.static_shipping_cost?.toString() || '')
-      setCustomDomain(storeData.custom_domain || '')
-      setLogoUrl(storeData.logo_url || '')
-      if (storeData.meta_pixel_id) setMetaPixelId(storeData.meta_pixel_id)
-      if (storeData.tiktok_pixel_id) setTiktokPixelId(storeData.tiktok_pixel_id)
-      setAddressMode(storeData.address_mode || (storeData.enable_location ? 'map' : 'text'))
-      setLocationRequired(storeData.location_required || false)
-      setShowQuantity(storeData.show_quantity || false)
-      setShowNote(storeData.show_note || false)
-      setNoteRequired(storeData.note_required || false)
+      setStore(store)
+      setStoreName(store.name || '')
+      setCurrency(store.currency || 'EGP')
+      setLanguage(store.language || 'ar')
+      setPrimaryColor(store.primary_color || '#3b82f6')
+      setTheme(store.theme || 'classic')
+      setShippingType(store.shipping_type || 'static')
+      setStaticShippingCost(store.static_shipping_cost?.toString() || '')
+      setCustomDomain(store.custom_domain || '')
+      setLogoUrl(store.logo_url || '')
+      if (store.meta_pixel_id) setMetaPixelId(store.meta_pixel_id)
+      if (store.tiktok_pixel_id) setTiktokPixelId(store.tiktok_pixel_id)
+      setAddressMode(store.address_mode || (store.enable_location ? 'map' : 'text'))
+      setLocationRequired(store.location_required || false)
+      setShowQuantity(store.show_quantity || false)
+      setShowNote(store.show_note || false)
+      setNoteRequired(store.note_required || false)
       setLoading(false)
     }
     init()
@@ -107,8 +108,11 @@ export default function SettingsPage() {
     setError('')
     setSuccess(false)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const user = await getAuthenticatedUser(supabase)
+    if (!user) {
+      await signOutAndGoToLogin(router)
+      return
+    }
 
     // Upload new logo if provided
     let newLogoUrl = logoUrl

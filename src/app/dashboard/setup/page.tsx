@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { getAuthenticatedUser, isAuthError, signOutAndGoToLogin } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 
 const currencies = [
@@ -43,9 +44,16 @@ export default function StoreSetupPage() {
 
   useEffect(() => {
     const checkStore = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      const { data } = await supabase.from('stores').select('id').eq('merchant_id', user.id).single()
+      const user = await getAuthenticatedUser(supabase)
+      if (!user) {
+        await signOutAndGoToLogin(router)
+        return
+      }
+      const { data, error } = await supabase.from('stores').select('id').eq('merchant_id', user.id).maybeSingle()
+      if (error && isAuthError(error)) {
+        await signOutAndGoToLogin(router)
+        return
+      }
       if (data) router.replace('/dashboard')
     }
     checkStore()
@@ -65,8 +73,11 @@ export default function StoreSetupPage() {
   const handleCreate = async () => {
     setLoading(true)
     setError('')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    const user = await getAuthenticatedUser(supabase)
+    if (!user) {
+      await signOutAndGoToLogin(router)
+      return
+    }
 
     let logoUrl = ''
     if (logoFile) {

@@ -9,6 +9,7 @@ import TikTokCampaignTable from '@/components/dashboard/TikTokCampaignTable'
 import TikTokTabBar, { type TikTokTabId } from '@/components/dashboard/TikTokTabBar'
 import { TikTokBulkLaunchTabPanel, TikTokCreateAdTab } from '@/components/dashboard/TikTokTabPanels'
 import TikTokWinnersTab from '@/components/dashboard/TikTokWinnersTab'
+import { loadMerchantStore } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 import {
@@ -387,12 +388,9 @@ export default function TikTokAdsPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-
-      const { data: storeData } = await supabase.from('stores').select('*').eq('merchant_id', user.id).single()
-      if (!storeData) { router.push('/dashboard/setup'); return }
-      setStore(storeData)
+      const ctx = await loadMerchantStore(supabase, router, '*')
+      if (!ctx) return
+      setStore(ctx.store)
       await loadConnections()
       setLoading(false)
     }

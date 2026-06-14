@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { currencyDefaultTimezone } from '@/lib/tiktok/timezone'
 
 export const TIKTOK = 'https://business-api.tiktok.com/open_api/v1.3'
 
@@ -100,12 +101,22 @@ export async function fetchAdvertiserInfo(
 ) {
   const params = new URLSearchParams({
     advertiser_ids: JSON.stringify([connection.advertiser_id]),
-    fields: JSON.stringify(['currency', 'name', 'advertiser_id']),
+    fields: JSON.stringify(['currency', 'name', 'advertiser_id', 'timezone']),
   })
   const res = await fetch(`${TIKTOK}/advertiser/info/?${params}`, {
     headers: { 'Access-Token': connection.access_token },
   })
   return res.json()
+}
+
+export async function resolveAdvertiserTimezone(
+  connection: { advertiser_id: string; access_token: string },
+  currency: string
+): Promise<string> {
+  const json = await fetchAdvertiserInfo(connection)
+  const tz = json.code === 0 ? json.data?.list?.[0]?.timezone : null
+  if (typeof tz === 'string' && tz.length > 0) return tz
+  return currencyDefaultTimezone(currency)
 }
 
 export async function resolveAdvertiserCurrency(

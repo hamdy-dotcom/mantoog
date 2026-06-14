@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/refresh-aliexpress",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/revert-surf-scaling",
+      "schedule": "0 * * * *"
     }
   ]
 }

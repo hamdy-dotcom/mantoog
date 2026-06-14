@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
 import TikTokCampaignTable from '@/components/dashboard/TikTokCampaignTable'
+import TikTokTabBar, { type TikTokTabId } from '@/components/dashboard/TikTokTabBar'
+import { TikTokBulkLaunchTabPanel, TikTokCreateAdTab } from '@/components/dashboard/TikTokTabPanels'
+import TikTokWinnersTab from '@/components/dashboard/TikTokWinnersTab'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 import {
@@ -299,6 +302,7 @@ export default function TikTokAdsPage() {
   const [dashboardLoading, setDashboardLoading] = useState(true)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
   const [reauthRequired, setReauthRequired] = useState(false)
+  const [activeTab, setActiveTab] = useState<TikTokTabId>('dashboard')
   const [customRangeOpen, setCustomRangeOpen] = useState(false)
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
   const customRangeRef = useRef<HTMLDivElement>(null)
@@ -757,38 +761,40 @@ export default function TikTokAdsPage() {
 
         {reauthRequired && <ReauthBanner lang={lang} />}
 
-        {connections.length > 0 && !hasActiveAccount && !reauthRequired && (
-          <div className="bg-[#1a1d24] border border-[#fbbf24]/20 rounded-xl px-4 py-8 text-center mb-6">
-            <p className="text-[#fbbf24] text-sm">
-              {lang === 'ar' ? 'اختر حساباً من القائمة أعلاه لعرض الأداء.' : 'Select an account above to view performance.'}
-            </p>
-          </div>
-        )}
+        {connections.length > 0 && !reauthRequired && (
+          <>
+            <TikTokTabBar active={activeTab} onChange={setActiveTab} lang={lang} />
 
-        {connections.length > 0 && hasActiveAccount && !reauthRequired && (
-          <div className="space-y-6">
-            {dashboardLoading ? (
-              <DashboardSkeleton />
-            ) : dashboardError ? (
-              <div className={`rounded-xl px-4 py-4 text-sm border ${
-                dashboardError === 'no_active_account'
-                  ? 'bg-[#3a2800] border-[#fbbf24]/20 text-[#fbbf24]'
-                  : 'bg-[#3a1414] border-[#f87171]/20 text-[#f87171]'
-              }`}>
-                <p>{dashboardErrorText(dashboardError, lang)}</p>
-                {canRetryDashboard(dashboardError) && (
-                  <button
-                    type="button"
-                    onClick={() => fetchDashboard(appliedStart, appliedEnd)}
-                    className="mt-3 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#2a2d35] text-white hover:bg-[#3a3d48] transition-colors"
-                  >
-                    {lang === 'ar' ? 'إعادة المحاولة' : 'Retry'}
-                  </button>
-                )}
+            {!hasActiveAccount && (activeTab === 'dashboard' || activeTab === 'campaigns') && (
+              <div className="bg-[#1a1d24] border border-[#fbbf24]/20 rounded-xl px-4 py-8 text-center mb-6">
+                <p className="text-[#fbbf24] text-sm">
+                  {lang === 'ar' ? 'اختر حساباً من القائمة أعلاه لعرض الأداء.' : 'Select an account above to view performance.'}
+                </p>
               </div>
-            ) : (
-              <>
-                {reportRows.length === 0 ? (
+            )}
+
+            {activeTab === 'dashboard' && hasActiveAccount && (
+              <div className="space-y-6">
+                {dashboardLoading ? (
+                  <DashboardSkeleton />
+                ) : dashboardError ? (
+                  <div className={`rounded-xl px-4 py-4 text-sm border ${
+                    dashboardError === 'no_active_account'
+                      ? 'bg-[#3a2800] border-[#fbbf24]/20 text-[#fbbf24]'
+                      : 'bg-[#3a1414] border-[#f87171]/20 text-[#f87171]'
+                  }`}>
+                    <p>{dashboardErrorText(dashboardError, lang)}</p>
+                    {canRetryDashboard(dashboardError) && (
+                      <button
+                        type="button"
+                        onClick={() => fetchDashboard(appliedStart, appliedEnd)}
+                        className="mt-3 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#2a2d35] text-white hover:bg-[#3a3d48] transition-colors"
+                      >
+                        {lang === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+                      </button>
+                    )}
+                  </div>
+                ) : reportRows.length === 0 ? (
                   <DashboardEmptyState lang={lang} />
                 ) : (
                   <>
@@ -864,21 +870,55 @@ export default function TikTokAdsPage() {
                     </div>
                   </>
                 )}
-              </>
+              </div>
             )}
 
-            <TikTokCampaignTable
-              advertiserId={activeAdvertiserId}
-              currency={adCurrency}
-              lang={lang}
-              dateStart={appliedStart}
-              dateEnd={appliedEnd}
-              fmtMoney={fmtMoney}
-              fmtNum={fmtNum}
-              fmtPct={fmtPct}
-              onReauthRequired={() => setReauthRequired(true)}
-            />
-          </div>
+            {activeTab === 'create-ad' && (
+              <TikTokCreateAdTab
+                lang={lang}
+                dir={dir}
+                fmtMoney={fmtMoney}
+                hasActiveAccount={hasActiveAccount}
+                onReauthRequired={() => setReauthRequired(true)}
+              />
+            )}
+            {activeTab === 'bulk-launch' && (
+              <TikTokBulkLaunchTabPanel
+                lang={lang}
+                dir={dir}
+                fmtMoney={fmtMoney}
+                hasActiveAccount={hasActiveAccount}
+                onReauthRequired={() => setReauthRequired(true)}
+              />
+            )}
+            {activeTab === 'winners' && hasActiveAccount && (
+              <TikTokWinnersTab
+                lang={lang}
+                dir={dir}
+                advertiserId={activeAdvertiserId}
+                dateStart={appliedStart}
+                dateEnd={appliedEnd}
+                fmtMoney={fmtMoney}
+                fmtNum={fmtNum}
+                fmtPct={fmtPct}
+                onReauthRequired={() => setReauthRequired(true)}
+              />
+            )}
+
+            {activeTab === 'campaigns' && hasActiveAccount && (
+              <TikTokCampaignTable
+                advertiserId={activeAdvertiserId}
+                currency={adCurrency}
+                lang={lang}
+                dateStart={appliedStart}
+                dateEnd={appliedEnd}
+                fmtMoney={fmtMoney}
+                fmtNum={fmtNum}
+                fmtPct={fmtPct}
+                onReauthRequired={() => setReauthRequired(true)}
+              />
+            )}
+          </>
         )}
       </main>
     </div>

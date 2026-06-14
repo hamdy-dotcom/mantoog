@@ -26,6 +26,8 @@ export type SmartPlusApiSupport = {
 export const SMART_PLUS_TOOLTIP =
   'Managed by TikTok Smart+ — edit in TikTok Ads Manager'
 
+export const SCALE_ACTION_LABEL = 'اسكيل - Scale'
+
 export type EntityRow = {
   id: string
   name: string

@@ -4,6 +4,7 @@ import {
 import {
   detectSmartPlus,
   type BidField,
+  type BudgetLabel,
   type EntityDaily,
   type EntityLevel,
   type EntityRow,
@@ -683,6 +684,425 @@ export async function fetchEntitiesForStore(
 
   const items = buildEntityList(metaMap, byId, entityId, { readOnly: true })
   return { items, currency, level, start_date, end_date }
+}
+
+export type WinnerLevel = 'campaigns' | 'adgroups' | 'ads'
+
+export type WinnerRow = {
+  id: string
+  name: string
+  level: WinnerLevel
+  scale_level: 'campaigns' | 'adgroups'
+  scale_entity_id: string
+  is_smart_plus: boolean
+  campaign_automation_type?: string | null
+  campaign_type?: string | null
+  is_smart_performance_campaign?: boolean | null
+  entity_budget: number | null
+  budget_label: BudgetLabel | null
+  budget_editable: boolean
+  spend: number
+  conversions: number
+  cpa: number
+  roas: number
+  ctr: number
+  impressions: number
+  clicks: number
+  cvr: number | null
+  cpc: number | null
+  cpm: number | null
+}
+
+/** @deprecated use WinnerRow */
+export type AdWinnerRow = WinnerRow & {
+  ad_id: string
+  ad_name: string
+  adgroup_id: string
+  campaign_id: string
+  adgroup_budget: number | null
+}
+
+const WINNER_REPORT_METRICS = [
+  'spend', 'conversion', 'cost_per_conversion', 'complete_payment_roas',
+  'ctr', 'impressions', 'clicks', 'conversion_rate', 'cpc', 'cpm',
+]
+
+type WinnerStats = Pick<
+  WinnerRow,
+  'spend' | 'conversions' | 'cpa' | 'roas' | 'ctr' | 'impressions' | 'clicks' | 'cvr' | 'cpc' | 'cpm'
+>
+
+function winnerMetricPresent(m: Record<string, unknown>, key: string) {
+  return m[key] != null && m[key] !== ''
+}
+
+function resolveWinnerRateMetrics(
+  m: Record<string, unknown>,
+  spend: number,
+  conversions: number,
+  clicks: number,
+  impressions: number
+): Pick<WinnerStats, 'cvr' | 'cpc' | 'cpm'> {
+  const cvr = winnerMetricPresent(m, 'conversion_rate')
+    ? num(m.conversion_rate)
+    : clicks > 0
+      ? (conversions / clicks) * 100
+      : null
+  const cpc = winnerMetricPresent(m, 'cpc')
+    ? num(m.cpc)
+    : clicks > 0
+      ? spend / clicks
+      : null
+  const cpm = winnerMetricPresent(m, 'cpm')
+    ? num(m.cpm)
+    : impressions > 0
+      ? (spend / impressions) * 1000
+      : null
+  return { cvr, cpc, cpm }
+}
+
+function parseWinnerReportRows(
+  list: Array<{ dimensions?: Record<string, unknown>; metrics?: Record<string, unknown> }>,
+  idKey: string
+): Record<string, WinnerStats> {
+  const byId: Record<string, WinnerStats> = {}
+  for (const row of list) {
+    const id = String(row.dimensions?.[idKey] || '')
+    if (!id) continue
+    const m = row.metrics || {}
+    const spend = num(m.spend)
+    const conversions = num(m.conversion)
+    const clicks = num(m.clicks)
+    const impressions = num(m.impressions)
+    byId[id] = {
+      spend,
+      conversions,
+      cpa: num(m.cost_per_conversion),
+      roas: num(m.complete_payment_roas),
+      ctr: num(m.ctr),
+      impressions,
+      clicks,
+      ...resolveWinnerRateMetrics(m, spend, conversions, clicks, impressions),
+    }
+  }
+  return byId
+}
+
+function computeWinnerAverages(items: WinnerRow[]) {
+  const withRoas = items.filter(r => r.roas > 0)
+  const withCpa = items.filter(r => r.cpa > 0)
+  const withCtr = items.filter(r => r.ctr > 0)
+  const withConv = items.filter(r => r.conversions > 0)
+  const withCvr = items.filter(r => r.cvr != null)
+  const withCpc = items.filter(r => r.cpc != null)
+  const withCpm = items.filter(r => r.cpm != null)
+  return {
+    conversions: withConv.length
+      ? withConv.reduce((s, r) => s + r.conversions, 0) / withConv.length
+      : 0,
+    roas: withRoas.length ? withRoas.reduce((s, r) => s + r.roas, 0) / withRoas.length : 0,
+    cpa: withCpa.length ? withCpa.reduce((s, r) => s + r.cpa, 0) / withCpa.length : 0,
+    ctr: withCtr.length ? withCtr.reduce((s, r) => s + r.ctr, 0) / withCtr.length : 0,
+    cvr: withCvr.length ? withCvr.reduce((s, r) => s + (r.cvr as number), 0) / withCvr.length : 0,
+    cpc: withCpc.length ? withCpc.reduce((s, r) => s + (r.cpc as number), 0) / withCpc.length : 0,
+    cpm: withCpm.length ? withCpm.reduce((s, r) => s + (r.cpm as number), 0) / withCpm.length : 0,
+  }
+}
+
+function emptyWinnersResult(
+  currency: string,
+  start_date: string,
+  end_date: string,
+  level: WinnerLevel
+) {
+  return {
+    items: [] as WinnerRow[],
+    currency,
+    level,
+    start_date,
+    end_date,
+    averages: { conversions: 0, roas: 0, cpa: 0, ctr: 0, cvr: 0, cpc: 0, cpm: 0 },
+  }
+}
+
+export async function fetchWinners(
+  connection: { advertiser_id: string; access_token: string; currency?: string | null },
+  storeId: string,
+  start_date: string,
+  end_date: string,
+  level: WinnerLevel = 'campaigns'
+) {
+  const currency = await resolveAdvertiserCurrency(connection, storeId)
+
+  const reportLevel =
+    level === 'campaigns' ? 'AUCTION_CAMPAIGN'
+      : level === 'adgroups' ? 'AUCTION_ADGROUP'
+        : 'AUCTION_AD'
+  const dimensionKey =
+    level === 'campaigns' ? 'campaign_id'
+      : level === 'adgroups' ? 'adgroup_id'
+        : 'ad_id'
+
+  const reportJson = await fetchIntegratedReport(connection, {
+    start_date,
+    end_date,
+    data_level: reportLevel,
+    dimensions: [dimensionKey],
+    page_size: 1000,
+    metrics: WINNER_REPORT_METRICS,
+  })
+
+  if (reportJson.code !== 0) {
+    return tiktokApiFailure(reportJson.code, reportJson.message, {
+      storeId,
+      advertiserId: connection.advertiser_id,
+    })
+  }
+
+  const byId = parseWinnerReportRows(reportJson.data?.list || [], dimensionKey)
+  const entityIds = Object.keys(byId)
+  if (!entityIds.length) {
+    return emptyWinnersResult(currency, start_date, end_date, level)
+  }
+
+  if (level === 'campaigns') {
+    const metaMap: Record<string, {
+      name: string
+      is_smart_plus: boolean
+      campaign_automation_type: string | null
+      campaign_type: string | null
+      is_smart_performance_campaign: boolean | null
+      entity_budget: number | null
+      budget_label: BudgetLabel | null
+      budget_editable: boolean
+    }> = {}
+
+    for (let i = 0; i < entityIds.length; i += 100) {
+      const chunk = entityIds.slice(i, i + 100)
+      const json = await fetchCampaignGet(
+        connection,
+        { filtering: JSON.stringify({ campaign_ids: chunk }) }
+      )
+      if (json.code !== 0) continue
+      for (const c of json.data?.list || []) {
+        const id = String(c.campaign_id)
+        const budgetMeta = buildCampaignMeta(c, id)
+        metaMap[id] = {
+          name: String(c.campaign_name || id),
+          is_smart_plus: budgetMeta.is_smart_plus,
+          campaign_automation_type: c.campaign_automation_type != null
+            ? String(c.campaign_automation_type)
+            : null,
+          campaign_type: c.campaign_type != null ? String(c.campaign_type) : null,
+          is_smart_performance_campaign: c.is_smart_performance_campaign === true
+            || c.is_smart_performance_campaign === 'true'
+            || c.is_smart_performance_campaign === 1,
+          entity_budget: budgetMeta.budget,
+          budget_label: budgetMeta.budget_label,
+          budget_editable: budgetMeta.budget_editable,
+        }
+      }
+    }
+
+    const items: WinnerRow[] = entityIds.map(id => {
+      const meta = metaMap[id]
+      return {
+        id,
+        name: meta?.name || id,
+        level: 'campaigns' as const,
+        scale_level: 'campaigns' as const,
+        scale_entity_id: id,
+        is_smart_plus: meta?.is_smart_plus ?? false,
+        campaign_automation_type: meta?.campaign_automation_type ?? null,
+        campaign_type: meta?.campaign_type ?? null,
+        is_smart_performance_campaign: meta?.is_smart_performance_campaign ?? null,
+        entity_budget: meta?.entity_budget ?? null,
+        budget_label: meta?.budget_label ?? null,
+        budget_editable: meta?.budget_editable ?? false,
+        ...byId[id],
+      }
+    }).filter(r => r.spend > 0 || r.impressions > 0)
+
+    return {
+      items,
+      currency,
+      level,
+      start_date,
+      end_date,
+      averages: computeWinnerAverages(items),
+    }
+  }
+
+  if (level === 'adgroups') {
+    const adgroupList: Record<string, unknown>[] = []
+    for (let i = 0; i < entityIds.length; i += 100) {
+      const chunk = entityIds.slice(i, i + 100)
+      const json = await fetchAdgroupGet(
+        connection,
+        { filtering: JSON.stringify({ adgroup_ids: chunk }) }
+      )
+      if (json.code !== 0) continue
+      adgroupList.push(...(json.data?.list || []))
+    }
+
+    const campaignIds = adgroupList.map(g => String(g.campaign_id || ''))
+    const campaignMetaById = await resolveCampaignMetaById(connection, campaignIds)
+    const smartPlusCampaignIds = new Set(
+      Object.entries(campaignMetaById).filter(([, c]) => detectSmartPlus(c)).map(([id]) => id)
+    )
+
+    const adgroupMeta: Record<string, {
+      name: string
+      is_smart_plus: boolean
+      entity_budget: number | null
+      budget_label: BudgetLabel | null
+      budget_editable: boolean
+    }> = {}
+
+    for (const g of adgroupList) {
+      const gid = String(g.adgroup_id)
+      const campaignId = String(g.campaign_id || '')
+      const parentCampaign = campaignMetaById[campaignId]
+      const parentSmart = smartPlusCampaignIds.has(campaignId)
+      const budgetMeta = applySmartPlusChildLocks({
+        name: String(g.adgroup_name || gid),
+        objective: null,
+        operation_status: null,
+        is_smart_plus: parentSmart,
+        ...parseAdgroupBudget(g, parentCampaign),
+        ...noBidMeta,
+      })
+      adgroupMeta[gid] = {
+        name: String(g.adgroup_name || gid),
+        is_smart_plus: parentSmart,
+        entity_budget: budgetMeta.budget,
+        budget_label: budgetMeta.budget_label,
+        budget_editable: budgetMeta.budget_editable,
+      }
+    }
+
+    const items: WinnerRow[] = entityIds.map(id => {
+      const meta = adgroupMeta[id]
+      return {
+        id,
+        name: meta?.name || id,
+        level: 'adgroups' as const,
+        scale_level: 'adgroups' as const,
+        scale_entity_id: id,
+        is_smart_plus: meta?.is_smart_plus ?? false,
+        entity_budget: meta?.entity_budget ?? null,
+        budget_label: meta?.budget_label ?? null,
+        budget_editable: meta?.budget_editable ?? false,
+        ...byId[id],
+      }
+    }).filter(r => r.spend > 0 || r.impressions > 0)
+
+    return {
+      items,
+      currency,
+      level,
+      start_date,
+      end_date,
+      averages: computeWinnerAverages(items),
+    }
+  }
+
+  // ads
+  const adMeta: Record<string, { name: string; adgroup_id: string; campaign_id: string }> = {}
+  for (let i = 0; i < entityIds.length; i += 100) {
+    const chunk = entityIds.slice(i, i + 100)
+    const json = await tiktokGet(
+      connection,
+      '/ad/get/',
+      { filtering: JSON.stringify({ ad_ids: chunk }) },
+      ['ad_id', 'ad_name', 'adgroup_id', 'campaign_id']
+    )
+    if (json.code !== 0) continue
+    for (const a of json.data?.list || []) {
+      adMeta[String(a.ad_id)] = {
+        name: String(a.ad_name || a.ad_id),
+        adgroup_id: String(a.adgroup_id || ''),
+        campaign_id: String(a.campaign_id || ''),
+      }
+    }
+  }
+
+  const adgroupIds = [...new Set(Object.values(adMeta).map(m => m.adgroup_id).filter(Boolean))]
+  const campaignIds = [...new Set(Object.values(adMeta).map(m => m.campaign_id).filter(Boolean))]
+  const campaignMetaById = await resolveCampaignMetaById(connection, campaignIds)
+  const smartPlusCampaignIds = new Set(
+    Object.entries(campaignMetaById).filter(([, c]) => detectSmartPlus(c)).map(([id]) => id)
+  )
+
+  const adgroupMeta: Record<string, {
+    entity_budget: number | null
+    budget_label: BudgetLabel | null
+    budget_editable: boolean
+  }> = {}
+  for (let i = 0; i < adgroupIds.length; i += 100) {
+    const chunk = adgroupIds.slice(i, i + 100)
+    const json = await fetchAdgroupGet(
+      connection,
+      { filtering: JSON.stringify({ adgroup_ids: chunk }) }
+    )
+    if (json.code !== 0) continue
+    for (const g of json.data?.list || []) {
+      const gid = String(g.adgroup_id)
+      const parentCampaign = campaignMetaById[String(g.campaign_id || '')]
+      const parentSmart = smartPlusCampaignIds.has(String(g.campaign_id || ''))
+      const budgetMeta = applySmartPlusChildLocks({
+        name: '',
+        objective: null,
+        operation_status: null,
+        is_smart_plus: parentSmart,
+        ...parseAdgroupBudget(g, parentCampaign),
+        ...noBidMeta,
+      })
+      adgroupMeta[gid] = {
+        entity_budget: budgetMeta.budget,
+        budget_label: budgetMeta.budget_label,
+        budget_editable: budgetMeta.budget_editable,
+      }
+    }
+  }
+
+  const items: WinnerRow[] = entityIds.map(adId => {
+    const stats = byId[adId]
+    const meta = adMeta[adId]
+    const ag = meta?.adgroup_id ? adgroupMeta[meta.adgroup_id] : undefined
+    const parentSmart = meta?.campaign_id ? smartPlusCampaignIds.has(meta.campaign_id) : false
+    return {
+      id: adId,
+      name: meta?.name || adId,
+      level: 'ads' as const,
+      scale_level: 'adgroups' as const,
+      scale_entity_id: meta?.adgroup_id || '',
+      is_smart_plus: parentSmart,
+      entity_budget: ag?.entity_budget ?? null,
+      budget_label: ag?.budget_label ?? null,
+      budget_editable: ag?.budget_editable ?? false,
+      ...stats,
+    }
+  }).filter(r => r.spend > 0 || r.impressions > 0)
+
+  return {
+    items,
+    currency,
+    level,
+    start_date,
+    end_date,
+    averages: computeWinnerAverages(items),
+  }
+}
+
+/** @deprecated use fetchWinners */
+export async function fetchAdWinners(
+  connection: { advertiser_id: string; access_token: string; currency?: string | null },
+  storeId: string,
+  start_date: string,
+  end_date: string
+) {
+  return fetchWinners(connection, storeId, start_date, end_date, 'ads')
 }
 
 /** Legacy wrapper */

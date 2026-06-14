@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/revert-surf-scaling",
-      "schedule": "59 21 * * *"
+      "schedule": "30 22 * * *"
     }
   ]
 }

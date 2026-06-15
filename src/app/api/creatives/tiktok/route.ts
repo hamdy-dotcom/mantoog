@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
+  console.log('RAPIDAPI_KEY exists:', !!process.env.RAPIDAPI_KEY)
+  console.log('RAPIDAPI_KEY length:', process.env.RAPIDAPI_KEY?.length)
   const keyword = new URL(request.url).searchParams.get('q') || ''
   if (!keyword) return NextResponse.json({ error: 'Query required' }, { status: 400 })
 

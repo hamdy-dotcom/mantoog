@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
+  console.log('YOUTUBE_API_KEY exists:', !!process.env.YOUTUBE_API_KEY)
+  console.log('YOUTUBE_API_KEY length:', process.env.YOUTUBE_API_KEY?.length)
   const keyword = new URL(request.url).searchParams.get('q') || ''
   const ytKey = process.env.YOUTUBE_API_KEY || ''
   if (!keyword) return NextResponse.json({ error: 'Query required' }, { status: 400 })

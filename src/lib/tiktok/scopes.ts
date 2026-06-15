@@ -2,9 +2,9 @@
 export type TikTokPendingFeature = 'creative-management' | 'pixel-management' | 'lead-generation'
 
 export const TIKTOK_SCOPE_APPROVED: Record<TikTokPendingFeature, boolean> = {
-  'creative-management': false,
-  'pixel-management': false,
-  'lead-generation': false,
+  'creative-management': true,
+  'pixel-management': true,
+  'lead-generation': true,
 }
 
 export function isTikTokScopeApproved(feature: TikTokPendingFeature): boolean {

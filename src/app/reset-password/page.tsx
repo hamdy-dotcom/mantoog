@@ -20,35 +20,25 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const supabase = createClient()
 
-    const init = async () => {
-      const hash = typeof window !== 'undefined' ? window.location.hash : ''
-      if (hash.includes('access_token')) {
-        const { data, error } = await supabase.auth.getSession()
-        if (error) {
-          setError(lang === 'ar' ? 'رابط الاستعادة غير صالح أو منتهي' : 'Invalid or expired recovery link')
-          setCheckingSession(false)
-          return
-        }
-        if (data.session) {
-          setSessionReady(true)
-          window.history.replaceState(null, '', window.location.pathname)
-        }
-      } else {
-        const { data } = await supabase.auth.getSession()
-        if (data.session) setSessionReady(true)
-      }
+    // Supabase puts the token in the URL hash as #access_token=...&type=recovery
+    const hashParams = new URLSearchParams(window.location.hash.slice(1))
+    const accessToken = hashParams.get('access_token')
+    const type = hashParams.get('type')
+
+    if (accessToken && type === 'recovery') {
+      supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: hashParams.get('refresh_token') || '',
+      }).then(({ error }) => {
+        if (error) setError(lang === 'ar' ? 'الرابط غير صالح أو منتهي الصلاحية' : 'Invalid or expired recovery link')
+        else setSessionReady(true)
+        setCheckingSession(false)
+        window.history.replaceState(null, '', window.location.pathname)
+      })
+    } else {
+      setError(lang === 'ar' ? 'رابط استعادة غير صالح — اطلب رابطاً جديداً' : 'Invalid recovery link — request a new one')
       setCheckingSession(false)
     }
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) {
-        setSessionReady(true)
-        setCheckingSession(false)
-      }
-    })
-
-    init()
-    return () => subscription.unsubscribe()
   }, [lang])
 
   const handleSubmit = async (e: React.FormEvent) => {

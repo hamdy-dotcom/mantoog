@@ -9,15 +9,17 @@ import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 
 const COUNTRY_CODES = [
-  { code: '+20', country: 'مصر', flag: '🇪🇬', digits: 10, pattern: /^01[0-2,5]\d{8}$/ },
-  { code: '+966', country: 'السعودية', flag: '🇸🇦', digits: 9, pattern: /^5\d{8}$/ },
-  { code: '+971', country: 'الإمارات', flag: '🇦🇪', digits: 9, pattern: /^5\d{8}$/ },
-  { code: '+212', country: 'المغرب', flag: '🇲🇦', digits: 9, pattern: /^[5-7]\d{8}$/ },
-  { code: '+213', country: 'الجزائر', flag: '🇩🇿', digits: 9, pattern: /^[5-7]\d{8}$/ },
-  { code: '+974', country: 'قطر', flag: '🇶🇦', digits: 8, pattern: /^[3-7]\d{7}$/ },
-  { code: '+965', country: 'الكويت', flag: '🇰🇼', digits: 8, pattern: /^[5-9]\d{7}$/ },
-  { code: '+973', country: 'البحرين', flag: '🇧🇭', digits: 8, pattern: /^[3-6]\d{7}$/ },
-  { code: '+968', country: 'عُمان', flag: '🇴🇲', digits: 8, pattern: /^[7-9]\d{7}$/ },
+  { code: '+20', country: 'EG', digits: 10, placeholder: '10xxxxxxxx' },
+  { code: '+966', country: 'SA', digits: 9, placeholder: '5xxxxxxxx' },
+  { code: '+971', country: 'AE', digits: 9, placeholder: '5xxxxxxxx' },
+  { code: '+212', country: 'MA', digits: 9, placeholder: '6xxxxxxxx' },
+  { code: '+213', country: 'DZ', digits: 9, placeholder: '5xxxxxxxx' },
+  { code: '+216', country: 'TN', digits: 8, placeholder: '2xxxxxxx' },
+  { code: '+962', country: 'JO', digits: 9, placeholder: '7xxxxxxxx' },
+  { code: '+965', country: 'KW', digits: 8, placeholder: '9xxxxxxx' },
+  { code: '+974', country: 'QA', digits: 8, placeholder: '3xxxxxxx' },
+  { code: '+973', country: 'BH', digits: 8, placeholder: '3xxxxxxx' },
+  { code: '+968', country: 'OM', digits: 8, placeholder: '9xxxxxxx' },
 ]
 
 export default function SignupPage() {
@@ -26,19 +28,16 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [phone, setPhone] = useState('')
-  const [countryCode, setCountryCode] = useState('+20')
+  const [selectedCode, setSelectedCode] = useState('+20')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [website, setWebsite] = useState('')
   const [phoneError, setPhoneError] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const validatePhone = (number: string, code: string) => {
-    const country = COUNTRY_CODES.find(c => c.code === code)
-    if (!country) return false
-    const cleaned = number.replace(/\s/g, '')
-    return country.pattern.test(cleaned)
-  }
+  const currentCountry = COUNTRY_CODES.find(c => c.code === selectedCode) || COUNTRY_CODES[0]
+  const isValidPhone = phoneNumber.length === currentCountry.digits
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,20 +45,20 @@ export default function SignupPage() {
     setError('')
     setPhoneError('')
 
-    // Validate phone
-    if (!phone.trim()) {
+    if (!phoneNumber.trim()) {
       setPhoneError(lang === 'ar' ? 'رقم الهاتف مطلوب' : 'Phone number is required')
       setLoading(false)
       return
     }
-    if (!validatePhone(phone, countryCode)) {
-      const country = COUNTRY_CODES.find(c => c.code === countryCode)
+    if (!isValidPhone) {
       setPhoneError(lang === 'ar'
-        ? `رقم غير صحيح — يجب أن يكون ${country?.digits} أرقام`
-        : `Invalid number — must be ${country?.digits} digits`)
+        ? `رقم غير صحيح — يجب أن يكون ${currentCountry.digits} أرقام`
+        : `Invalid number — must be ${currentCountry.digits} digits`)
       setLoading(false)
       return
     }
+
+    const fullPhone = selectedCode + phoneNumber
 
     const supabase = createClient()
     const { data, error } = await supabase.auth.signUp({
@@ -68,7 +67,7 @@ export default function SignupPage() {
       options: {
         data: {
           full_name: fullName,
-          phone: countryCode + phone,
+          phone: fullPhone,
         },
       },
     })
@@ -83,7 +82,8 @@ export default function SignupPage() {
       await supabase.from('merchants').upsert({
         id: data.user.id,
         email,
-        phone: countryCode + phone,
+        phone: fullPhone,
+        website,
       }, { onConflict: 'id' })
     }
 
@@ -163,34 +163,33 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Phone number */}
             <div>
               <label className="text-xs text-[#8b8fa8] uppercase tracking-wider mb-1.5 block">
                 {lang === 'ar' ? 'رقم الهاتف' : 'Phone number'}
               </label>
               <div className="flex gap-2">
                 <select
-                  value={countryCode}
-                  onChange={e => { setCountryCode(e.target.value); setPhoneError('') }}
+                  value={selectedCode}
+                  onChange={e => { setSelectedCode(e.target.value); setPhoneNumber(''); setPhoneError('') }}
                   className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-2 py-3 text-white text-sm focus:outline-none focus:border-[#3b82f6] transition-colors w-32 flex-shrink-0"
                 >
                   {COUNTRY_CODES.map(c => (
                     <option key={c.code} value={c.code}>
-                      {c.flag} {c.code}
+                      {c.code} {c.country}
                     </option>
                   ))}
                 </select>
                 <input
                   type="tel"
-                  value={phone}
+                  value={phoneNumber}
                   onChange={e => {
-                    const val = e.target.value.replace(/[^\d]/g, '')
-                    setPhone(val)
+                    setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, currentCountry.digits))
                     setPhoneError('')
                   }}
-                  placeholder={countryCode === '+20' ? '01xxxxxxxxx' : countryCode === '+966' ? '5xxxxxxxx' : '5xxxxxxxx'}
-                  className={`flex-1 bg-[#0f1117] border rounded-xl px-4 py-3 text-white placeholder-[#4a4e60] focus:outline-none transition-colors text-sm ${phoneError ? 'border-[#f87171] focus:border-[#f87171]' : 'border-[#2a2d35] focus:border-[#3b82f6]'}`}
+                  placeholder={currentCountry.placeholder}
+                  maxLength={currentCountry.digits}
                   dir="ltr"
+                  className={`flex-1 bg-[#0f1117] border rounded-xl px-4 py-3 text-white placeholder-[#4a4e60] focus:outline-none transition-colors text-sm ${phoneError ? 'border-[#f87171] focus:border-[#f87171]' : 'border-[#2a2d35] focus:border-[#3b82f6]'}`}
                 />
               </div>
               {phoneError && (
@@ -198,10 +197,22 @@ export default function SignupPage() {
               )}
               <p className="text-[#4a4e60] text-xs mt-1">
                 {lang === 'ar'
-                  ? `${COUNTRY_CODES.find(c => c.code === countryCode)?.country} — ${COUNTRY_CODES.find(c => c.code === countryCode)?.digits} أرقام`
-                  : `${COUNTRY_CODES.find(c => c.code === countryCode)?.country} — ${COUNTRY_CODES.find(c => c.code === countryCode)?.digits} digits`
-                }
+                  ? `${currentCountry.country} — ${currentCountry.digits} أرقام`
+                  : `${currentCountry.country} — ${currentCountry.digits} digits`}
               </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-[#8b8fa8] uppercase tracking-wider">
+                {lang === 'ar' ? 'اسم متجرك أو صفحتك (اختياري)' : 'Your Store / Page Name (optional)'}
+              </label>
+              <input
+                type="text"
+                value={website}
+                onChange={e => setWebsite(e.target.value)}
+                placeholder={lang === 'ar' ? 'مثال: متجر الأناقة، @mystore' : 'e.g. My Store, @mystore'}
+                className="mt-1.5 w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6]"
+              />
             </div>
 
             {error && (

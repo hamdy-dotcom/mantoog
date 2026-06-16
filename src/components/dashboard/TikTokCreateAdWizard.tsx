@@ -31,6 +31,14 @@ import {
   isValidLocalDatetime,
 } from '@/lib/tiktok/create-ad/schedule'
 import type { CreateErrorCategory } from '@/lib/tiktok/create-ad/errors'
+import ProductCreativePicker from '@/components/dashboard/ProductCreativePicker'
+import ConversionEventField from '@/components/dashboard/ConversionEventField'
+import {
+  DEFAULT_CONVERSION_EVENT_PREFERENCE,
+  type ConversionEventPreference,
+  type ConversionEventUiOption,
+} from '@/lib/tiktok/create-ad/optimization-events'
+import type { ProductCreativeItem } from '@/lib/product-creatives/types'
 
 type Props = {
   lang: string
@@ -115,6 +123,9 @@ export default function TikTokCreateAdWizard({
   const [creativeSource, setCreativeSource] = useState<CreativeSource | null>(null)
   const [caption, setCaption] = useState('')
   const [cta, setCta] = useState<CtaType>('order_now')
+  const [selectedCreativeIds, setSelectedCreativeIds] = useState<string[]>([])
+  const [selectedCreativeItems, setSelectedCreativeItems] = useState<ProductCreativeItem[]>([])
+  const [creativeUploading, setCreativeUploading] = useState(false)
   const [goal, setGoal] = useState<AdGoal>('orders')
   const [dailyBudget, setDailyBudget] = useState('50')
   const [scheduleStart, setScheduleStart] = useState('')
@@ -125,7 +136,7 @@ export default function TikTokCreateAdWizard({
   const [locationsLoading, setLocationsLoading] = useState(false)
   const [locationsError, setLocationsError] = useState<string | null>(null)
   const [locationSearch, setLocationSearch] = useState('')
-  const [ageGroups, setAgeGroups] = useState<string[]>(['AGE_18_24', 'AGE_25_34', 'AGE_35_44'])
+  const [ageGroups, setAgeGroups] = useState<string[]>(['AGE_18_24', 'AGE_25_34', 'AGE_35_44', 'AGE_45_54', 'AGE_55_100'])
   const [gender, setGender] = useState('GENDER_UNLIMITED')
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [advanced, setAdvanced] = useState<AdvancedSettings>({ ...DEFAULT_ADVANCED })
@@ -135,6 +146,10 @@ export default function TikTokCreateAdWizard({
   const [leadFormsError, setLeadFormsError] = useState<string | null>(null)
   const [leadFormChoice, setLeadFormChoice] = useState('')
   const [newLeadFormName, setNewLeadFormName] = useState('')
+  const [conversionEventOptions, setConversionEventOptions] = useState<ConversionEventUiOption[]>([])
+  const [conversionEvent, setConversionEvent] = useState<ConversionEventPreference>(
+    DEFAULT_CONVERSION_EVENT_PREFERENCE
+  )
   const [campaignNameSuffix, setCampaignNameSuffix] = useState(() => previewNameSuffix())
 
   const [launching, setLaunching] = useState(false)
@@ -142,7 +157,10 @@ export default function TikTokCreateAdWizard({
   const [launchSuccess, setLaunchSuccess] = useState<{
     campaign_id: string
     adgroup_id: string
+    ad_id?: string
     message: string
+    ads?: { ok: boolean; ad_id?: string; ad_name?: string; error?: string }[]
+    partial?: boolean
   } | null>(null)
 
   const creativePending = blockIfScopePending('creative-management')
@@ -226,6 +244,12 @@ export default function TikTokCreateAdWizard({
       setAccountTimezone(tz)
       const defaultStart = data.store?.default_schedule_start || defaultScheduleStartLocal(tz)
       setScheduleStart(prev => prev || defaultStart)
+      if (data.pixel_conversion) {
+        setConversionEventOptions(data.pixel_conversion.options || [])
+        setConversionEvent(
+          data.pixel_conversion.default_preference || DEFAULT_CONVERSION_EVENT_PREFERENCE
+        )
+      }
       if (data.error === 'no_active_account') {
         setCtxError('no_account')
       }
@@ -263,20 +287,22 @@ export default function TikTokCreateAdWizard({
 
   const leadFormSelection = useMemo(() => {
     if (goal !== 'leads' || !leadFormChoice) return null
-    if (leadFormChoice === '__create_new__') {
-      const draftName = newLeadFormName.trim()
-        || (selectedProduct ? `${selectedProduct.title} — Leads` : 'New lead form')
-      return { mode: 'create_new' as const, page_id: null, page_name: draftName }
-    }
     const form = leadForms.find(f => f.page_id === leadFormChoice)
     if (!form) return null
     return { mode: 'existing' as const, page_id: form.page_id, page_name: form.page_name }
-  }, [goal, leadFormChoice, newLeadFormName, selectedProduct, leadForms])
+  }, [goal, leadFormChoice, leadForms])
 
   const selectProduct = (p: ProductSummary) => {
     setSelectedProduct(p)
+    setSelectedCreativeIds([])
+    setSelectedCreativeItems([])
     const desc = p.description ? ` — ${p.description.slice(0, 120)}` : ''
     setCaption(`${p.title}${desc}`)
+  }
+
+  const handleCreativeSelection = (ids: string[], items: ProductCreativeItem[]) => {
+    setSelectedCreativeIds(ids)
+    setSelectedCreativeItems(items)
   }
 
   const toggleAge = (id: string) => {
@@ -288,7 +314,7 @@ export default function TikTokCreateAdWizard({
       const langs = prev.languages.includes(id)
         ? prev.languages.filter(l => l !== id)
         : [...prev.languages, id]
-      return { ...prev, touched: true, languages: langs.length ? langs : ['ar'] }
+      return { ...prev, touched: true, languages: langs }
     })
   }
 
@@ -296,9 +322,21 @@ export default function TikTokCreateAdWizard({
     if (!selectedProduct || !creativeSource || !store) return null
     const budget = parseFloat(dailyBudget)
     if (!Number.isFinite(budget) || budget <= 0) return null
+    const videoItems = selectedCreativeItems.filter(i => i.type === 'video')
+    const imageItems = selectedCreativeItems.filter(i => i.type === 'image')
     return {
       product: selectedProduct,
-      creative: { source: creativeSource, caption, cta },
+      creative: {
+        source: creativeSource,
+        caption,
+        cta,
+        creative_ids: selectedCreativeIds.length ? selectedCreativeIds : null,
+        media: creativeSource === 'carousel'
+          ? { image_urls: imageItems.map(i => i.url) }
+          : creativeSource === 'product_video' || creativeSource === 'upload'
+            ? { video_url: videoItems[0]?.url || null }
+            : null,
+      },
       targeting: {
         goal,
         daily_budget: budget,
@@ -309,17 +347,26 @@ export default function TikTokCreateAdWizard({
         gender,
         advanced,
         lead_form: leadFormSelection,
+        conversion_event: goal === 'orders' ? conversionEvent : null,
       },
       store: {
         tiktok_pixel_id: store.tiktok_pixel_id,
         currency: store.currency,
       },
     }
-  }, [selectedProduct, creativeSource, store, caption, cta, goal, dailyBudget, scheduleStart, scheduleEnd, locationId, ageGroups, gender, advanced, leadFormSelection])
+  }, [selectedProduct, creativeSource, store, caption, cta, selectedCreativeIds, selectedCreativeItems, goal, dailyBudget, scheduleStart, scheduleEnd, locationId, ageGroups, gender, advanced, leadFormSelection, conversionEvent])
 
   const canNext = useMemo(() => {
     if (step === 1) return !!selectedProduct
-    if (step === 2) return !!creativeSource && caption.trim().length > 0
+    if (step === 2) {
+      if (!creativeSource || caption.trim().length === 0 || creativeUploading) return false
+      if (creativeSource === 'product_video' || creativeSource === 'upload') {
+        const videos = selectedCreativeItems.filter(i => i.type === 'video')
+        return videos.length > 0 && videos.length <= 5 && selectedCreativeIds.length === videos.length
+      }
+      if (creativeSource === 'carousel') return selectedCreativeIds.length > 0
+      return true
+    }
     if (step === 3) {
       const b = parseFloat(dailyBudget)
       const budgetOk = Number.isFinite(b) && b > 0 && ageGroups.length > 0
@@ -332,7 +379,7 @@ export default function TikTokCreateAdWizard({
       return budgetOk && scheduleOk && endOk && locationOk
     }
     return true
-  }, [step, selectedProduct, creativeSource, caption, dailyBudget, ageGroups, goal, leadFormSelection, scheduleStart, scheduleEnd, locationId, locationsLoading])
+  }, [step, selectedProduct, creativeSource, caption, selectedCreativeIds, selectedCreativeItems, creativeUploading, dailyBudget, ageGroups, goal, leadFormSelection, scheduleStart, scheduleEnd, locationId, locationsLoading])
 
   const launch = async () => {
     if (!payload) return
@@ -367,7 +414,10 @@ export default function TikTokCreateAdWizard({
       setLaunchSuccess({
         campaign_id: data.campaign_id,
         adgroup_id: data.adgroup_id,
+        ad_id: data.ad_id,
         message: data.message,
+        ads: data.ads,
+        partial: data.partial,
       })
     } catch {
       setLaunchError({ message: lang === 'ar' ? 'فشل الإطلاق' : 'Launch failed' })
@@ -395,31 +445,31 @@ export default function TikTokCreateAdWizard({
   }
 
   if (launchSuccess) {
+    const adCount = launchSuccess.ads?.filter(a => a.ok).length ?? (launchSuccess.ad_id ? 1 : 0)
     return (
-      <div className="bg-[#1a1d24] border border-[#4ade80]/30 rounded-2xl p-6 space-y-4">
-        <div className="text-2xl">✓</div>
+      <div className="bg-[#1a1d24] border border-[#4ade80]/30 rounded-2xl p-6 space-y-4" dir={dir}>
+        <div className="text-2xl">{launchSuccess.partial ? '⚠' : '✓'}</div>
         <h3 className="text-white font-semibold text-lg">
-          {lang === 'ar' ? 'تم إنشاء الحملة ومجموعة الإعلانات' : 'Campaign & ad group created'}
+          {launchSuccess.partial
+            ? (lang === 'ar' ? 'تم الإطلاق جزئياً' : 'Partially launched')
+            : (lang === 'ar'
+              ? (adCount > 1 ? 'تم إنشاء الحملة والإعلانات' : 'تم إنشاء الحملة والإعلان')
+              : (adCount > 1 ? 'Campaign & ads created' : 'Campaign & ad created'))}
         </h3>
         <p className="text-sm text-[#8b8fa8]">{launchSuccess.message}</p>
         <ul className="text-xs text-[#4a4e60] space-y-1" dir="ltr">
           <li>Campaign: {launchSuccess.campaign_id}</li>
           <li>Ad group: {launchSuccess.adgroup_id}</li>
+          {launchSuccess.ads?.length ? (
+            launchSuccess.ads.map((ad, i) => (
+              <li key={ad.ad_id || i} className={ad.ok ? '' : 'text-[#f87171]'}>
+                {ad.ok ? `Ad ${i + 1}: ${ad.ad_id}` : `Ad ${i + 1} failed: ${ad.error || '—'}`}
+              </li>
+            ))
+          ) : launchSuccess.ad_id ? (
+            <li>Ad: {launchSuccess.ad_id}</li>
+          ) : null}
         </ul>
-        {creativePending && (
-          <p className="text-sm text-[#fbbf24] bg-[#3a2800]/40 border border-[#fbbf24]/25 rounded-lg px-4 py-3">
-            {lang === 'ar'
-              ? 'الإبداع محفوظ — سيُنشر تلقائياً بعد موافقة TikTok على صلاحية إدارة المحتوى.'
-              : 'Creative saved — it will publish automatically once Creative Management is approved.'}
-          </p>
-        )}
-        {goal === 'leads' && leadGenPending && (
-          <p className="text-sm text-[#fbbf24] bg-[#3a2800]/40 border border-[#fbbf24]/25 rounded-lg px-4 py-3">
-            {lang === 'ar'
-              ? 'نموذج العملاء المحتملين محفوظ — سيُرفق ويُنشر الإعلان بعد موافقة TikTok على صلاحية توليد العملاء المحتملين.'
-              : 'Lead form saved — ad publish and form attachment will complete once Lead Generation is approved.'}
-          </p>
-        )}
         <button
           type="button"
           onClick={() => { setLaunchSuccess(null); setStep(1) }}
@@ -517,7 +567,11 @@ export default function TikTokCreateAdWizard({
                     <button
                       key={src.id}
                       type="button"
-                      onClick={() => setCreativeSource(src.id)}
+                      onClick={() => {
+                        setCreativeSource(src.id)
+                        setSelectedCreativeIds([])
+                        setSelectedCreativeItems([])
+                      }}
                       className={`rounded-xl border p-4 text-start transition-all ${
                         creativeSource === src.id
                           ? 'border-[#3b82f6] bg-[#3b82f6]/10'
@@ -531,24 +585,43 @@ export default function TikTokCreateAdWizard({
                   ))}
                 </div>
 
-                {creativeSource && (
+                {creativeSource && selectedProduct && (
                   <div className="space-y-4 border-t border-[#2a2d35] pt-4">
-                    {creativeSource === 'product_video' && selectedProduct?.images[0] && (
-                      <div className="rounded-xl border border-[#2a2d35] bg-[#0f1117] p-4 flex gap-4 items-center">
-                        <img src={selectedProduct.images[0]} alt="" className="w-20 h-20 rounded-lg object-cover" />
+                    {(creativeSource === 'product_video' || creativeSource === 'carousel') && (
+                      <div className="space-y-2">
                         <p className="text-xs text-[#8b8fa8]">
-                          {lang === 'ar' ? 'سيتم استخدام صور/فيديو المنتج كإبداع.' : 'Product media will be used as the ad creative.'}
+                          {creativeSource === 'product_video'
+                            ? (lang === 'ar' ? 'اختر حتى 5 فيديوهات — كل فيديو = إعلان منفصل' : 'Pick up to 5 videos — each video becomes its own ad')
+                            : (lang === 'ar' ? 'اختر الصور للعرض المتتابع' : 'Pick images for the carousel')}
                         </p>
+                        <ProductCreativePicker
+                          productId={selectedProduct.id}
+                          lang={lang}
+                          dir={dir}
+                          mode={creativeSource === 'product_video' ? 'video' : 'carousel'}
+                          selectedIds={selectedCreativeIds}
+                          onChange={handleCreativeSelection}
+                        />
                       </div>
                     )}
-                    {(creativeSource === 'upload' || creativeSource === 'carousel') && (
-                      <div className="border border-dashed border-[#2a2d35] rounded-xl px-4 py-8 text-center">
-                        <p className="text-sm text-[#8b8fa8] mb-3">
-                          {creativeSource === 'upload'
-                            ? (lang === 'ar' ? 'ارفع الفيديو هنا' : 'Upload your video here')
-                            : (lang === 'ar' ? 'ارفع الصور هنا' : 'Upload carousel images here')}
+                    {creativeSource === 'upload' && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-[#8b8fa8]">
+                          {lang === 'ar'
+                            ? 'ارفع فيديوهات أو اختر من المكتبة — حتى 5 فيديوهات (كل واحد = إعلان)'
+                            : 'Upload footage or pick from library — up to 5 videos (each = one ad)'}
                         </p>
-                        <PendingApprovalNotice feature="creative-management" lang={lang} className="text-start" />
+                        <ProductCreativePicker
+                          productId={selectedProduct.id}
+                          lang={lang}
+                          dir={dir}
+                          mode="video"
+                          selectedIds={selectedCreativeIds}
+                          onChange={handleCreativeSelection}
+                          allowUpload
+                          uploadLabel={lang === 'ar' ? 'اضغط لرفع فيديو' : 'Click to upload video'}
+                          onUploadingChange={setCreativeUploading}
+                        />
                       </div>
                     )}
                     {creativeSource === 'ai_ugc' && (
@@ -620,9 +693,28 @@ export default function TikTokCreateAdWizard({
                     </p>
                     <p className="text-xs text-[#4a4e60]">
                       {lang === 'ar'
-                        ? 'اختر نموذجاً موجوداً أو أنشئ نموذجاً جديداً — يُفعّل بعد موافقة توليد العملاء المحتملين.'
-                        : 'Select or create a lead form — activates with Lead Generation approval.'}
+                        ? 'أنشئ النموذج على TikTok (Leads Center) ثم ارجع هنا واضغط تحديث.'
+                        : 'Create the form in TikTok Leads Center, then come back and click Refresh.'}
                     </p>
+
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href="https://ads.tiktok.com/"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-2 rounded-lg text-xs border border-[#2a2d35] text-[#8b8fa8] hover:text-white hover:border-[#3b82f6]"
+                      >
+                        {lang === 'ar' ? 'فتح Leads Center على TikTok' : 'Open TikTok Leads Center'}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={fetchLeadForms}
+                        disabled={leadFormsLoading}
+                        className="px-3 py-2 rounded-lg text-xs border border-[#2a2d35] text-[#8b8fa8] hover:text-white disabled:opacity-40"
+                      >
+                        {lang === 'ar' ? 'تحديث النماذج' : 'Refresh forms'}
+                      </button>
+                    </div>
 
                     {leadFormsLoading ? (
                       <p className="text-sm text-[#8b8fa8] animate-pulse">
@@ -644,9 +736,6 @@ export default function TikTokCreateAdWizard({
                               {f.page_name}{f.status ? ` (${f.status})` : ''}
                             </option>
                           ))}
-                          <option value="__create_new__">
-                            {lang === 'ar' ? '+ إنشاء نموذج جديد' : '+ Create new lead form'}
-                          </option>
                         </select>
                       </label>
                     )}
@@ -654,32 +743,12 @@ export default function TikTokCreateAdWizard({
                     {leadFormsError && !leadFormsLoading && leadForms.length === 0 && (
                       <p className="text-xs text-[#fbbf24]">
                         {lang === 'ar'
-                          ? 'تعذر تحميل النماذج — يمكنك اختيار إنشاء نموذج جديد.'
-                          : 'Could not load existing forms — you can still choose Create new.'}
+                          ? 'تعذر تحميل النماذج — افتح Leads Center ثم اضغط تحديث.'
+                          : 'Could not load forms — open Leads Center, create one, then refresh.'}
                       </p>
                     )}
 
-                    {leadFormChoice === '__create_new__' && (
-                      <div className="space-y-3 border-t border-[#2a2d35] pt-3">
-                        <label className="flex flex-col gap-1.5">
-                          {fieldLabel(lang === 'ar' ? 'اسم النموذج (مسودة)' : 'Form name (draft)')}
-                          <input
-                            type="text"
-                            value={newLeadFormName}
-                            onChange={e => setNewLeadFormName(e.target.value)}
-                            placeholder={
-                              selectedProduct
-                                ? `${selectedProduct.title} — Leads`
-                                : (lang === 'ar' ? 'نموذج عملاء محتملين' : 'Lead form')
-                            }
-                            className={inputClass()}
-                          />
-                        </label>
-                        <PendingApprovalNotice feature="lead-generation" lang={lang} />
-                      </div>
-                    )}
-
-                    {leadFormChoice && leadFormChoice !== '__create_new__' && leadGenPending && (
+                    {leadFormChoice && leadGenPending && (
                       <PendingApprovalNotice feature="lead-generation" lang={lang} />
                     )}
                   </div>
@@ -710,6 +779,15 @@ export default function TikTokCreateAdWizard({
                       <p className="text-sm text-[#4ade80]">
                         {lang === 'ar' ? '✓ البكسل جاهز للتحويلات' : '✓ Pixel ready for conversions'}
                       </p>
+                    )}
+                    {pixelState !== 'missing' && conversionEventOptions.length > 0 && (
+                      <ConversionEventField
+                        lang={lang}
+                        options={conversionEventOptions}
+                        value={conversionEvent}
+                        onChange={setConversionEvent}
+                        inputClassName={inputClass()}
+                      />
                     )}
                   </div>
                 )}
@@ -822,6 +900,27 @@ export default function TikTokCreateAdWizard({
                 <div>
                   {fieldLabel(lang === 'ar' ? 'الفئة العمرية' : 'Age')}
                   <div className="flex flex-wrap gap-2 mt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allIds = ['AGE_18_24', 'AGE_25_34', 'AGE_35_44', 'AGE_45_54', 'AGE_55_100']
+                        const allSelected = allIds.every(id => ageGroups.includes(id))
+                        if (allSelected) {
+                          toggleAge('AGE_18_24')
+                          return
+                        }
+                        for (const id of allIds) {
+                          if (!ageGroups.includes(id)) toggleAge(id)
+                        }
+                      }}
+                      className={`px-3 py-1 rounded-lg text-xs border transition-colors ${
+                        ['AGE_18_24', 'AGE_25_34', 'AGE_35_44', 'AGE_45_54', 'AGE_55_100'].every(id => ageGroups.includes(id))
+                          ? 'border-[#3b82f6] bg-[#3b82f6]/10 text-white'
+                          : 'border-[#2a2d35] text-[#8b8fa8]'
+                      }`}
+                    >
+                      {lang === 'ar' ? 'الكل (18+)' : 'All (18+)'}
+                    </button>
                     {AGE_OPTIONS.map(a => (
                       <button
                         key={a.id}
@@ -913,16 +1012,101 @@ export default function TikTokCreateAdWizard({
                       {fieldLabel(lang === 'ar' ? 'المواضع' : 'Placement')}
                       <select
                         value={advanced.placement}
-                        onChange={e => setAdvanced({ ...advanced, touched: true, placement: e.target.value as AdvancedSettings['placement'] })}
+                        onChange={e => {
+                          const nextPlacement = e.target.value as AdvancedSettings['placement']
+                          setAdvanced(prev => {
+                            const next = { ...prev, touched: true, placement: nextPlacement }
+                            if (nextPlacement === 'manual' && (!next.placements || next.placements.length === 0)) {
+                              next.placements = ['PLACEMENT_TIKTOK']
+                            }
+                            return next
+                          })
+                        }}
                         className={inputClass()}
                       >
                         <option value="automatic">{lang === 'ar' ? 'تلقائي' : 'Automatic'}</option>
                         <option value="manual">{lang === 'ar' ? 'يدوي' : 'Manual'}</option>
                       </select>
                     </label>
+                    {advanced.placement === 'manual' && (
+                      <div className="sm:col-span-2">
+                        {fieldLabel(lang === 'ar' ? 'اختر المواضع' : 'Select placements')}
+                        <div className="flex flex-wrap gap-2 mt-1.5">
+                          {[
+                            { id: 'PLACEMENT_TIKTOK', labelEn: 'TikTok', labelAr: 'Tik توك' },
+                            { id: 'PLACEMENT_PANGLE', labelEn: 'Pangle / Global App Bundle', labelAr: 'Pangle / Global App Bundle' },
+                            { id: 'PLACEMENT_SEARCH', labelEn: 'Search', labelAr: 'بحث' },
+                          ].map(p => {
+                            const selected = advanced.placements?.includes(p.id)
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => setAdvanced(prev => {
+                                  const has = prev.placements.includes(p.id)
+                                  const placements = has
+                                    ? prev.placements.filter(x => x !== p.id)
+                                    : [...prev.placements, p.id]
+                                  return { ...prev, touched: true, placements }
+                                })}
+                                className={`px-3 py-1 rounded-lg text-xs border ${
+                                  selected
+                                    ? 'border-[#3b82f6] bg-[#3b82f6]/10 text-white'
+                                    : 'border-[#2a2d35] text-[#8b8fa8] hover:text-white'
+                                }`}
+                              >
+                                {lang === 'ar' ? p.labelAr : p.labelEn}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <p className="text-[10px] text-[#4a4e60] mt-1.5">
+                          {lang === 'ar'
+                            ? 'إذا لم يتم اختيار شيء، سيتم استخدام TikTok تلقائياً.'
+                            : 'If none selected, TikTok will be used by default.'}
+                        </p>
+                      </div>
+                    )}
+                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <label className="flex items-center gap-2 text-sm text-[#8b8fa8]">
+                        <input
+                          type="checkbox"
+                          checked={advanced.comment_disabled}
+                          onChange={e => setAdvanced(prev => ({ ...prev, touched: true, comment_disabled: e.target.checked }))}
+                        />
+                        {lang === 'ar' ? 'تعطيل التعليقات' : 'Disable comments'}
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-[#8b8fa8]">
+                        <input
+                          type="checkbox"
+                          checked={advanced.video_download_disabled}
+                          onChange={e => setAdvanced(prev => ({ ...prev, touched: true, video_download_disabled: e.target.checked }))}
+                        />
+                        {lang === 'ar' ? 'تعطيل تنزيل الفيديو' : 'Disable video download'}
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-[#8b8fa8]">
+                        <input
+                          type="checkbox"
+                          checked={advanced.share_disabled}
+                          onChange={e => setAdvanced(prev => ({ ...prev, touched: true, share_disabled: e.target.checked }))}
+                        />
+                        {lang === 'ar' ? 'تعطيل المشاركة' : 'Disable sharing'}
+                      </label>
+                    </div>
                     <div>
                       {fieldLabel(lang === 'ar' ? 'اللغات' : 'Languages')}
                       <div className="flex flex-wrap gap-2 mt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setAdvanced(prev => ({ ...prev, touched: true, languages: [] }))}
+                          className={`px-3 py-1 rounded-lg text-xs border ${
+                            (advanced.languages?.length ?? 0) === 0
+                              ? 'border-[#3b82f6] bg-[#3b82f6]/10 text-white'
+                              : 'border-[#2a2d35] text-[#8b8fa8]'
+                          }`}
+                        >
+                          {lang === 'ar' ? 'الكل' : 'All'}
+                        </button>
                         {LANGUAGE_OPTIONS.map(l => (
                           <button
                             key={l.id}
@@ -938,6 +1122,106 @@ export default function TikTokCreateAdWizard({
                           </button>
                         ))}
                       </div>
+                      <p className="text-[10px] text-[#4a4e60] mt-1.5">
+                        {lang === 'ar' ? 'افتراضيًا: الكل (بدون تقييد).' : 'Default: All (no restriction).'}
+                      </p>
+                    </div>
+                    <label className="flex flex-col gap-1.5">
+                      {fieldLabel(lang === 'ar' ? 'قوة الإنفاق' : 'Spending power')}
+                      <select
+                        value={advanced.spending_power}
+                        onChange={e => setAdvanced({ ...advanced, touched: true, spending_power: e.target.value as AdvancedSettings['spending_power'] })}
+                        className={inputClass()}
+                      >
+                        <option value="ALL">{lang === 'ar' ? 'الكل' : 'All'}</option>
+                        <option value="HIGH">{lang === 'ar' ? 'قوة إنفاق عالية' : 'High spending power'}</option>
+                      </select>
+                    </label>
+                    <div className="sm:col-span-2 space-y-2">
+                      {fieldLabel(lang === 'ar' ? 'جدولة العرض (Dayparting)' : 'Ad schedule (dayparting)')}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAdvanced({ ...advanced, touched: true, dayparting_mode: 'all_day', dayparting: null })}
+                          className={`px-3 py-1 rounded-lg text-xs border ${
+                            advanced.dayparting_mode === 'all_day'
+                              ? 'border-[#3b82f6] bg-[#3b82f6]/10 text-white'
+                              : 'border-[#2a2d35] text-[#8b8fa8]'
+                          }`}
+                        >
+                          {lang === 'ar' ? 'طوال اليوم' : 'Run all day'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const allHours = Array.from({ length: 24 }, (_, h) => h)
+                            const build = (hours: number[]) => {
+                              const set = new Set(hours)
+                              const day = Array.from({ length: 48 }, (_, idx) => set.has(Math.floor(idx / 2)) ? '1' : '0').join('')
+                              return day.repeat(7)
+                            }
+                            setAdvanced(prev => ({
+                              ...prev,
+                              touched: true,
+                              dayparting_mode: 'custom_hours',
+                              dayparting: prev.dayparting && prev.dayparting.length === 168 ? prev.dayparting : build(allHours),
+                            }))
+                          }}
+                          className={`px-3 py-1 rounded-lg text-xs border ${
+                            advanced.dayparting_mode === 'custom_hours'
+                              ? 'border-[#3b82f6] bg-[#3b82f6]/10 text-white'
+                              : 'border-[#2a2d35] text-[#8b8fa8]'
+                          }`}
+                        >
+                          {lang === 'ar' ? 'تحديد ساعات' : 'Set hours'}
+                        </button>
+                      </div>
+                      {advanced.dayparting_mode === 'custom_hours' && (
+                        <div className="border border-[#2a2d35] rounded-xl p-3 bg-[#0b0d12]">
+                          <p className="text-[10px] text-[#4a4e60] mb-2">
+                            {lang === 'ar'
+                              ? 'اختر ساعات التشغيل (يُطبق على كل أيام الأسبوع).'
+                              : 'Pick active hours (applies to all days).'}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')).map((label, h) => {
+                              const mask = advanced.dayparting || ''
+                              const day = mask.slice(0, 48)
+                              const on = day[2 * h] === '1' && day[2 * h + 1] === '1'
+                              return (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  onClick={() => {
+                                    const current = new Set<number>()
+                                    if (advanced.dayparting && advanced.dayparting.length === 168) {
+                                      const d0 = advanced.dayparting.slice(0, 48)
+                                      for (let hh = 0; hh < 24; hh++) {
+                                        if (d0[2 * hh] === '1' && d0[2 * hh + 1] === '1') current.add(hh)
+                                      }
+                                    } else {
+                                      for (let hh = 0; hh < 24; hh++) current.add(hh)
+                                    }
+                                    if (current.has(h)) current.delete(h)
+                                    else current.add(h)
+                                    const set = new Set(current)
+                                    const dayMask = Array.from({ length: 48 }, (_, idx) => set.has(Math.floor(idx / 2)) ? '1' : '0').join('')
+                                    const nextMask = dayMask.repeat(7)
+                                    setAdvanced(prev => ({ ...prev, touched: true, dayparting_mode: 'custom_hours', dayparting: nextMask }))
+                                  }}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] border ${
+                                    on
+                                      ? 'border-[#3b82f6] bg-[#3b82f6]/10 text-white'
+                                      : 'border-[#2a2d35] text-[#8b8fa8]'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -951,6 +1235,16 @@ export default function TikTokCreateAdWizard({
                 <div className="space-y-3 text-sm">
                   <ReviewRow label={lang === 'ar' ? 'المنتج' : 'Product'} value={selectedProduct.title} />
                   <ReviewRow label={lang === 'ar' ? 'الإبداع' : 'Creative'} value={CREATIVE_SOURCES.find(c => c.id === creativeSource)?.[lang === 'ar' ? 'labelAr' : 'labelEn'] || '—'} />
+                  {(creativeSource === 'product_video' || creativeSource === 'upload') && (
+                    <ReviewRow
+                      label={lang === 'ar' ? 'الإعلانات' : 'Ads'}
+                      value={
+                        lang === 'ar'
+                          ? `${selectedCreativeItems.filter(i => i.type === 'video').length} فيديو → ${selectedCreativeItems.filter(i => i.type === 'video').length} إعلان`
+                          : `${selectedCreativeItems.filter(i => i.type === 'video').length} video(s) → ${selectedCreativeItems.filter(i => i.type === 'video').length} ad(s)`
+                      }
+                    />
+                  )}
                   <ReviewRow label={lang === 'ar' ? 'الهدف' : 'Goal'} value={GOAL_OPTIONS.find(g => g.id === goal)?.[lang === 'ar' ? 'labelAr' : 'labelEn'] || '—'} />
                   <ReviewRow label={lang === 'ar' ? 'الميزانية' : 'Budget'} value={fmtMoney(parseFloat(dailyBudget), 0)} />
                   <ReviewRow
@@ -973,11 +1267,7 @@ export default function TikTokCreateAdWizard({
                   {goal === 'leads' ? (
                     <ReviewRow
                       label={lang === 'ar' ? 'نموذج العملاء' : 'Lead form'}
-                      value={
-                        leadFormSelection?.mode === 'create_new'
-                          ? (lang === 'ar' ? `جديد: ${leadFormSelection.page_name}` : `New: ${leadFormSelection.page_name}`)
-                          : (leadFormSelection?.page_name || '—')
-                      }
+                      value={leadFormSelection?.page_name || '—'}
                     />
                   ) : (
                     <ReviewRow label={lang === 'ar' ? 'صفحة الهبوط' : 'Landing page'} value={selectedProduct.landing_url} mono />

@@ -66,6 +66,24 @@ export async function GET(req: NextRequest) {
     .upsert(rows, { onConflict: 'store_id,advertiser_id' })
   if (error) { console.error('upsert', error); return back(req, 'error_db') }
 
+  const { count: activeCount } = await supabase
+    .from('tiktok_connections')
+    .select('*', { count: 'exact', head: true })
+    .eq('store_id', storeId)
+    .eq('is_active', true)
+
+  if ((activeCount ?? 0) === 0 && advertisers.length > 0) {
+    await supabase
+      .from('tiktok_connections')
+      .update({ is_active: false })
+      .eq('store_id', storeId)
+    await supabase
+      .from('tiktok_connections')
+      .update({ is_active: true, status: 'active' })
+      .eq('store_id', storeId)
+      .eq('advertiser_id', advertisers[0].advertiser_id)
+  }
+
   const res = back(req, 'connected')
   res.cookies.delete('tiktok_oauth_state')
   return res

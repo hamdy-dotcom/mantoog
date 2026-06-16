@@ -12,10 +12,29 @@ function errorResponse(result: CreateFlowError, status = 502) {
 export async function POST(req: NextRequest) {
   try {
     const { connection, store } = await resolveOrThrow()
-    const body = await req.json()
-    const payload = body.payload as CreateAdWizardPayload
+    const contentType = req.headers.get('content-type') || ''
 
-    const result = await launchCreateAdAtomic(connection, store, payload)
+    let payload: CreateAdWizardPayload
+    let videoFile: File | null = null
+    let imageFiles: File[] = []
+
+    if (contentType.includes('multipart/form-data')) {
+      const form = await req.formData()
+      const raw = form.get('payload')
+      payload = JSON.parse(String(raw || '{}')) as CreateAdWizardPayload
+      const vf = form.get('video') as File | null
+      if (vf && typeof (vf as any).arrayBuffer === 'function') videoFile = vf
+      const imgs = form.getAll('images') as File[]
+      imageFiles = (imgs || []).filter(Boolean)
+    } else {
+      const body = await req.json()
+      payload = body.payload as CreateAdWizardPayload
+    }
+
+    const result = await launchCreateAdAtomic(connection, store, payload, {
+      videoFile,
+      imageFiles,
+    })
 
     if (!('ok' in result) || !result.ok) {
       const err = result as CreateFlowError

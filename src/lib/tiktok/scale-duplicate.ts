@@ -1,4 +1,4 @@
-import { tiktokPost } from '@/lib/tiktok/mutations'
+import { getTikTokDataRecord, tiktokPost } from '@/lib/tiktok/mutations'
 import { TIKTOK } from '@/lib/tiktok/server'
 import type { AdGoal } from '@/lib/tiktok/create-ad/types'
 import { AGE_OPTIONS } from '@/lib/tiktok/create-ad/types'
@@ -335,8 +335,9 @@ export async function duplicateToScale(
     return { error: 'tiktok_error' as const, message: campJson.message, code: campJson.code }
   }
 
+  const campData = getTikTokDataRecord(campJson.data)
   const newCampaignId = String(
-    campJson.data?.campaign_id || campJson.data?.campaign_ids?.[0] || ''
+    campData.campaign_id || (campData.campaign_ids as unknown[] | undefined)?.[0] || ''
   )
   if (!newCampaignId) {
     return { error: 'tiktok_error' as const, message: 'No campaign_id in create response' }
@@ -367,8 +368,9 @@ export async function duplicateToScale(
     return { error: 'tiktok_error' as const, message: agJson.message, code: agJson.code }
   }
 
+  const agData = getTikTokDataRecord(agJson.data)
   const newAdgroupId = String(
-    agJson.data?.adgroup_id || agJson.data?.adgroup_ids?.[0] || ''
+    agData.adgroup_id || (agData.adgroup_ids as unknown[] | undefined)?.[0] || ''
   )
   if (!newAdgroupId) {
     await rollbackClone(connection, { campaignId: newCampaignId })

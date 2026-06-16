@@ -3,6 +3,126 @@ import type { BidField, EntityLevel } from '@/lib/tiktok/types'
 
 type Connection = { advertiser_id: string; access_token: string }
 
+export type TikTokApiJson = {
+  code?: number
+  message?: string
+  request_id?: string
+  data?: unknown
+  [key: string]: unknown
+}
+
+export type TikTokHttpError = {
+  _tiktok_http_error: true
+  method: string
+  url: string
+  status: number
+  bodyText: string
+}
+
+/** TikTok Marketing API max page_size for most list/get endpoints. */
+export const TIKTOK_MAX_PAGE_SIZE = 20
+
+function buildHttpErrorJson(
+  meta: { method: string; url: string },
+  status: number,
+  bodyText: string
+): TikTokApiJson {
+  const preview = bodyText.replace(/\s+/g, ' ').trim().slice(0, 240)
+  return {
+    code: status || -1,
+    message: `HTTP ${status} on ${meta.method} ${meta.url}: ${preview || '(empty body)'}`,
+    data: {
+      _tiktok_http_error: true,
+      method: meta.method,
+      url: meta.url,
+      status,
+      bodyText: bodyText.slice(0, 2000),
+    },
+  }
+}
+
+export function isTikTokHttpError(value: unknown): boolean {
+  if (value == null || typeof value !== 'object') return false
+  const data = (value as TikTokApiJson).data
+  return (
+    data != null
+    && typeof data === 'object'
+    && (data as Record<string, unknown>)._tiktok_http_error === true
+  )
+}
+
+export function asTikTokHttpError(value: unknown): TikTokHttpError | null {
+  if (!isTikTokHttpError(value)) return null
+  const json = value as TikTokApiJson
+  const data = json.data as Record<string, unknown>
+  return {
+    _tiktok_http_error: true,
+    method: String(data.method || ''),
+    url: String(data.url || ''),
+    status: Number(data.status || json.code || 0),
+    bodyText: String(data.bodyText || json.message || ''),
+  }
+}
+
+export async function parseTikTokResponse(
+  res: Response,
+  meta: { method: string; url: string }
+): Promise<TikTokApiJson> {
+  const bodyText = await res.text()
+
+  if (!bodyText.trim()) {
+    if (!res.ok) {
+      console.error('[tiktok] empty non-OK response', {
+        method: meta.method,
+        url: meta.url,
+        status: res.status,
+      })
+      return buildHttpErrorJson(meta, res.status, '(empty body)')
+    }
+    return {} as TikTokApiJson
+  }
+
+  try {
+    const json = JSON.parse(bodyText) as TikTokApiJson
+    if (!res.ok) {
+      console.error('[tiktok] non-OK JSON response', {
+        method: meta.method,
+        url: meta.url,
+        status: res.status,
+        code: json.code,
+        message: json.message,
+      })
+    }
+    return json
+  } catch {
+    console.error('[tiktok] non-JSON response', {
+      method: meta.method,
+      url: meta.url,
+      status: res.status,
+      body: bodyText.slice(0, 500),
+    })
+    return buildHttpErrorJson(meta, res.status, bodyText)
+  }
+}
+
+export function getTikTokDataRecord(data: unknown): Record<string, unknown> {
+  if (data == null || typeof data !== 'object' || Array.isArray(data)) return {}
+  return data as Record<string, unknown>
+}
+
+export function getTikTokListData(data: unknown): Record<string, unknown>[] {
+  if (data == null || typeof data !== 'object') return []
+  const list = (data as { list?: unknown }).list
+  if (!Array.isArray(list)) return []
+  return list.filter((row): row is Record<string, unknown> => row != null && typeof row === 'object')
+}
+
+export function capTikTokPageSize(value?: string | number, fallback = TIKTOK_MAX_PAGE_SIZE): string {
+  const n = typeof value === 'number' ? value : parseInt(String(value ?? fallback), 10)
+  if (!Number.isFinite(n) || n < 1) return '1'
+  return String(Math.min(n, TIKTOK_MAX_PAGE_SIZE))
+}
+
 export async function resolveOrThrow() {
   const resolved = await resolveActiveConnection()
   if ('error' in resolved) {
@@ -13,8 +133,9 @@ export async function resolveOrThrow() {
   return resolved
 }
 
-export async function tiktokPost(connection: Connection, path: string, body: Record<string, unknown>) {
-  const res = await fetch(`${TIKTOK}${path}`, {
+export async function tiktokPost(connection: Connection, path: string, body: Record<string, unknown>): Promise<TikTokApiJson> {
+  const url = `${TIKTOK}${path}`
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Access-Token': connection.access_token,
@@ -22,19 +143,23 @@ export async function tiktokPost(connection: Connection, path: string, body: Rec
     },
     body: JSON.stringify({ advertiser_id: connection.advertiser_id, ...body }),
   })
-  return res.json()
+  return parseTikTokResponse(res, { method: 'POST', url })
 }
 
-export async function tiktokGet(connection: Connection, path: string, extra: Record<string, string> = {}) {
-  const params = new URLSearchParams({
+export async function tiktokGet(connection: Connection, path: string, extra: Record<string, string> = {}): Promise<TikTokApiJson> {
+  const merged: Record<string, string> = {
     advertiser_id: connection.advertiser_id,
-    page_size: '100',
+    page_size: capTikTokPageSize(),
     ...extra,
-  })
-  const res = await fetch(`${TIKTOK}${path}?${params}`, {
+  }
+  merged.page_size = capTikTokPageSize(merged.page_size)
+  const params = new URLSearchParams(merged)
+  const url = `${TIKTOK}${path}?${params}`
+  const res = await fetch(url, {
+    method: 'GET',
     headers: { 'Access-Token': connection.access_token },
   })
-  return res.json()
+  return parseTikTokResponse(res, { method: 'GET', url })
 }
 
 const RENAME_CFG: Partial<Record<EntityLevel, { path: string; idKey: string; nameKey: string }>> = {
@@ -237,7 +362,7 @@ export async function duplicateEntity(
       filtering: JSON.stringify({ campaign_ids: [entityId] }),
     })
     if (getJson.code !== 0) return { error: 'tiktok_error' as const, message: getJson.message }
-    const src = getJson.data?.list?.[0]
+    const src = getTikTokListData(getJson.data)[0]
     if (!src) return { error: 'not_found' as const }
 
     if (isSmartPlus) {
@@ -250,7 +375,8 @@ export async function duplicateEntity(
     })
     const json = await tiktokPost(connection, '/campaign/create/', payload)
     if (json.code !== 0) return { error: 'tiktok_error' as const, message: json.message, code: json.code }
-    const newId = json.data?.campaign_id || json.data?.campaign_ids?.[0]
+    const data = json.data as Record<string, unknown> | undefined
+    const newId = data?.campaign_id || (data?.campaign_ids as unknown[] | undefined)?.[0]
     return { ok: true as const, entity_id: String(newId || ''), name: payload.campaign_name as string }
   }
 
@@ -263,7 +389,7 @@ export async function duplicateEntity(
       filtering: JSON.stringify({ adgroup_ids: [entityId] }),
     })
     if (getJson.code !== 0) return { error: 'tiktok_error' as const, message: getJson.message }
-    const src = getJson.data?.list?.[0]
+    const src = getTikTokListData(getJson.data)[0]
     if (!src) return { error: 'not_found' as const }
 
     const payload = stripForCreate({
@@ -272,7 +398,8 @@ export async function duplicateEntity(
     })
     const json = await tiktokPost(connection, '/adgroup/create/', payload)
     if (json.code !== 0) return { error: 'tiktok_error' as const, message: json.message, code: json.code }
-    const newId = json.data?.adgroup_id || json.data?.adgroup_ids?.[0]
+    const data = json.data as Record<string, unknown> | undefined
+    const newId = data?.adgroup_id || (data?.adgroup_ids as unknown[] | undefined)?.[0]
     return { ok: true as const, entity_id: String(newId || ''), name: payload.adgroup_name as string }
   }
 

@@ -23,9 +23,9 @@ function isInstantFormRow(row: Record<string, unknown>) {
 
 export async function fetchLeadForms(connection: Connection) {
   const attempts: Record<string, string>[] = [
-    { page: '1', page_size: '50', filtering: JSON.stringify({ page_types: ['INSTANT_FORM'] }) },
-    { page: '1', page_size: '50', filtering: JSON.stringify({ business_type: 'LEAD_GENERATION' }) },
-    { page: '1', page_size: '50' },
+    { page: '1', page_size: '20', filtering: JSON.stringify({ page_types: ['INSTANT_FORM'] }) },
+    { page: '1', page_size: '20', filtering: JSON.stringify({ business_type: 'LEAD_GENERATION' }) },
+    { page: '1', page_size: '20' },
   ]
 
   let lastMessage: string | undefined
@@ -35,7 +35,8 @@ export async function fetchLeadForms(connection: Connection) {
       lastMessage = json.message
       continue
     }
-    const list = (json.data?.list || []) as Record<string, unknown>[]
+    const data = json.data as { list?: unknown[] } | undefined
+    const list = (data?.list || []) as Record<string, unknown>[]
     const items = list
       .filter(isInstantFormRow)
       .map(mapFormRow)

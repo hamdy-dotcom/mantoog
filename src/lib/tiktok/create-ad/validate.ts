@@ -39,6 +39,14 @@ export function validateCreatePayload(
   const min = minBudget(currency)
   const adv = resolvedAdvancedSummary(payload.targeting.advanced)
   const budgetAppliesAtAdgroup = adv.budgetLevel !== 'cbo'
+
+  if (adv.campaignType === 'smart_plus') {
+    return validationFail(
+      'Smart+ campaigns cannot be created from this wizard yet. Choose Standard campaign type in Advanced settings.',
+      'invalid_objective'
+    )
+  }
+
   if (budgetAppliesAtAdgroup && budget < min) {
     return validationFail(
       `Daily budget ${budget} ${currency} is below TikTok minimum (~${min} ${currency}).`,
@@ -113,6 +121,17 @@ export function validateCreatePayload(
 
   if (!timezone) {
     return validationFail('Ad account timezone could not be resolved.', 'schedule')
+  }
+
+  const src = payload.creative.source
+  if (src === 'product_video' || src === 'upload') {
+    const count = payload.creative.creative_ids?.length ?? 0
+    if (count < 1) {
+      return validationFail('Select at least one video creative.', 'missing_required_field')
+    }
+    if (count > 5) {
+      return validationFail('Maximum 5 videos per ad group.', 'missing_required_field')
+    }
   }
 
   return null

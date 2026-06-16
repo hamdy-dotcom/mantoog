@@ -8,6 +8,7 @@ import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import { getAuthenticatedUser, loadMerchantStore, signOutAndGoToLogin } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
+import ProductCreativesSection from '@/components/dashboard/ProductCreativesSection'
 
 const statusLabels: Record<string, keyof typeof t.en> = {
   active: 'active',
@@ -224,7 +225,7 @@ export default function EditProductPage() {
             <h1 className="text-xl font-semibold text-white">{tr.editProduct}</h1>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => router.push(`/dashboard/products/${params.id}/creative`)}
+            <button onClick={() => router.push('/dashboard/tiktok')}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6] text-white text-sm font-semibold hover:opacity-90 transition-opacity">
               🎬 {lang === 'ar' ? 'إنشاء إعلان' : 'Create Ad'}
             </button>
@@ -434,6 +435,14 @@ export default function EditProductPage() {
                   </label>
                 </div>
               </div>
+            </Section>
+
+            <Section title={lang === 'ar' ? 'إبداعات الإعلان' : 'Ad creatives'}>
+              <ProductCreativesSection
+                productId={String(params.id)}
+                lang={lang}
+                productImages={images}
+              />
             </Section>
           </div>
 

@@ -1,5 +1,7 @@
 export type AdGoal = 'leads' | 'orders' | 'visits'
 
+import type { ConversionEventPreference } from '@/lib/tiktok/create-ad/optimization-events'
+
 export type CreativeSource = 'product_video' | 'upload' | 'carousel' | 'ai_ugc'
 
 export type CtaType = 'order_now' | 'shop_now' | 'learn_more'
@@ -9,6 +11,8 @@ export type BudgetLevelOption = 'abo' | 'cbo'
 export type BudgetModeOption = 'daily' | 'lifetime'
 export type BidStrategyOption = 'auto' | 'cost_cap'
 export type PlacementOption = 'automatic' | 'manual'
+export type SpendingPowerOption = 'ALL' | 'HIGH'
+export type DaypartingModeOption = 'all_day' | 'custom_hours'
 
 export type ProductSummary = {
   id: string
@@ -28,7 +32,18 @@ export type AdvancedSettings = {
   bidStrategy: BidStrategyOption
   bidCap: number | null
   placement: PlacementOption
+  /** When placement=manual, explicit placements array for TikTok API. */
+  placements: string[]
+  /** Empty = All languages (no restriction). */
   languages: string[]
+  spending_power: SpendingPowerOption
+  dayparting_mode: DaypartingModeOption
+  /** 168-char weekly bitmask (7*48) when dayparting_mode=custom_hours. */
+  dayparting: string | null
+  /** Ad controls (defaults = TikTok defaults: comments on, download on, share on). */
+  comment_disabled: boolean
+  video_download_disabled: boolean
+  share_disabled: boolean
 }
 
 export const DEFAULT_ADVANCED: AdvancedSettings = {
@@ -39,7 +54,14 @@ export const DEFAULT_ADVANCED: AdvancedSettings = {
   bidStrategy: 'auto',
   bidCap: null,
   placement: 'automatic',
-  languages: ['ar'],
+  placements: [],
+  languages: [],
+  spending_power: 'ALL',
+  dayparting_mode: 'all_day',
+  dayparting: null,
+  comment_disabled: false,
+  video_download_disabled: false,
+  share_disabled: false,
 }
 
 export type LeadFormMode = 'existing' | 'create_new'
@@ -62,6 +84,15 @@ export type CreateAdWizardPayload = {
     source: CreativeSource
     caption: string
     cta: CtaType
+    /** Selected product_creatives ids (real UUIDs; virtual ids resolved server-side). */
+    creative_ids?: string[] | null
+    /** Optional media hints for server-side upload/publish. */
+    media?: {
+      /** For product-video URL uploads (or any public URL). */
+      video_url?: string | null
+      /** For image ads: public image URLs (server will upload). */
+      image_urls?: string[] | null
+    } | null
   }
   targeting: {
     goal: AdGoal
@@ -75,7 +106,13 @@ export type CreateAdWizardPayload = {
     gender: string
     advanced: AdvancedSettings
     lead_form?: LeadFormSelection | null
+    /** Conversion optimization preference for orders goal (mapped server-side to TikTok event). */
+    conversion_event?: ConversionEventPreference | null
   }
+  /** Optional identity selection. If missing, server will pick the first available identity. */
+  identity?: {
+    identity_id?: string | null
+  } | null
   store: {
     tiktok_pixel_id: string | null
     currency: string

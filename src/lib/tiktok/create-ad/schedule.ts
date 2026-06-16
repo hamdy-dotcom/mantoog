@@ -11,17 +11,11 @@ export function toDatetimeLocalValue(parts: TzParts): string {
   return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}:${pad2(parts.minute)}`
 }
 
-/** Next :00 boundary in ad-account timezone (ceil to hour). */
+/** Default schedule start = now + 15 minutes in ad-account timezone. */
 export function defaultScheduleStartLocal(timezone: string): string {
-  const now = Date.now()
-  for (let offsetMin = 0; offsetMin < 24 * 60; offsetMin++) {
-    const p = getPartsInTimezone(new Date(now + offsetMin * 60_000), timezone)
-    if (p.minute === 0 && p.second === 0) {
-      return toDatetimeLocalValue(p)
-    }
-  }
-  const p = getPartsInTimezone(new Date(), timezone)
-  return toDatetimeLocalValue({ ...p, minute: 0, second: 0 })
+  const p = getPartsInTimezone(new Date(Date.now() + 15 * 60_000), timezone)
+  // `datetime-local` does not support seconds; keep minute precision.
+  return toDatetimeLocalValue({ ...p, second: 0 })
 }
 
 /** `YYYY-MM-DDTHH:mm` (account-local wall clock) → TikTok `YYYY-MM-DD HH:mm:ss`. */

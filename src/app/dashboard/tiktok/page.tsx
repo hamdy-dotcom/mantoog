@@ -317,13 +317,14 @@ export default function TikTokAdsPage() {
   const hasActiveAccount = connections.some(c => c.is_active)
 
   const loadConnections = async () => {
-    const res = await fetch('/api/tiktok/connections')
+    const res = await fetch('/api/tiktok/connections', { cache: 'no-store' })
     if (!res.ok) return []
     const { connections: list } = await res.json()
-    setConnections(list || [])
-    const active = (list || []).find((c: any) => c.is_active)
-    setActiveAdvertiserId(active?.advertiser_id || list?.[0]?.advertiser_id || '')
-    return list || []
+    const rows = list || []
+    setConnections(rows)
+    const active = rows.find((c: { is_active: boolean }) => c.is_active)
+    setActiveAdvertiserId(active?.advertiser_id || '')
+    return rows
   }
 
   const fetchDashboard = useCallback(async (start: string, end: string) => {
@@ -484,8 +485,7 @@ export default function TikTokAdsPage() {
     try {
       const res = await fetch('/api/tiktok/disconnect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ advertiser_id: activeAdvertiserId }),
+        cache: 'no-store',
       })
       const data = await res.json()
       if (!res.ok || data.error) {
@@ -495,15 +495,27 @@ export default function TikTokAdsPage() {
         })
         return
       }
+
+      setConnections([])
+      setActiveAdvertiserId('')
       setReauthRequired(false)
       setReportRows([])
       setDashboardError(null)
+      setDashboardLoading(false)
+      setActiveTab('dashboard')
+
       const list = await loadConnections()
-      if (!list.length) {
-        setActiveAdvertiserId('')
-      } else if (!list.some((c: { is_active: boolean }) => c.is_active)) {
-        setActiveAdvertiserId(list[0]?.advertiser_id || '')
+      if (list.length > 0) {
+        setNotice({
+          type: 'error',
+          text:
+            lang === 'ar'
+              ? 'تعذر إكمال فصل الحساب. حاول مرة أخرى.'
+              : 'Disconnect did not clear all accounts. Please try again.',
+        })
+        return
       }
+
       setNotice({
         type: 'success',
         text: lang === 'ar' ? 'تم فصل حساب TikTok Ads.' : 'TikTok Ads account disconnected.',
@@ -660,7 +672,7 @@ export default function TikTokAdsPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-lg font-semibold text-white leading-tight">{tr.tiktokAds}</h1>
-                  {connections.length > 0 && (
+                  {hasActiveAccount && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#4ade80] bg-[#14321f]/80 border border-[#4ade80]/25 rounded-full px-2 py-0.5">
                       ✓ {lang === 'ar' ? 'متصل' : 'Connected'}
                     </span>
@@ -670,7 +682,7 @@ export default function TikTokAdsPage() {
               </div>
             </div>
 
-            {connections.length === 0 ? (
+            {!hasActiveAccount && connections.length === 0 ? (
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 lg:ms-auto">
                 <p className="text-[#8b8fa8] text-sm">
                   {lang === 'ar' ? 'اربط حساب TikTok Ads لإدارة حملاتك.' : 'Connect TikTok Ads to manage campaigns.'}
@@ -727,7 +739,7 @@ export default function TikTokAdsPage() {
                     <button
                       type="button"
                       onClick={handleDisconnect}
-                      disabled={refreshing || disconnecting || !activeAdvertiserId}
+                      disabled={refreshing || disconnecting || connections.length === 0}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-[#3a1414] bg-[#3a1414]/30 px-3 py-2 text-xs font-medium text-[#f87171] hover:bg-[#3a1414]/50 hover:border-[#f87171]/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {disconnecting

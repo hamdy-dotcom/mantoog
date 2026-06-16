@@ -16,6 +16,13 @@ import {
   type TargetLocation,
 } from '@/lib/tiktok/create-ad/types'
 import { defaultScheduleStartLocal, isValidLocalDatetime } from '@/lib/tiktok/create-ad/schedule'
+import {
+  DEFAULT_CONVERSION_EVENT_PREFERENCE,
+  type ConversionEventPreference,
+  type ConversionEventUiOption,
+} from '@/lib/tiktok/create-ad/optimization-events'
+import ProductCreativePicker from '@/components/dashboard/ProductCreativePicker'
+import type { ProductCreativeItem } from '@/lib/product-creatives/types'
 
 type Props = {
   lang: string
@@ -65,6 +72,8 @@ export default function TikTokBulkLaunchTab({
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [creativeByProduct, setCreativeByProduct] = useState<Record<string, CreativeSource>>({})
+  const [selectedCreativeIdsByProduct, setSelectedCreativeIdsByProduct] = useState<Record<string, string[]>>({})
+  const [selectedCreativeItemsByProduct, setSelectedCreativeItemsByProduct] = useState<Record<string, ProductCreativeItem[]>>({})
 
   const [goal, setGoal] = useState<AdGoal>('orders')
   const [dailyBudget, setDailyBudget] = useState('50')
@@ -76,7 +85,7 @@ export default function TikTokBulkLaunchTab({
   const [locationsLoading, setLocationsLoading] = useState(false)
   const [locationsError, setLocationsError] = useState<string | null>(null)
   const [locationSearch, setLocationSearch] = useState('')
-  const [ageGroups, setAgeGroups] = useState<string[]>(['AGE_18_24', 'AGE_25_34', 'AGE_35_44'])
+  const [ageGroups, setAgeGroups] = useState<string[]>(['AGE_18_24', 'AGE_25_34', 'AGE_35_44', 'AGE_45_54', 'AGE_55_100'])
   const [gender, setGender] = useState('GENDER_UNLIMITED')
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [advanced, setAdvanced] = useState<AdvancedSettings>({ ...DEFAULT_ADVANCED })
@@ -86,6 +95,10 @@ export default function TikTokBulkLaunchTab({
   const [leadFormsError, setLeadFormsError] = useState<string | null>(null)
   const [leadFormChoice, setLeadFormChoice] = useState('')
   const [newLeadFormName, setNewLeadFormName] = useState('')
+  const [conversionEventOptions, setConversionEventOptions] = useState<ConversionEventUiOption[]>([])
+  const [conversionEvent, setConversionEvent] = useState<ConversionEventPreference>(
+    DEFAULT_CONVERSION_EVENT_PREFERENCE
+  )
 
   const [launching, setLaunching] = useState(false)
   const [launchResults, setLaunchResults] = useState<BulkLaunchItemResult[] | null>(null)
@@ -161,6 +174,12 @@ export default function TikTokBulkLaunchTab({
       const tz = data.store?.timezone || 'UTC'
       setAccountTimezone(tz)
       setScheduleStart(prev => prev || data.store?.default_schedule_start || defaultScheduleStartLocal(tz))
+      if (data.pixel_conversion) {
+        setConversionEventOptions(data.pixel_conversion.options || [])
+        setConversionEvent(
+          data.pixel_conversion.default_preference || DEFAULT_CONVERSION_EVENT_PREFERENCE
+        )
+      }
       if (data.error === 'no_active_account') setCtxError('no_account')
     } catch {
       setCtxError('fetch_failed')
@@ -202,6 +221,16 @@ export default function TikTokBulkLaunchTab({
           delete copy[id]
           return copy
         })
+        setSelectedCreativeIdsByProduct(c => {
+          const copy = { ...c }
+          delete copy[id]
+          return copy
+        })
+        setSelectedCreativeItemsByProduct(c => {
+          const copy = { ...c }
+          delete copy[id]
+          return copy
+        })
       } else {
         next.add(id)
         setCreativeByProduct(c => ({ ...c, [id]: c[id] || 'product_video' }))
@@ -221,6 +250,16 @@ export default function TikTokBulkLaunchTab({
       delete copy[id]
       return copy
     })
+    setSelectedCreativeIdsByProduct(c => {
+      const copy = { ...c }
+      delete copy[id]
+      return copy
+    })
+    setSelectedCreativeItemsByProduct(c => {
+      const copy = { ...c }
+      delete copy[id]
+      return copy
+    })
   }
 
   const toggleAge = (id: string) => {
@@ -232,30 +271,38 @@ export default function TikTokBulkLaunchTab({
       const langs = prev.languages.includes(id)
         ? prev.languages.filter(l => l !== id)
         : [...prev.languages, id]
-      return { ...prev, touched: true, languages: langs.length ? langs : ['ar'] }
+      return { ...prev, touched: true, languages: langs }
     })
   }
 
   const leadFormSelection = useMemo(() => {
     if (goal !== 'leads' || !leadFormChoice) return null
-    if (leadFormChoice === '__create_new__') {
-      const first = selectedProducts[0]
-      const draftName = newLeadFormName.trim()
-        || (first ? `${first.title} — Leads` : 'New lead form')
-      return { mode: 'create_new' as const, page_id: null, page_name: draftName }
-    }
     const form = leadForms.find(f => f.page_id === leadFormChoice)
     if (!form) return null
     return { mode: 'existing' as const, page_id: form.page_id, page_name: form.page_name }
-  }, [goal, leadFormChoice, newLeadFormName, selectedProducts, leadForms])
+  }, [goal, leadFormChoice, leadForms])
 
   const buildPayload = (product: ProductSummary, creative: CreativeSource): CreateAdWizardPayload | null => {
     if (!store) return null
     const budget = parseFloat(dailyBudget)
     if (!Number.isFinite(budget) || budget <= 0) return null
+    const ids = selectedCreativeIdsByProduct[product.id] || []
+    const items = selectedCreativeItemsByProduct[product.id] || []
+    const videoItems = items.filter(i => i.type === 'video')
+    const imageItems = items.filter(i => i.type === 'image')
     return {
       product,
-      creative: { source: creative, caption: defaultCaption(product), cta: 'order_now' as CtaType },
+      creative: {
+        source: creative,
+        caption: defaultCaption(product),
+        cta: 'order_now' as CtaType,
+        creative_ids: ids.length ? ids : null,
+        media: creative === 'carousel'
+          ? { image_urls: imageItems.map(i => i.url) }
+          : creative === 'product_video' || creative === 'upload'
+            ? { video_url: videoItems[0]?.url || null }
+            : null,
+      },
       targeting: {
         goal,
         daily_budget: budget,
@@ -266,6 +313,7 @@ export default function TikTokBulkLaunchTab({
         gender,
         advanced,
         lead_form: leadFormSelection,
+        conversion_event: goal === 'orders' ? conversionEvent : null,
       },
       store: {
         tiktok_pixel_id: store.tiktok_pixel_id,
@@ -282,10 +330,25 @@ export default function TikTokBulkLaunchTab({
       if (payload) out.push(payload)
     }
     return out
-  }, [selectedProducts, creativeByProduct, store, goal, dailyBudget, scheduleStart, scheduleEnd, locationId, ageGroups, gender, advanced, leadFormSelection])
+  }, [selectedProducts, creativeByProduct, selectedCreativeIdsByProduct, selectedCreativeItemsByProduct, store, goal, dailyBudget, scheduleStart, scheduleEnd, locationId, ageGroups, gender, advanced, leadFormSelection, conversionEvent])
+
+  const creativeSelectionOk = useMemo(() => {
+    for (const p of selectedProducts) {
+      const creative = creativeByProduct[p.id] || 'product_video'
+      if (creative === 'ai_ugc') return false
+      const ids = selectedCreativeIdsByProduct[p.id] || []
+      const items = selectedCreativeItemsByProduct[p.id] || []
+      if (creative === 'product_video' || creative === 'upload') {
+        const videos = items.filter(i => i.type === 'video')
+        if (!videos.length || videos.length > 5 || ids.length !== videos.length) return false
+      }
+      if (creative === 'carousel' && !ids.length) return false
+    }
+    return true
+  }, [selectedProducts, creativeByProduct, selectedCreativeIdsByProduct, selectedCreativeItemsByProduct])
 
   const canLaunch = useMemo(() => {
-    if (!selectedProducts.length || !store) return false
+    if (!selectedProducts.length || !store || !creativeSelectionOk) return false
     const b = parseFloat(dailyBudget)
     const budgetOk = Number.isFinite(b) && b > 0 && ageGroups.length > 0
     const scheduleOk = isValidLocalDatetime(scheduleStart)
@@ -294,7 +357,7 @@ export default function TikTokBulkLaunchTab({
     if (goal === 'leads') return budgetOk && scheduleOk && endOk && locationOk && !!leadFormSelection
     if (goal === 'orders' && !store.tiktok_pixel_id) return false
     return budgetOk && scheduleOk && endOk && locationOk
-  }, [selectedProducts, store, dailyBudget, ageGroups, scheduleStart, scheduleEnd, locationId, locationsLoading, goal, leadFormSelection])
+  }, [selectedProducts, store, creativeSelectionOk, dailyBudget, ageGroups, scheduleStart, scheduleEnd, locationId, locationsLoading, goal, leadFormSelection])
 
   const totalDailyBudget = useMemo(() => {
     const b = parseFloat(dailyBudget)
@@ -371,9 +434,19 @@ export default function TikTokBulkLaunchTab({
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-white truncate">{r.product_title}</p>
                   {r.ok ? (
-                    <p className="text-xs text-[#8b8fa8] mt-0.5" dir="ltr">
-                      {r.campaign_id} · {r.adgroup_id}
-                    </p>
+                    <div className="text-xs text-[#8b8fa8] mt-0.5" dir="ltr">
+                      <p>{r.campaign_id} · {r.adgroup_id}</p>
+                      {r.message && <p className="mt-0.5 whitespace-pre-wrap">{r.message}</p>}
+                      {r.ads?.length ? (
+                        <ul className="mt-1 space-y-0.5">
+                          {r.ads.map((ad, i) => (
+                            <li key={ad.ad_id || i} className={ad.ok ? '' : 'text-[#f87171]'}>
+                              {ad.ok ? `Ad ${i + 1}: ${ad.ad_id}` : `Ad ${i + 1}: ${ad.error || 'failed'}`}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
                   ) : (
                     <p className="text-xs mt-0.5 whitespace-pre-wrap">{r.error}</p>
                   )}
@@ -500,7 +573,11 @@ export default function TikTokBulkLaunchTab({
                                 type="radio"
                                 name={`creative-${p.id}`}
                                 checked={creative === src.id}
-                                onChange={() => setCreativeByProduct(prev => ({ ...prev, [p.id]: src.id }))}
+                                onChange={() => {
+                                  setCreativeByProduct(prev => ({ ...prev, [p.id]: src.id }))
+                                  setSelectedCreativeIdsByProduct(prev => ({ ...prev, [p.id]: [] }))
+                                  setSelectedCreativeItemsByProduct(prev => ({ ...prev, [p.id]: [] }))
+                                }}
                                 className="sr-only"
                               />
                               <span>{src.icon}</span>
@@ -520,6 +597,21 @@ export default function TikTokBulkLaunchTab({
                         )}
                         {(creative === 'upload' || creative === 'carousel') && (
                           <PendingApprovalNotice feature="creative-management" lang={lang} className="text-start" />
+                        )}
+                        {(creative === 'product_video' || creative === 'carousel' || creative === 'upload') && (
+                          <ProductCreativePicker
+                            productId={p.id}
+                            lang={lang}
+                            dir={dir}
+                            mode={creative === 'carousel' ? 'carousel' : 'video'}
+                            selectedIds={selectedCreativeIdsByProduct[p.id] || []}
+                            onChange={(ids, items) => {
+                              setSelectedCreativeIdsByProduct(prev => ({ ...prev, [p.id]: ids }))
+                              setSelectedCreativeItemsByProduct(prev => ({ ...prev, [p.id]: items }))
+                            }}
+                            allowUpload={creative === 'upload'}
+                            uploadLabel={lang === 'ar' ? 'اضغط لرفع فيديو' : 'Click to upload video'}
+                          />
                         )}
                       </div>
                     )
@@ -565,10 +657,14 @@ export default function TikTokBulkLaunchTab({
                 leadForms={leadForms}
                 leadFormsLoading={leadFormsLoading}
                 leadFormsError={leadFormsError}
+                refreshLeadForms={fetchLeadForms}
                 leadFormChoice={leadFormChoice}
                 setLeadFormChoice={setLeadFormChoice}
                 newLeadFormName={newLeadFormName}
                 setNewLeadFormName={setNewLeadFormName}
+                conversionEventOptions={conversionEventOptions}
+                conversionEvent={conversionEvent}
+                setConversionEvent={setConversionEvent}
               />
             </div>
           </>

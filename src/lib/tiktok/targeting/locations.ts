@@ -1,4 +1,4 @@
-import { tiktokGet, tiktokPost } from '@/lib/tiktok/mutations'
+import { getTikTokDataRecord, tiktokGet, tiktokPost } from '@/lib/tiktok/mutations'
 import type { AdGoal } from '@/lib/tiktok/create-ad/types'
 
 type Connection = { advertiser_id: string; access_token: string }
@@ -113,7 +113,8 @@ export async function fetchCountryLocations(
     return { items: [], cached: false, error: json.message }
   }
 
-  const list = (json.data?.region_info || json.data?.list || []) as Record<string, unknown>[]
+  const data = getTikTokDataRecord(json.data)
+  const list = (data.region_info || data.list || []) as Record<string, unknown>[]
   const items = sortLocations(
     list
       .map(mapRegionRow)
@@ -151,7 +152,8 @@ export async function searchTargetLocations(
     return { items: [], error: json.message }
   }
 
-  const tags = (json.data?.targeting_tag_list || []) as Record<string, unknown>[]
+  const data = getTikTokDataRecord(json.data)
+  const tags = (data.targeting_tag_list || []) as Record<string, unknown>[]
   const items = tags
     .map(tag => {
       const geo = tag.geo as Record<string, unknown> | undefined

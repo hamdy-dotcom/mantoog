@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
           adgroup_id: result.adgroup_id,
           campaign_name: result.campaign_name,
           message: result.message,
+          ads: result.ads,
+          partial: result.partial,
         })
         continue
       }

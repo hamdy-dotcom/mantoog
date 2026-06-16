@@ -6,6 +6,12 @@ import {
   resolveAdvertiserTimezone,
 } from '@/lib/tiktok/server'
 import { defaultScheduleStartLocal } from '@/lib/tiktok/create-ad/schedule'
+import { getProductLandingUrl } from '@/lib/site-url'
+import { resolveConversionPixel } from '@/lib/tiktok/pixels'
+import {
+  buildConversionUiOptions,
+  defaultConversionPreference,
+} from '@/lib/tiktok/create-ad/optimization-events'
 
 export async function GET() {
   const supabase = await createClient()
@@ -40,7 +46,6 @@ export async function GET() {
     .eq('status', 'active')
     .order('created_at', { ascending: false })
 
-  const origin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   const items = (products || []).map(p => {
     const images = Array.isArray(p.images) ? p.images : []
     return {
@@ -50,9 +55,31 @@ export async function GET() {
       price: Number(p.price),
       currency: p.currency || currency,
       images,
-      landing_url: `${origin}/${store.slug}/${p.id}`,
+      landing_url: getProductLandingUrl(store.slug, p.id),
     }
   })
+
+  let pixel_conversion: {
+    available_events: string[]
+    default_optimization_event: string
+    default_preference: string
+    options: ReturnType<typeof buildConversionUiOptions>
+  } | null = null
+
+  if (store.tiktok_pixel_id) {
+    const pixelResolved = await resolveConversionPixel(
+      resolved.connection,
+      store.tiktok_pixel_id
+    )
+    if (!('error' in pixelResolved)) {
+      pixel_conversion = {
+        available_events: pixelResolved.available_events,
+        default_optimization_event: pixelResolved.optimization_event,
+        default_preference: defaultConversionPreference(pixelResolved.available_events),
+        options: buildConversionUiOptions(pixelResolved.available_events),
+      }
+    }
+  }
 
   return NextResponse.json({
     store: {
@@ -66,5 +93,6 @@ export async function GET() {
     products: items,
     has_active_account: true,
     advertiser_id: resolved.connection.advertiser_id,
+    pixel_conversion,
   })
 }

@@ -34,3 +34,10 @@ export function getStoreShareUrl(slug?: string | null): string {
   const origin = getSiteOrigin()
   return slug ? `${origin}/${slug}` : origin
 }
+
+/** Public product landing page URL for ads and sharing (never localhost). */
+export function getProductLandingUrl(storeSlug: string, productId: string): string {
+  const slug = storeSlug.replace(/^\/+|\/+$/g, '')
+  const id = productId.replace(/^\/+|\/+$/g, '')
+  return `${getSiteOrigin()}/${slug}/${id}`
+}

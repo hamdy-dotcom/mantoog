@@ -1,3 +1,5 @@
+import type { LaunchAdResult } from '@/lib/tiktok/create-ad/launch-types'
+
 export type BulkLaunchItemResult = {
   product_id: string
   product_title: string
@@ -6,6 +8,8 @@ export type BulkLaunchItemResult = {
   adgroup_id?: string
   campaign_name?: string
   message?: string
+  ads?: LaunchAdResult[]
+  partial?: boolean
   error?: string
   step?: string
   code?: number

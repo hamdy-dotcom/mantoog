@@ -36,5 +36,8 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ connections: rows || [] })
+  return NextResponse.json(
+    { connections: rows || [] },
+    { headers: { 'Cache-Control': 'no-store' } }
+  )
 }

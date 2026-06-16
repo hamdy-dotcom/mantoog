@@ -47,7 +47,6 @@ function resolvedAdvanced(advanced: AdvancedSettings) {
 export function buildCampaignPayload(payload: CreateAdWizardPayload) {
   const adv = resolvedAdvanced(payload.targeting.advanced)
   const objective = goalObjective(payload.targeting.goal)
-  const isSmartPlus = adv.campaignType === 'smart_plus'
   const isCbo = adv.budgetLevel === 'cbo'
   const budgetMode = adv.budgetMode === 'lifetime' ? 'BUDGET_MODE_TOTAL' : 'BUDGET_MODE_DAY'
 
@@ -58,12 +57,8 @@ export function buildCampaignPayload(payload: CreateAdWizardPayload) {
     ),
     objective_type: objective,
     operation_status: 'ENABLE',
-  }
-
-  if (isSmartPlus) {
-    body.campaign_type = 'SMART_PERFORMANCE_CAMPAIGN'
-  } else {
-    body.campaign_type = 'REGULAR_CAMPAIGN'
+    // /campaign/create/ only accepts REGULAR_CAMPAIGN or IOS14_CAMPAIGN — never Smart+.
+    campaign_type: 'REGULAR_CAMPAIGN',
   }
 
   if (isCbo) {
@@ -80,7 +75,8 @@ export function buildCampaignPayload(payload: CreateAdWizardPayload) {
 
 export function buildAdgroupPayload(
   campaignId: string,
-  payload: CreateAdWizardPayload
+  payload: CreateAdWizardPayload,
+  opts?: { numericPixelId?: string; optimizationEvent?: string }
 ) {
   const adv = resolvedAdvanced(payload.targeting.advanced)
   const goal = payload.targeting.goal
@@ -106,15 +102,21 @@ export function buildAdgroupPayload(
     gender: payload.targeting.gender,
     age_groups: payload.targeting.age_groups.length
       ? payload.targeting.age_groups
-      : ['AGE_18_24', 'AGE_25_34', 'AGE_35_44'],
-    languages: adv.languages.length ? adv.languages : ['ar'],
+      : ['AGE_18_24', 'AGE_25_34', 'AGE_35_44', 'AGE_45_54', 'AGE_55_100'],
     operation_status: 'ENABLE',
   }
 
   if (obj.promotion_target_type) {
     body.promotion_target_type = obj.promotion_target_type
   }
-  if (obj.placements?.length) {
+  // Placement wiring:
+  // - Automatic: PLACEMENT_TYPE_AUTOMATIC (no placements array)
+  // - Manual: PLACEMENT_TYPE_NORMAL + placements array (default TikTok if empty)
+  if (adv.placement === 'manual') {
+    const selected = (adv.placements || []).filter(Boolean)
+    body.placements = selected.length ? selected : ['PLACEMENT_TIKTOK']
+  } else if (obj.placements?.length) {
+    // Objective-enforced placements (ex: leads = TikTok only)
     body.placements = obj.placements
   }
 
@@ -137,9 +139,29 @@ export function buildAdgroupPayload(
     body.budget = payload.targeting.daily_budget
   }
 
-  if (goal === 'orders' && payload.store.tiktok_pixel_id) {
-    body.pixel_id = payload.store.tiktok_pixel_id
-    body.optimization_event = 'COMPLETE_PAYMENT'
+  if (goal === 'orders' && opts?.numericPixelId && opts?.optimizationEvent) {
+    body.pixel_id = opts.numericPixelId
+    body.optimization_event = opts.optimizationEvent
+  }
+
+  // Advanced ad controls (ad group-level).
+  if (adv.comment_disabled) body.comment_disabled = true
+  if (adv.video_download_disabled) body.video_download_disabled = true
+  if (adv.share_disabled) body.share_disabled = true
+
+  // Languages: default = All (omit languages field). If merchant selects, include.
+  if (adv.languages?.length) {
+    body.languages = adv.languages
+  }
+
+  // Spending power: default ALL (omit). Only send when HIGH.
+  if (adv.spending_power === 'HIGH') {
+    body.spending_power = 'HIGH'
+  }
+
+  // Dayparting: default all-day (omit). Only send when custom and valid.
+  if (adv.dayparting_mode === 'custom_hours' && adv.dayparting && adv.dayparting.length === 168) {
+    body.dayparting = adv.dayparting
   }
 
   return body
@@ -153,7 +175,14 @@ export function resolvedAdvancedSummary(advanced: AdvancedSettings) {
     bidStrategy: 'auto' as const,
     bidCap: null,
     placement: 'automatic' as const,
-    languages: ['ar'],
+    placements: [],
+    languages: [],
+    spending_power: 'ALL' as const,
+    dayparting_mode: 'all_day' as const,
+    dayparting: null,
+    comment_disabled: false,
+    video_download_disabled: false,
+    share_disabled: false,
     touched: false,
   }
   return adv

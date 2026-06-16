@@ -35,6 +35,7 @@ export function goalAdgroupConfig(
       billing_event: 'OCPM',
       promotion_type: 'LEAD_GENERATION',
       promotion_target_type: 'INSTANT_PAGE',
+      // Lead-gen placements are TikTok only.
       placement_type: 'PLACEMENT_TYPE_NORMAL',
       placements: ['PLACEMENT_TIKTOK'],
       supports_cost_cap: true,

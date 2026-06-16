@@ -5,6 +5,7 @@ export const t = {
     // Nav
     dashboard: 'Dashboard',
     products: 'Products',
+    import: 'Import from EasyOrders',
     research: 'Top Selling Products',
     creatives: 'Search for Winner Creatives',
     creativesSub: 'TikTok & YouTube Shorts — for any product',
@@ -192,6 +193,7 @@ export const t = {
     // Nav
     dashboard: 'الرئيسية',
     products: 'المنتجات',
+    import: 'استيراد من EasyOrders',
     research: 'المنتجات الأكثر مبيعاً',
     creatives: 'ابحث عن فيديوهات لأي منتج',
     creativesSub: 'TikTok و YouTube Shorts — لأي منتج',

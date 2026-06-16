@@ -39,6 +39,7 @@ function NavIcon({ item, emojiClassName }: { item: NavItem; emojiClassName?: str
 const navItems: NavItem[] = [
   { key: 'dashboard', path: '/dashboard', icon: '🏠' },
   { key: 'products', path: '/dashboard/products', icon: '📦' },
+  { key: 'import', path: '/dashboard/import', icon: '🚀' },
   { key: 'research', path: '/dashboard/products/research', icon: '🏆' },
   { key: 'creatives', path: '/dashboard/creatives', icon: '🎬' },
   { key: 'orders', path: '/dashboard/orders', icon: '🛒' },

@@ -86,6 +86,8 @@ export default function SettingsPage() {
   const [metaPixelId, setMetaPixelId] = useState('')
   const [tiktokPixelId, setTiktokPixelId] = useState('')
   const [snapchatPixelId, setSnapchatPixelId] = useState('')
+  const [googleAdsConversionId, setGoogleAdsConversionId] = useState('')
+  const [googleAdsConversionLabel, setGoogleAdsConversionLabel] = useState('')
   const [savingPixels, setSavingPixels] = useState(false)
   const [addressMode, setAddressMode] = useState<'text' | 'map'>('text')
   const [locationRequired, setLocationRequired] = useState(false)
@@ -137,6 +139,8 @@ export default function SettingsPage() {
       if (store.meta_pixel_id) setMetaPixelId(store.meta_pixel_id)
       if (store.tiktok_pixel_id) setTiktokPixelId(store.tiktok_pixel_id)
       if (store.snapchat_pixel_id) setSnapchatPixelId(store.snapchat_pixel_id)
+      if (store.google_ads_conversion_id) setGoogleAdsConversionId(store.google_ads_conversion_id)
+      if (store.google_ads_conversion_label) setGoogleAdsConversionLabel(store.google_ads_conversion_label)
       setAddressMode(store.address_mode || (store.enable_location ? 'map' : 'text'))
       setLocationRequired(store.location_required || false)
       setShowQuantity(store.show_quantity || false)
@@ -220,12 +224,16 @@ export default function SettingsPage() {
       meta_pixel_id: metaPixelId.trim() || null,
       tiktok_pixel_id: tiktokPixelId.trim() || null,
       snapchat_pixel_id: snapchatPixelId.trim() || null,
+      google_ads_conversion_id: googleAdsConversionId.trim() || null,
+      google_ads_conversion_label: googleAdsConversionLabel.trim() || null,
     }).eq('id', store.id)
     setStore((prev: any) => ({
       ...prev,
       meta_pixel_id: metaPixelId,
       tiktok_pixel_id: tiktokPixelId,
       snapchat_pixel_id: snapchatPixelId,
+      google_ads_conversion_id: googleAdsConversionId,
+      google_ads_conversion_label: googleAdsConversionLabel,
     }))
     setSavingPixels(false)
     alert(lang === 'ar' ? '✓ تم حفظ إعدادات البكسل' : '✓ Pixel settings saved')
@@ -472,7 +480,7 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-white font-semibold mb-1">{lang === 'ar' ? 'ربط بكسل الإعلانات' : 'Connect ad pixels'}</h2>
-                <p className="text-[#8b8fa8] text-sm">{lang === 'ar' ? 'أضف بكسل Meta وTikTok وSnapchat لتتبع أداء إعلاناتك وتحسين التحويل' : 'Add your Meta, TikTok, and Snapchat pixels to track ad performance and optimize conversions'}</p>
+                <p className="text-[#8b8fa8] text-sm">{lang === 'ar' ? 'أضف بكسل Meta وTikTok وSnapchat وGoogle Ads لتتبع أداء إعلاناتك وتحسين التحويل' : 'Add your Meta, TikTok, Snapchat, and Google Ads pixels to track ad performance and optimize conversions'}</p>
               </div>
 
               {/* Meta Pixel */}
@@ -592,6 +600,85 @@ export default function SettingsPage() {
                       : 'Get it from: Snapchat Ads Manager → Events Manager → Pixels'}
                   </p>
                 </div>
+              </div>
+
+              {/* Google Ads */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-[#4285f4]/20 border border-[#4285f4]/30 rounded-xl flex items-center justify-center text-lg">📢</div>
+                  <div>
+                    <div className="text-white font-medium">Google Ads</div>
+                    <div className="text-xs text-[#8b8fa8]">Conversion tracking</div>
+                  </div>
+                  {store.google_ads_conversion_id && store.google_ads_conversion_label && (
+                    <span className="mr-auto text-xs bg-[#14321f] text-[#4ade80] border border-[#4ade80]/20 px-2.5 py-1 rounded-full">
+                      ✓ {lang === 'ar' ? 'مرتبط' : 'Connected'}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-[#8b8fa8] uppercase tracking-wider">
+                    Google Ads Conversion Tracking
+                  </label>
+                  <div className="mt-1.5 flex items-center gap-2 bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 focus-within:border-[#3b82f6] transition-colors mb-2">
+                    <span className="text-lg flex-shrink-0">📢</span>
+                    <input
+                      type="text"
+                      value={googleAdsConversionId}
+                      onChange={e => setGoogleAdsConversionId(e.target.value)}
+                      placeholder="Conversion ID — e.g. AW-123456789"
+                      className="flex-1 bg-transparent text-sm text-white placeholder-[#4a4e60] focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 focus-within:border-[#3b82f6] transition-colors">
+                    <span className="text-lg flex-shrink-0">🏷️</span>
+                    <input
+                      type="text"
+                      value={googleAdsConversionLabel}
+                      onChange={e => setGoogleAdsConversionLabel(e.target.value)}
+                      placeholder="Conversion Label — e.g. AbCdEfGhIj"
+                      className="flex-1 bg-transparent text-sm text-white placeholder-[#4a4e60] focus:outline-none"
+                    />
+                  </div>
+                  <p className="text-xs text-[#4a4e60] mt-1.5">
+                    {lang === 'ar'
+                      ? 'احصل عليهم من: Google Ads → Goals → Conversions → Create conversion action'
+                      : 'Get from: Google Ads → Goals → Conversions → Create conversion action'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Google Shopping Feed */}
+              <div className="bg-[#0f1117] border border-[#2a2d35] rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🛍️</span>
+                  <span className="text-sm font-bold text-white">
+                    {lang === 'ar' ? 'رابط Google Shopping Feed' : 'Google Shopping Feed URL'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={`https://www.mantoog.com/feed/${store?.slug || ''}`}
+                    className="flex-1 bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-2 text-xs text-[#8b8fa8] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!store?.slug) return
+                      navigator.clipboard.writeText(`https://www.mantoog.com/feed/${store.slug}`)
+                    }}
+                    className="px-3 py-2 bg-[#3b82f6] text-white rounded-lg text-xs font-bold hover:bg-[#2563eb] transition-colors whitespace-nowrap"
+                  >
+                    {lang === 'ar' ? 'نسخ' : 'Copy'}
+                  </button>
+                </div>
+                <p className="text-xs text-[#4a4e60] mt-2">
+                  {lang === 'ar'
+                    ? 'الصق هذا الرابط في Google Merchant Center → Products → Feeds → Scheduled fetch'
+                    : 'Paste this URL in Google Merchant Center → Products → Feeds → Scheduled fetch'}
+                </p>
               </div>
 
               {/* Save button */}

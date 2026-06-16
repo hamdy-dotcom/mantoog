@@ -428,6 +428,10 @@ export default function LandingPage() {
     setSubmitting(false)
     if (orderOk) {
       if (typeof window !== 'undefined') {
+        const orderId = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : String(Date.now())
+
         if ((window as any).fbq) {
           (window as any).fbq('track', 'Purchase', {
             currency: store.currency,
@@ -445,9 +449,6 @@ export default function LandingPage() {
           })
         }
         if (store?.snapchat_pixel_id) {
-          const orderId = typeof crypto !== 'undefined' && crypto.randomUUID
-            ? crypto.randomUUID()
-            : String(Date.now())
           const script = document.createElement('script')
           script.innerHTML = `
             !function(e,t,n){
@@ -466,6 +467,29 @@ export default function LandingPage() {
             });
           `
           document.head.appendChild(script)
+        }
+        if (store?.google_ads_conversion_id && store?.google_ads_conversion_label) {
+          const conversionId = String(store.google_ads_conversion_id).replace(/'/g, "\\'")
+          const conversionLabel = String(store.google_ads_conversion_label).replace(/'/g, "\\'")
+          const s1 = document.createElement('script')
+          s1.async = true
+          s1.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(store.google_ads_conversion_id)}`
+          document.head.appendChild(s1)
+
+          const s2 = document.createElement('script')
+          s2.innerHTML = `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${conversionId}');
+            gtag('event', 'conversion', {
+              send_to: '${conversionId}/${conversionLabel}',
+              value: ${orderTotal},
+              currency: '${store.currency || 'SAR'}',
+              transaction_id: '${orderId}'
+            });
+          `
+          document.head.appendChild(s2)
         }
       }
       setName(submitName)

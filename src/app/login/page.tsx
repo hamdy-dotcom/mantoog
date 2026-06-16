@@ -45,8 +45,8 @@ export default function LoginPage() {
 
   const verifyOtp = async () => {
     setResetError('')
-    if (otpCode.length !== 6) {
-      setResetError(lang === 'ar' ? 'أدخل كود من 6 أرقام' : 'Enter the 6-digit code')
+    if (otpCode.length !== 8) {
+      setResetError(lang === 'ar' ? 'أدخل الكود المكون من 8 أرقام' : 'Enter the 8-digit code')
       return
     }
 
@@ -154,21 +154,21 @@ export default function LoginPage() {
                 <div className="space-y-3">
                   <p className="text-sm text-[#8b8fa8]">
                     {lang === 'ar'
-                      ? 'أدخل الكود المكون من 6 أرقام الذي أرسلناه إلى بريدك'
-                      : 'Enter the 6-digit code we emailed you'}
+                      ? 'أدخل الكود المكون من 8 أرقام الذي أرسلناه إلى بريدك'
+                      : 'Enter the 8-digit code we emailed you'}
                   </p>
                   <input
                     value={otpCode}
-                    onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    maxLength={6}
+                    onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    placeholder="00000000"
+                    maxLength={8}
                     dir="ltr"
                     className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-4 text-white text-center text-2xl tracking-widest focus:outline-none focus:border-[#3b82f6]"
                   />
                   <button
                     type="button"
                     onClick={verifyOtp}
-                    disabled={resetLoading || otpCode.length !== 6}
+                    disabled={resetLoading || otpCode.length !== 8}
                     className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
                   >
                     {lang === 'ar' ? 'تأكيد الكود' : 'Verify code'}

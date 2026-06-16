@@ -30,14 +30,11 @@ export default function LoginPage() {
     setResetSuccess(false)
 
     const supabase = createClient()
-    const redirectTo = `${getSiteOrigin()}/reset-password`
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), { redirectTo })
+    await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+      redirectTo: 'https://www.mantoog.com/reset-password',
+    })
 
     setResetLoading(false)
-    if (error) {
-      setResetError(error.message)
-      return
-    }
     setResetSuccess(true)
   }
 

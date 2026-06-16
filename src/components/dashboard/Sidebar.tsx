@@ -51,6 +51,7 @@ const navItems: NavItem[] = [
 const MOBILE_BOTTOM_NAV_KEYS = [
   'dashboard',
   'products',
+  'creatives',
   'orders',
   'tiktokAds',
   'research',

@@ -291,13 +291,13 @@ export default function CreativesPage() {
 
         {/* Search panel */}
         <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 mb-5">
-          <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex flex-col gap-3">
             <input
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
               placeholder={lang === 'ar' ? 'https://amazon.eg/... أو كلمة مفتاحية' : 'https://amazon.eg/... or keyword'}
-              className="w-full md:flex-1 bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors"
+              className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors"
             />
             <button
               onClick={handleSearch}
@@ -382,18 +382,21 @@ export default function CreativesPage() {
         {/* Filters + sort */}
         {hasSearched && videos.length > 0 && (
           <div className="flex gap-2 flex-wrap items-center mb-5">
-            <div className="flex w-full md:w-auto gap-1 p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-x-auto">
-              {(['all', 'tiktok', 'youtube'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setPlatformFilter(f)}
-                  className={`flex-1 md:flex-none px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize whitespace-nowrap ${
-                    platformFilter === f ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'
-                  }`}
-                >
-                  {f === 'all' ? (lang === 'ar' ? 'الكل' : 'All') : f === 'tiktok' ? 'TikTok' : 'YouTube Shorts'}
-                </button>
-              ))}
+            <div className="flex overflow-x-auto gap-2 pb-1 -mx-1 px-1 md:overflow-visible w-full md:w-auto">
+              <div className="flex gap-1 p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl min-w-0">
+                {(['all', 'tiktok', 'youtube'] as const).map(f => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setPlatformFilter(f)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize whitespace-nowrap ${
+                      platformFilter === f ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'
+                    }`}
+                  >
+                    {f === 'all' ? (lang === 'ar' ? 'الكل' : 'All') : f === 'tiktok' ? 'TikTok' : 'YouTube Shorts'}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <span className="text-xs text-[#4a4e60]">{lang === 'ar' ? 'ترتيب:' : 'Sort:'}</span>
@@ -456,7 +459,7 @@ export default function CreativesPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {sortedFiltered.map((v, idx) => {
               const key = videoKey(v)
               const saved = savedIds.has(key)
@@ -470,7 +473,7 @@ export default function CreativesPage() {
                 >
                   <div className="relative cursor-pointer" onClick={() => handleThumbnailClick(v)}>
                     {isExpanded ? (
-                      <div className="relative w-full h-48 overflow-hidden bg-[#0a0c10] rounded-t-xl">
+                      <div className="relative w-full h-40 sm:h-48 overflow-hidden bg-[#0a0c10] rounded-t-xl">
                         <iframe
                           src={`https://www.youtube.com/embed/${v.ytId}?autoplay=1`}
                           className="w-full h-full"
@@ -480,7 +483,7 @@ export default function CreativesPage() {
                         />
                       </div>
                     ) : (
-                      <div className="relative w-full h-48 overflow-hidden bg-[#0a0c10] rounded-t-xl">
+                      <div className="relative w-full h-40 sm:h-48 overflow-hidden bg-[#0a0c10] rounded-t-xl">
                         {v.thumb ? (
                           <img src={v.thumb} alt="" className="w-full h-full object-cover" />
                         ) : (

@@ -38,6 +38,9 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7d' | '30d'>('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -66,7 +69,30 @@ export default function OrdersPage() {
     setUpdatingId(null)
   }
 
-  const filteredOrders = orders.filter(o => {
+  const filteredByDate = orders.filter(order => {
+    if (dateFilter === 'all' && !dateFrom) return true
+    const orderDate = new Date(order.created_at)
+    const now = new Date()
+    if (dateFilter === 'today') {
+      return orderDate.toDateString() === now.toDateString()
+    }
+    if (dateFilter === '7d') {
+      const d = new Date(); d.setDate(d.getDate() - 7)
+      return orderDate >= d
+    }
+    if (dateFilter === '30d') {
+      const d = new Date(); d.setDate(d.getDate() - 30)
+      return orderDate >= d
+    }
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? new Date(dateFrom) : new Date(0)
+      const to = dateTo ? new Date(dateTo + 'T23:59:59') : new Date()
+      return orderDate >= from && orderDate <= to
+    }
+    return true
+  })
+
+  const filteredOrders = filteredByDate.filter(o => {
     const matchesFilter = filter === 'all' || o.status === filter
     const matchesSearch = !search ||
       o.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -126,11 +152,11 @@ export default function OrdersPage() {
   }
 
   const stats = {
-    total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    delivered: orders.filter(o => o.status === 'delivered').length,
-    cancelled: orders.filter(o => o.status === 'cancelled').length,
-    revenue: orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + Number(o.total_price), 0),
+    total: filteredByDate.length,
+    pending: filteredByDate.filter(o => o.status === 'pending').length,
+    delivered: filteredByDate.filter(o => o.status === 'delivered').length,
+    cancelled: filteredByDate.filter(o => o.status === 'cancelled').length,
+    revenue: filteredByDate.filter(o => o.status === 'delivered').reduce((sum, o) => sum + Number(o.total_price), 0),
   }
 
   return (
@@ -143,7 +169,7 @@ export default function OrdersPage() {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-white">{tr.ordersTitle}</h1>
-            <p className="text-[#8b8fa8] text-sm mt-1">{orders.length} total orders</p>
+            <p className="text-[#8b8fa8] text-sm mt-1">{filteredByDate.length} total orders</p>
           </div>
           <div className="flex gap-2">
             <button onClick={exportCSV}
@@ -194,6 +220,83 @@ export default function OrdersPage() {
           />
         </div>
 
+        {/* Date Filter Bar */}
+        <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex gap-2">
+              {([
+                { key: 'all', ar: 'الكل', en: 'All' },
+                { key: 'today', ar: 'اليوم', en: 'Today' },
+                { key: '7d', ar: 'آخر 7 أيام', en: 'Last 7 days' },
+                { key: '30d', ar: 'آخر 30 يوم', en: 'Last 30 days' },
+              ] as const).map(f => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => { setDateFilter(f.key); setDateFrom(''); setDateTo('') }}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                    dateFilter === f.key && !dateFrom && !dateTo
+                      ? 'bg-[#3b82f6] border-[#3b82f6] text-white shadow-lg shadow-blue-500/20'
+                      : 'border-[#2a2d35] text-[#8b8fa8] hover:border-[#3b82f6] hover:text-white bg-[#0f1117]'
+                  }`}
+                >
+                  {lang === 'ar' ? f.ar : f.en}
+                </button>
+              ))}
+            </div>
+
+            <div className="h-6 w-px bg-[#2a2d35] mx-1 hidden sm:block" />
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-[#4a4e60] font-medium">
+                {lang === 'ar' ? 'من' : 'From'}
+              </span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => { setDateFrom(e.target.value); setDateFilter('all') }}
+                className="bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#3b82f6] transition-colors"
+              />
+              <span className="text-xs text-[#4a4e60] font-medium">
+                {lang === 'ar' ? 'إلى' : 'To'}
+              </span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={e => { setDateTo(e.target.value); setDateFilter('all') }}
+                className="bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#3b82f6] transition-colors"
+              />
+            </div>
+
+            {(dateFilter !== 'all' || dateFrom || dateTo) && (
+              <button
+                type="button"
+                onClick={() => { setDateFilter('all'); setDateFrom(''); setDateTo('') }}
+                className="ms-auto text-xs text-[#f87171] hover:text-white border border-[#f87171]/30 hover:border-[#f87171] px-3 py-2 rounded-lg transition-all"
+              >
+                {lang === 'ar' ? '✕ إعادة تعيين' : '✕ Reset'}
+              </button>
+            )}
+          </div>
+
+          {(dateFilter !== 'all' || dateFrom || dateTo) && (
+            <div className="mt-3 pt-3 border-t border-[#2a2d35] flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse" />
+              <span className="text-xs text-[#8b8fa8]">
+                {lang === 'ar' ? 'يعرض' : 'Showing'}{' '}
+                <span className="text-white font-semibold">{filteredByDate.length}</span>{' '}
+                {lang === 'ar' ? 'طلب' : 'orders'}
+                {(dateFrom || dateTo) && (
+                  <span className="text-[#4a4e60]">
+                    {dateFrom && ` · ${lang === 'ar' ? 'من' : 'from'} ${dateFrom}`}
+                    {dateTo && ` · ${lang === 'ar' ? 'إلى' : 'to'} ${dateTo}`}
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+
         {/* Orders table */}
         {filteredOrders.length === 0 ? (
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-12 text-center">
@@ -205,8 +308,7 @@ export default function OrdersPage() {
           <div className="overflow-x-auto -mx-4 md:mx-0">
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden min-w-[700px]">
             {/* Table header */}
-            <div className="grid grid-cols-12 gap-3 px-5 py-3 border-b border-[#2a2d35]">
-              <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">#</span>
+            <div className="grid grid-cols-11 gap-3 px-5 py-3 border-b border-[#2a2d35]">
               <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.customer}</span>
               <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">📍</span>
               <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.product}</span>
@@ -218,12 +320,7 @@ export default function OrdersPage() {
             </div>
 
             {filteredOrders.map(order => (
-              <div key={order.id} className="grid grid-cols-12 gap-3 px-5 py-4 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors items-center">
-
-                {/* Order number */}
-                <div className="col-span-1">
-                  <span className="text-xs text-[#4a4e60] font-mono">#{order.order_number || order.id.slice(0, 6)}</span>
-                </div>
+              <div key={order.id} className="grid grid-cols-11 gap-3 px-5 py-4 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors items-center">
 
                 {/* Customer */}
                 <div className="col-span-2">

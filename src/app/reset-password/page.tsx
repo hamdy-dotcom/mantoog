@@ -20,25 +20,15 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const supabase = createClient()
 
-    // Supabase puts the token in the URL hash as #access_token=...&type=recovery
-    const hashParams = new URLSearchParams(window.location.hash.slice(1))
-    const accessToken = hashParams.get('access_token')
-    const type = hashParams.get('type')
-
-    if (accessToken && type === 'recovery') {
-      supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: hashParams.get('refresh_token') || '',
-      }).then(({ error }) => {
-        if (error) setError(lang === 'ar' ? 'الرابط غير صالح أو منتهي الصلاحية' : 'Invalid or expired recovery link')
-        else setSessionReady(true)
-        setCheckingSession(false)
-        window.history.replaceState(null, '', window.location.pathname)
-      })
-    } else {
-      setError(lang === 'ar' ? 'رابط استعادة غير صالح — اطلب رابطاً جديداً' : 'Invalid recovery link — request a new one')
+    // Session is established by verifyOtp on the login page.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setSessionReady(true)
+      } else {
+        setError(lang === 'ar' ? 'انتهت صلاحية الجلسة — اطلب رابطاً جديداً' : 'Session expired — request a new code')        
+      }
       setCheckingSession(false)
-    }
+    })
   }, [lang])
 
   const handleSubmit = async (e: React.FormEvent) => {

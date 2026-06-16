@@ -7,8 +7,6 @@ import Link from 'next/link'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 import { recordActivity } from '@/lib/auth/client'
-import { getSiteOrigin } from '@/lib/site-url'
-
 export default function LoginPage() {
   const { lang, dir, setLang } = useLang()
   const tr = t[lang]
@@ -18,6 +16,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [resetEmail, setResetEmail] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [showOtpInput, setShowOtpInput] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
   const [resetError, setResetError] = useState('')
   const [resetSuccess, setResetSuccess] = useState(false)
@@ -28,14 +28,43 @@ export default function LoginPage() {
     setResetLoading(true)
     setResetError('')
     setResetSuccess(false)
+    setShowOtpInput(false)
+    setOtpCode('')
 
     const supabase = createClient()
-    await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
-      redirectTo: 'https://www.mantoog.com/reset-password',
-    })
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim())
 
     setResetLoading(false)
+    if (error) {
+      setResetError(error.message)
+      return
+    }
     setResetSuccess(true)
+    setShowOtpInput(true)
+  }
+
+  const verifyOtp = async () => {
+    setResetError('')
+    if (otpCode.length !== 6) {
+      setResetError(lang === 'ar' ? 'أدخل كود من 6 أرقام' : 'Enter the 6-digit code')
+      return
+    }
+
+    setResetLoading(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.verifyOtp({
+      email: resetEmail.trim(),
+      token: otpCode,
+      type: 'recovery',
+    })
+    setResetLoading(false)
+
+    if (error) {
+      setResetError(lang === 'ar' ? 'الكود غير صحيح أو منتهي الصلاحية' : 'Invalid or expired code')
+      return
+    }
+
+    router.push('/reset-password')
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -92,7 +121,13 @@ export default function LoginPage() {
                 <input
                   type="email"
                   value={resetEmail}
-                  onChange={e => setResetEmail(e.target.value)}
+                  onChange={e => {
+                    setResetEmail(e.target.value)
+                    setResetSuccess(false)
+                    setShowOtpInput(false)
+                    setOtpCode('')
+                    setResetError('')
+                  }}
                   required
                   placeholder="you@example.com"
                   className="mt-1.5 w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors"
@@ -108,17 +143,47 @@ export default function LoginPage() {
               {resetSuccess && (
                 <div className="bg-[#14321f] border border-[#4ade80]/20 rounded-lg px-3 py-2.5">
                   <p className="text-[#4ade80] text-sm">
-                    تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني
+                    {lang === 'ar'
+                      ? 'تم إرسال كود استعادة كلمة المرور إلى بريدك الإلكتروني'
+                      : 'We sent a password reset code to your email'}
                   </p>
+                </div>
+              )}
+
+              {showOtpInput && (
+                <div className="space-y-3">
+                  <p className="text-sm text-[#8b8fa8]">
+                    {lang === 'ar'
+                      ? 'أدخل الكود المكون من 6 أرقام الذي أرسلناه إلى بريدك'
+                      : 'Enter the 6-digit code we emailed you'}
+                  </p>
+                  <input
+                    value={otpCode}
+                    onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    maxLength={6}
+                    dir="ltr"
+                    className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-4 text-white text-center text-2xl tracking-widest focus:outline-none focus:border-[#3b82f6]"
+                  />
+                  <button
+                    type="button"
+                    onClick={verifyOtp}
+                    disabled={resetLoading || otpCode.length !== 6}
+                    className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+                  >
+                    {lang === 'ar' ? 'تأكيد الكود' : 'Verify code'}
+                  </button>
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={resetLoading || resetSuccess}
+                disabled={resetLoading || showOtpInput}
                 className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
               >
-                {resetLoading ? 'جاري الإرسال...' : 'إرسال رابط الاستعادة'}
+                {resetLoading
+                  ? (lang === 'ar' ? 'جاري الإرسال...' : 'Sending...')
+                  : (lang === 'ar' ? 'إرسال كود الاستعادة' : 'Send reset code')}
               </button>
 
               <button
@@ -127,6 +192,8 @@ export default function LoginPage() {
                   setShowForgotPassword(false)
                   setResetError('')
                   setResetSuccess(false)
+                  setShowOtpInput(false)
+                  setOtpCode('')
                 }}
                 className="w-full text-sm text-[#8b8fa8] hover:text-white transition-colors"
               >

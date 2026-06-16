@@ -444,6 +444,29 @@ export default function LandingPage() {
             quantity: orderQty,
           })
         }
+        if (store?.snapchat_pixel_id) {
+          const orderId = typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID()
+            : String(Date.now())
+          const script = document.createElement('script')
+          script.innerHTML = `
+            !function(e,t,n){
+              if(e.snaptr) return;
+              var a=e.snaptr=function(){a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};
+              a.queue=[];
+              var s='script', r=t.createElement(s); r.async=!0;
+              r.src=n; var u=t.getElementsByTagName(s)[0];
+              u.parentNode.insertBefore(r,u);
+            }(window,document,'https://sc-static.net/scevent.min.js');
+            snaptr('init', '${String(store.snapchat_pixel_id).replace(/'/g, "\\'")}');
+            snaptr('track', 'PURCHASE', {
+              price: ${orderTotal},
+              currency: '${store.currency || 'SAR'}',
+              transaction_id: '${orderId}'
+            });
+          `
+          document.head.appendChild(script)
+        }
       }
       setName(submitName)
       setPhone(submitPhone)

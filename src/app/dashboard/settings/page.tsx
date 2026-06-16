@@ -85,6 +85,7 @@ export default function SettingsPage() {
   const [logoUrl, setLogoUrl] = useState('')
   const [metaPixelId, setMetaPixelId] = useState('')
   const [tiktokPixelId, setTiktokPixelId] = useState('')
+  const [snapchatPixelId, setSnapchatPixelId] = useState('')
   const [savingPixels, setSavingPixels] = useState(false)
   const [addressMode, setAddressMode] = useState<'text' | 'map'>('text')
   const [locationRequired, setLocationRequired] = useState(false)
@@ -135,6 +136,7 @@ export default function SettingsPage() {
       setLogoUrl(store.logo_url || '')
       if (store.meta_pixel_id) setMetaPixelId(store.meta_pixel_id)
       if (store.tiktok_pixel_id) setTiktokPixelId(store.tiktok_pixel_id)
+      if (store.snapchat_pixel_id) setSnapchatPixelId(store.snapchat_pixel_id)
       setAddressMode(store.address_mode || (store.enable_location ? 'map' : 'text'))
       setLocationRequired(store.location_required || false)
       setShowQuantity(store.show_quantity || false)
@@ -217,8 +219,14 @@ export default function SettingsPage() {
     await supabase.from('stores').update({
       meta_pixel_id: metaPixelId.trim() || null,
       tiktok_pixel_id: tiktokPixelId.trim() || null,
+      snapchat_pixel_id: snapchatPixelId.trim() || null,
     }).eq('id', store.id)
-    setStore((prev: any) => ({ ...prev, meta_pixel_id: metaPixelId, tiktok_pixel_id: tiktokPixelId }))
+    setStore((prev: any) => ({
+      ...prev,
+      meta_pixel_id: metaPixelId,
+      tiktok_pixel_id: tiktokPixelId,
+      snapchat_pixel_id: snapchatPixelId,
+    }))
     setSavingPixels(false)
     alert(lang === 'ar' ? '✓ تم حفظ إعدادات البكسل' : '✓ Pixel settings saved')
   }
@@ -464,7 +472,7 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-white font-semibold mb-1">{lang === 'ar' ? 'ربط بكسل الإعلانات' : 'Connect ad pixels'}</h2>
-                <p className="text-[#8b8fa8] text-sm">{lang === 'ar' ? 'أضف بكسل Meta وTikTok لتتبع أداء إعلاناتك وتحسين التحويل' : 'Add your Meta and TikTok pixels to track ad performance and optimize conversions'}</p>
+                <p className="text-[#8b8fa8] text-sm">{lang === 'ar' ? 'أضف بكسل Meta وTikTok وSnapchat لتتبع أداء إعلاناتك وتحسين التحويل' : 'Add your Meta, TikTok, and Snapchat pixels to track ad performance and optimize conversions'}</p>
               </div>
 
               {/* Meta Pixel */}
@@ -546,6 +554,43 @@ export default function SettingsPage() {
                     <span className="text-[#60a5fa] mx-1">InitiateCheckout</span> ·
                     <span className="text-[#4ade80] mx-1">PlaceAnOrder</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Snapchat Pixel */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-[#fffc00]/10 border border-[#fffc00]/30 rounded-xl flex items-center justify-center text-lg">👻</div>
+                  <div>
+                    <div className="text-white font-medium">Snapchat Pixel</div>
+                    <div className="text-xs text-[#8b8fa8]">Snapchat Ads</div>
+                  </div>
+                  {store.snapchat_pixel_id && (
+                    <span className="mr-auto text-xs bg-[#14321f] text-[#4ade80] border border-[#4ade80]/20 px-2.5 py-1 rounded-full">
+                      ✓ {lang === 'ar' ? 'مرتبط' : 'Connected'}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-[#8b8fa8] uppercase tracking-wider">
+                    Snapchat Pixel ID
+                  </label>
+                  <div className="mt-1.5 flex items-center gap-2 bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 focus-within:border-[#3b82f6] transition-colors">
+                    <span className="text-lg flex-shrink-0">👻</span>
+                    <input
+                      type="text"
+                      value={snapchatPixelId}
+                      onChange={e => setSnapchatPixelId(e.target.value)}
+                      placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      className="flex-1 bg-transparent text-sm text-white placeholder-[#4a4e60] focus:outline-none"
+                    />
+                  </div>
+                  <p className="text-xs text-[#4a4e60] mt-1.5">
+                    {lang === 'ar'
+                      ? 'احصل عليه من: Snapchat Ads Manager ← Events Manager ← Pixels'
+                      : 'Get it from: Snapchat Ads Manager → Events Manager → Pixels'}
+                  </p>
                 </div>
               </div>
 

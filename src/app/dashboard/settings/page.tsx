@@ -88,7 +88,6 @@ export default function SettingsPage() {
   const [snapchatPixelId, setSnapchatPixelId] = useState('')
   const [googleAdsConversionId, setGoogleAdsConversionId] = useState('')
   const [googleAdsConversionLabel, setGoogleAdsConversionLabel] = useState('')
-  const [savingPixels, setSavingPixels] = useState(false)
   const [addressMode, setAddressMode] = useState<'text' | 'map'>('text')
   const [locationRequired, setLocationRequired] = useState(false)
   const [showQuantity, setShowQuantity] = useState(false)
@@ -136,11 +135,11 @@ export default function SettingsPage() {
       setStaticShippingCost(store.static_shipping_cost?.toString() || '')
       setCustomDomain(store.custom_domain || '')
       setLogoUrl(store.logo_url || '')
-      if (store.meta_pixel_id) setMetaPixelId(store.meta_pixel_id)
-      if (store.tiktok_pixel_id) setTiktokPixelId(store.tiktok_pixel_id)
-      if (store.snapchat_pixel_id) setSnapchatPixelId(store.snapchat_pixel_id)
-      if (store.google_ads_conversion_id) setGoogleAdsConversionId(store.google_ads_conversion_id)
-      if (store.google_ads_conversion_label) setGoogleAdsConversionLabel(store.google_ads_conversion_label)
+      setMetaPixelId(store.meta_pixel_id || '')
+      setTiktokPixelId(store.tiktok_pixel_id || '')
+      setSnapchatPixelId(store.snapchat_pixel_id || '')
+      setGoogleAdsConversionId(store.google_ads_conversion_id || '')
+      setGoogleAdsConversionLabel(store.google_ads_conversion_label || '')
       setAddressMode(store.address_mode || (store.enable_location ? 'map' : 'text'))
       setLocationRequired(store.location_required || false)
       setShowQuantity(store.show_quantity || false)
@@ -197,46 +196,56 @@ export default function SettingsPage() {
       show_quantity: showQuantity,
       show_note: showNote,
       note_required: noteRequired,
-      updated_at: new Date().toISOString(),
-    }).eq('id', store.id)
-
-    // Update merchant
-    await supabase.from('merchants').update({
-      full_name: fullName,
-      phone,
-      updated_at: new Date().toISOString(),
-    }).eq('id', user.id)
-
-    if (storeError) {
-      setError('Failed to save settings.')
-      setSaving(false)
-      return
-    }
-
-    setSaving(false)
-    setSuccess(true)
-    setTimeout(() => setSuccess(false), 3000)
-  }
-
-  const handleSavePixels = async () => {
-    setSavingPixels(true)
-    await supabase.from('stores').update({
       meta_pixel_id: metaPixelId.trim() || null,
       tiktok_pixel_id: tiktokPixelId.trim() || null,
       snapchat_pixel_id: snapchatPixelId.trim() || null,
       google_ads_conversion_id: googleAdsConversionId.trim() || null,
       google_ads_conversion_label: googleAdsConversionLabel.trim() || null,
-    }).eq('id', store.id)
+      updated_at: new Date().toISOString(),
+    }).eq('merchant_id', user.id)
+
+    // Update merchant
+    const { error: merchantError } = await supabase.from('merchants').update({
+      full_name: fullName,
+      phone,
+      updated_at: new Date().toISOString(),
+    }).eq('id', user.id)
+
+    if (storeError || merchantError) {
+      setError('Failed to save settings.')
+      setSaving(false)
+      return
+    }
+
     setStore((prev: any) => ({
       ...prev,
-      meta_pixel_id: metaPixelId,
-      tiktok_pixel_id: tiktokPixelId,
-      snapchat_pixel_id: snapchatPixelId,
-      google_ads_conversion_id: googleAdsConversionId,
-      google_ads_conversion_label: googleAdsConversionLabel,
+      name: storeName,
+      currency,
+      language,
+      primary_color: primaryColor,
+      theme,
+      shipping_type: shippingType,
+      static_shipping_cost: shippingType === 'static' ? parseFloat(staticShippingCost) || 0 : null,
+      custom_domain: customDomain || null,
+      logo_url: newLogoUrl || null,
+      address_mode: addressMode,
+      location_required: locationRequired,
+      show_quantity: showQuantity,
+      show_note: showNote,
+      note_required: noteRequired,
+      meta_pixel_id: metaPixelId.trim() || null,
+      tiktok_pixel_id: tiktokPixelId.trim() || null,
+      snapchat_pixel_id: snapchatPixelId.trim() || null,
+      google_ads_conversion_id: googleAdsConversionId.trim() || null,
+      google_ads_conversion_label: googleAdsConversionLabel.trim() || null,
     }))
-    setSavingPixels(false)
-    alert(lang === 'ar' ? '✓ تم حفظ إعدادات البكسل' : '✓ Pixel settings saved')
+    setLogoUrl(newLogoUrl)
+    setLogoFile(null)
+    setLogoPreview('')
+
+    setSaving(false)
+    setSuccess(true)
+    setTimeout(() => setSuccess(false), 3000)
   }
 
   if (loading) {
@@ -253,18 +262,9 @@ export default function SettingsPage() {
 
       <main className={DASHBOARD_MAIN_CLASS}>
 
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-white">{tr.settingsTitle}</h1>
-            <p className="text-[#8b8fa8] text-sm mt-1">{tr.settingsSub}</p>
-          </div>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
-          >
-            {saving ? 'Saving...' : tr.saveChanges}
-          </button>
+        <div className="mb-8">
+          <h1 className="text-xl font-semibold text-white">{tr.settingsTitle}</h1>
+          <p className="text-[#8b8fa8] text-sm mt-1">{tr.settingsSub}</p>
         </div>
 
         {success && (
@@ -680,12 +680,6 @@ export default function SettingsPage() {
                     : 'Paste this URL in Google Merchant Center → Products → Feeds → Scheduled fetch'}
                 </p>
               </div>
-
-              {/* Save button */}
-              <button onClick={handleSavePixels} disabled={savingPixels}
-                className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-colors">
-                {savingPixels ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : (lang === 'ar' ? 'حفظ إعدادات البكسل' : 'Save pixel settings')}
-              </button>
             </div>
           )}
 
@@ -802,11 +796,6 @@ export default function SettingsPage() {
                   )}
                 </div>
               </div>
-
-              <button onClick={handleSave}
-                className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-                {lang === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}
-              </button>
             </div>
           )}
 
@@ -879,6 +868,17 @@ export default function SettingsPage() {
             </>
           )}
 
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-[#2a2d35]">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full sm:w-auto bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 text-white text-sm font-semibold px-8 py-3 rounded-xl transition-colors"
+          >
+            {saving ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : tr.saveChanges}
+          </button>
         </div>
       </main>
     </div>

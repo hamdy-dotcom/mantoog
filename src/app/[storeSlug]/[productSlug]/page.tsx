@@ -1064,6 +1064,24 @@ export default function LandingPage() {
           </div>
         )}
 
+        {!sections?.description_long && product?.description && (
+          <div style={{ maxWidth: 800, margin: '0 auto 32px', background: th.cardBg, border: `1px solid ${th.cardBorder}`, borderRadius: 16, overflow: 'hidden', direction: m.dir as any }}>
+            <div style={{ background: th.badgeBg, borderBottom: `1px solid ${th.cardBorder}`, padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 4, height: 20, background: th.accent, borderRadius: 99, flexShrink: 0 }} />
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: th.text, margin: 0 }}>
+                {m.dir === 'rtl' ? 'تفاصيل المنتج' : 'Product Details'}
+              </h2>
+            </div>
+            <div style={{ padding: 24 }}>
+              <div
+                className="text-sm text-gray-600 leading-relaxed"
+                style={{ color: th.subtext, fontSize: 15, lineHeight: 1.9 }}
+                dangerouslySetInnerHTML={{ __html: product.description }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Customer Reviews */}
         {(() => {
           const { reviews, reviewCount } = getReviews()

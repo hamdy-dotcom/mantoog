@@ -1,4 +1,5 @@
-import { TIKTOK, resolveActiveConnection } from '@/lib/tiktok/server'
+import { TIKTOK } from '@/lib/tiktok/server'
+import { resolveActiveConnection } from '@/lib/tiktok/server-auth'
 import type { BidField, EntityLevel } from '@/lib/tiktok/types'
 
 type Connection = { advertiser_id: string; access_token: string }

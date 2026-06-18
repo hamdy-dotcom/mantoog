@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { WinnerLevel } from '@/lib/tiktok/entities'
 import { fetchScaleSignal } from '@/lib/tiktok/scale-signal'
-import { parseQueryDates, resolveActiveConnection } from '@/lib/tiktok/server'
+import { parseQueryDates } from '@/lib/tiktok/server'
+import { resolveActiveConnection } from '@/lib/tiktok/server-auth'
 import { jsonForTikTokFailure } from '@/lib/tiktok/api-errors'
 
 const LEVELS = new Set<WinnerLevel>(['campaigns', 'adgroups', 'ads'])

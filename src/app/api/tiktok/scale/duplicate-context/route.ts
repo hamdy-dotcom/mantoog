@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchDuplicateScaleContext } from '@/lib/tiktok/scale-duplicate'
-import { resolveActiveConnection } from '@/lib/tiktok/server'
+import { resolveActiveConnection } from '@/lib/tiktok/server-auth'
 import { jsonForTikTokFailure } from '@/lib/tiktok/api-errors'
 
 export async function GET(req: NextRequest) {

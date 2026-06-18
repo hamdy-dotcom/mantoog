@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchWinners, type WinnerLevel } from '@/lib/tiktok/entities'
-import { parseQueryDates, resolveActiveConnection } from '@/lib/tiktok/server'
+import { parseQueryDates } from '@/lib/tiktok/server'
+import { resolveActiveConnection } from '@/lib/tiktok/server-auth'
 import { jsonForTikTokFailure } from '@/lib/tiktok/api-errors'
 
 const WINNER_LEVELS = new Set<WinnerLevel>(['campaigns', 'adgroups', 'ads'])

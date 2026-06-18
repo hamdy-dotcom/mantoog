@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import {
-  resolveActiveConnection,
-  resolveAdvertiserCurrency,
-  resolveAdvertiserTimezone,
-} from '@/lib/tiktok/server'
+import { resolveActiveConnection } from '@/lib/tiktok/server-auth'
+import { resolveAdvertiserCurrency, resolveAdvertiserTimezone } from '@/lib/tiktok/server'
 import { defaultScheduleStartLocal } from '@/lib/tiktok/create-ad/schedule'
 import { getProductLandingUrl } from '@/lib/site-url'
 import { resolveConversionPixel } from '@/lib/tiktok/pixels'

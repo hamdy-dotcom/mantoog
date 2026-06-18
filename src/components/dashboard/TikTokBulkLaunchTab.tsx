@@ -16,7 +16,7 @@ import {
   type TargetLocation,
 } from '@/lib/tiktok/create-ad/types'
 import { defaultScheduleStartLocal, isValidLocalDatetime } from '@/lib/tiktok/create-ad/schedule'
-import { defaultLocationId } from '@/lib/tiktok/targeting/locations'
+import { defaultLocationId } from '@/lib/tiktok/targeting/location-defaults'
 import {
   DEFAULT_CONVERSION_EVENT_PREFERENCE,
   type ConversionEventPreference,

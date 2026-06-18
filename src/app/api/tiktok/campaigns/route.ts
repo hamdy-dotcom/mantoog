@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchEntitiesForStore } from '@/lib/tiktok/entities'
 import { ENTITY_LEVELS, type EntityLevel } from '@/lib/tiktok/types'
-import { parseQueryDates, resolveActiveConnection } from '@/lib/tiktok/server'
+import { parseQueryDates } from '@/lib/tiktok/server'
+import { resolveActiveConnection } from '@/lib/tiktok/server-auth'
 import { jsonForTikTokFailure } from '@/lib/tiktok/api-errors'
 
 export async function GET(req: NextRequest) {

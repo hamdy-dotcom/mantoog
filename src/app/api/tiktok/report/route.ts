@@ -3,10 +3,10 @@ import {
   fetchIntegratedReport,
   parseQueryDates,
   reportPageSize,
-  resolveActiveConnection,
   resolveAdvertiserCurrency,
   tiktokApiFailure,
 } from '@/lib/tiktok/server'
+import { resolveActiveConnection } from '@/lib/tiktok/server-auth'
 import { jsonForTikTokFailure } from '@/lib/tiktok/api-errors'
 
 export async function GET(req: NextRequest) {

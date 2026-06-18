@@ -1,15 +1,15 @@
 import { getTikTokDataRecord, tiktokGet, tiktokPost } from '@/lib/tiktok/mutations'
 import type { AdGoal } from '@/lib/tiktok/create-ad/types'
+import {
+  defaultLocationId,
+  regionCodeFromStoreCurrency,
+  type TargetLocation,
+} from '@/lib/tiktok/targeting/location-defaults'
+
+export type { TargetLocation }
+export { defaultLocationId, regionCodeFromStoreCurrency }
 
 type Connection = { advertiser_id: string; access_token: string }
-
-export type TargetLocation = {
-  location_id: string
-  name: string
-  label_ar: string
-  region_code: string
-  level: string
-}
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -171,44 +171,6 @@ export async function searchTargetLocations(
     .filter((x): x is TargetLocation => x != null)
 
   return { items }
-}
-
-/** Map store currency → ISO country code for default geo targeting. */
-export function regionCodeFromStoreCurrency(currency: string | null | undefined): string | null {
-  if (!currency) return null
-  const map: Record<string, string> = {
-    SAR: 'SA',
-    EGP: 'EG',
-    AED: 'AE',
-    KWD: 'KW',
-    QAR: 'QA',
-    BHD: 'BH',
-    OMR: 'OM',
-    JOD: 'JO',
-    LBP: 'LB',
-    IQD: 'IQ',
-    MAD: 'MA',
-    DZD: 'DZ',
-    TND: 'TN',
-    LYD: 'LY',
-    YER: 'YE',
-  }
-  return map[currency.toUpperCase()] ?? null
-}
-
-export function defaultLocationId(
-  items: TargetLocation[],
-  opts?: { preferCode?: string; storeCurrency?: string | null }
-): string {
-  const fromCurrency = opts?.storeCurrency
-    ? regionCodeFromStoreCurrency(opts.storeCurrency)
-    : null
-  const preferCode = opts?.preferCode ?? fromCurrency
-  if (preferCode) {
-    const preferred = items.find(l => l.region_code === preferCode)
-    if (preferred) return preferred.location_id
-  }
-  return ''
 }
 
 /** Clear cache (e.g. after account switch). */

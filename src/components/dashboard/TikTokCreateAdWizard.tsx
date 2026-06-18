@@ -30,7 +30,7 @@ import {
   formatScheduleDisplay,
   isValidLocalDatetime,
 } from '@/lib/tiktok/create-ad/schedule'
-import { defaultLocationId } from '@/lib/tiktok/targeting/locations'
+import { defaultLocationId } from '@/lib/tiktok/targeting/location-defaults'
 import type { CreateErrorCategory } from '@/lib/tiktok/create-ad/errors'
 import ProductCreativePicker from '@/components/dashboard/ProductCreativePicker'
 import ConversionEventField from '@/components/dashboard/ConversionEventField'

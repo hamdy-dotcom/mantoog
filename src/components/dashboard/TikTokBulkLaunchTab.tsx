@@ -16,6 +16,7 @@ import {
   type TargetLocation,
 } from '@/lib/tiktok/create-ad/types'
 import { defaultScheduleStartLocal, isValidLocalDatetime } from '@/lib/tiktok/create-ad/schedule'
+import { defaultLocationId } from '@/lib/tiktok/targeting/locations'
 import {
   DEFAULT_CONVERSION_EVENT_PREFERENCE,
   type ConversionEventPreference,
@@ -107,6 +108,8 @@ export default function TikTokBulkLaunchTab({
   const creativePending = blockIfScopePending('creative-management')
   const locationIdRef = useRef(locationId)
   locationIdRef.current = locationId
+  const storeCurrencyRef = useRef(store?.currency)
+  storeCurrencyRef.current = store?.currency
 
   const fetchLocations = useCallback(async (search?: string) => {
     setLocationsLoading(true)
@@ -129,8 +132,8 @@ export default function TikTokBulkLaunchTab({
       setLocations(items)
       const currentId = locationIdRef.current
       if (items.length && !items.some(l => l.location_id === currentId)) {
-        const eg = items.find(l => l.region_code === 'EG')
-        setLocationId(eg?.location_id || items[0].location_id)
+        const nextId = defaultLocationId(items, { storeCurrency: storeCurrencyRef.current })
+        if (nextId) setLocationId(nextId)
       }
     } catch {
       setLocationsError('fetch_failed')
@@ -341,7 +344,7 @@ export default function TikTokBulkLaunchTab({
       const items = selectedCreativeItemsByProduct[p.id] || []
       if (creative === 'product_video' || creative === 'upload') {
         const videos = items.filter(i => i.type === 'video')
-        if (!videos.length || videos.length > 5 || ids.length !== videos.length) return false
+        if (videos.length !== 1 || ids.length !== 1) return false
       }
       if (creative === 'carousel' && !ids.length) return false
     }
@@ -605,6 +608,7 @@ export default function TikTokBulkLaunchTab({
                             lang={lang}
                             dir={dir}
                             mode={creative === 'carousel' ? 'carousel' : 'video'}
+                            maxVideoSelection={creative === 'carousel' ? undefined : 1}
                             selectedIds={selectedCreativeIdsByProduct[p.id] || []}
                             onChange={(ids, items) => {
                               setSelectedCreativeIdsByProduct(prev => ({ ...prev, [p.id]: ids }))

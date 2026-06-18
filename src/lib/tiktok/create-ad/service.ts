@@ -91,8 +91,10 @@ async function launchVideoAdsInGroup(opts: {
   adgroup: { adgroup_id: string; adgroup_name: string }
   identity: import('@/lib/tiktok/create-ad/publish').IdentityChoice
   videoFile?: File | null
+  maxVideoAds?: number
 }): Promise<LaunchSuccess | CreateFlowError> {
-  const { connection, store, payload, campaign, adgroup, identity, videoFile } = opts
+  const { connection, store, payload, campaign, adgroup, identity, videoFile, maxVideoAds } = opts
+  const maxAds = maxVideoAds ?? MAX_VIDEO_ADS_PER_GROUP
   const resolved = await resolveCreativeSelection({
     productId: payload.product.id,
     productImages: payload.product.images || [],
@@ -102,7 +104,7 @@ async function launchVideoAdsInGroup(opts: {
   })
   const videoItems = resolved.items
     .filter(i => i.type === 'video')
-    .slice(0, MAX_VIDEO_ADS_PER_GROUP)
+    .slice(0, maxAds)
 
   if (!videoItems.length) {
     return {
@@ -372,6 +374,8 @@ export async function launchCreateAdAtomic(
   opts?: {
     videoFile?: File | null
     imageFiles?: File[]
+    /** Bulk launch passes 1 — one video ad per campaign. Single Create defaults to 5. */
+    maxVideoAds?: number
   }
 ): Promise<LaunchSuccess | CreateFlowError> {
   payload = await withPublicProductLandingUrl(payload, store.id)
@@ -455,6 +459,7 @@ export async function launchCreateAdAtomic(
       adgroup,
       identity: identityRes.identity,
       videoFile: opts?.videoFile ?? null,
+      maxVideoAds: opts?.maxVideoAds,
     })
   }
 

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     for (const payload of payloads) {
       const title = payload.product?.title || payload.product?.id || 'Product'
-      const result = await launchCreateAdAtomic(connection, store, payload)
+      const result = await launchCreateAdAtomic(connection, store, payload, { maxVideoAds: 1 })
 
       if ('ok' in result && result.ok) {
         results.push({

@@ -10,10 +10,12 @@ type Props = {
   productId: string
   lang: string
   dir?: string
-  /** video = multi video (max 5); image = single image; carousel = multi image */
+  /** video = multi video (max 5 by default); image = single image; carousel = multi image */
   mode: 'video' | 'image' | 'carousel'
   selectedIds: string[]
   onChange: (ids: string[], items: ProductCreativeItem[]) => void
+  /** Cap video picks (default 5). Bulk launch passes 1 for single-select radio. */
+  maxVideoSelection?: number
   /** Show inline upload for "my own footage" */
   allowUpload?: boolean
   uploadLabel?: string
@@ -27,6 +29,7 @@ export default function ProductCreativePicker({
   mode,
   selectedIds,
   onChange,
+  maxVideoSelection = MAX_VIDEO_SELECTION,
   allowUpload = false,
   uploadLabel,
   onUploadingChange,
@@ -76,11 +79,15 @@ export default function ProductCreativePicker({
     }
 
     if (mode === 'video') {
+      if (maxVideoSelection === 1) {
+        applySelection([item.id])
+        return
+      }
       if (selectedIds.includes(item.id)) {
         applySelection(selectedIds.filter(id => id !== item.id))
         return
       }
-      if (selectedIds.length >= MAX_VIDEO_SELECTION) return
+      if (selectedIds.length >= maxVideoSelection) return
       applySelection([...selectedIds, item.id])
       return
     }
@@ -97,9 +104,11 @@ export default function ProductCreativePicker({
       await load()
 
       if (mode === 'video') {
-        const next = selectedIds.includes(item.id)
-          ? selectedIds
-          : [...selectedIds, item.id].slice(0, MAX_VIDEO_SELECTION)
+        const next = maxVideoSelection === 1
+          ? [item.id]
+          : selectedIds.includes(item.id)
+            ? selectedIds
+            : [...selectedIds, item.id].slice(0, maxVideoSelection)
         const mergedItems = [...items.filter(i => next.includes(i.id)), item]
           .filter((v, idx, arr) => arr.findIndex(x => x.id === v.id) === idx)
         onChange(next, mergedItems.filter(i => next.includes(i.id)))
@@ -152,9 +161,11 @@ export default function ProductCreativePicker({
 
       {mode === 'video' && (
         <p className="text-[10px] text-[#4a4e60]">
-          {lang === 'ar'
-            ? 'يعمل TikTok بشكل أفضل مع 3–5 إعلانات في المجموعة.'
-            : 'TikTok works best with 3–5 ads per group.'}
+          {maxVideoSelection === 1
+            ? (lang === 'ar' ? 'اختر فيديو واحد لكل حملة.' : 'Select one video per campaign.')
+            : (lang === 'ar'
+              ? 'يعمل TikTok بشكل أفضل مع 3–5 إعلانات في المجموعة.'
+              : 'TikTok works best with 3–5 ads per group.')}
         </p>
       )}
 
@@ -172,7 +183,8 @@ export default function ProductCreativePicker({
         <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
           {items.map(item => {
             const selected = selectedIds.includes(item.id)
-            const atMax = !selected && selectedIds.length >= MAX_VIDEO_SELECTION
+            const atMax = maxVideoSelection > 1 && !selected && selectedIds.length >= maxVideoSelection
+            const inputType = maxVideoSelection === 1 ? 'radio' : 'checkbox'
             const thumb = item.thumbnail_url || null
             return (
               <div
@@ -204,7 +216,8 @@ export default function ProductCreativePicker({
                   onClick={e => e.stopPropagation()}
                 >
                   <input
-                    type="checkbox"
+                    type={inputType}
+                    name={maxVideoSelection === 1 ? `video-${productId}` : undefined}
                     checked={selected}
                     disabled={atMax}
                     onChange={() => toggleSelect(item)}
@@ -258,7 +271,7 @@ export default function ProductCreativePicker({
         </div>
       )}
 
-      {mode === 'video' && videoCount > 0 && (
+      {mode === 'video' && videoCount > 0 && maxVideoSelection > 1 && (
         <p className="text-[10px] text-[#8b8fa8]">
           {lang === 'ar'
             ? `${videoCount} فيديو محدد → ${videoCount} إعلان`
@@ -316,7 +329,7 @@ export default function ProductCreativePicker({
                 onClick={() => {
                   toggleSelect(previewItem)
                 }}
-                disabled={!selectedIds.includes(previewItem.id) && selectedIds.length >= MAX_VIDEO_SELECTION}
+                disabled={!selectedIds.includes(previewItem.id) && maxVideoSelection > 1 && selectedIds.length >= maxVideoSelection}
                 className="text-xs px-3 py-1.5 rounded-lg bg-[#3b82f6] text-white disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {selectedIds.includes(previewItem.id)

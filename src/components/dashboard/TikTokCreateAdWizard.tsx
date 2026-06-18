@@ -30,6 +30,7 @@ import {
   formatScheduleDisplay,
   isValidLocalDatetime,
 } from '@/lib/tiktok/create-ad/schedule'
+import { defaultLocationId } from '@/lib/tiktok/targeting/locations'
 import type { CreateErrorCategory } from '@/lib/tiktok/create-ad/errors'
 import ProductCreativePicker from '@/components/dashboard/ProductCreativePicker'
 import ConversionEventField from '@/components/dashboard/ConversionEventField'
@@ -170,6 +171,8 @@ export default function TikTokCreateAdWizard({
   const leadGenPending = blockIfScopePending('lead-generation')
   const locationIdRef = useRef(locationId)
   locationIdRef.current = locationId
+  const storeCurrencyRef = useRef(store?.currency)
+  storeCurrencyRef.current = store?.currency
 
   const fetchLocations = useCallback(async (search?: string) => {
     setLocationsLoading(true)
@@ -192,8 +195,8 @@ export default function TikTokCreateAdWizard({
       setLocations(items)
       const currentId = locationIdRef.current
       if (items.length && !items.some(l => l.location_id === currentId)) {
-        const eg = items.find(l => l.region_code === 'EG')
-        setLocationId(eg?.location_id || items[0].location_id)
+        const nextId = defaultLocationId(items, { storeCurrency: storeCurrencyRef.current })
+        if (nextId) setLocationId(nextId)
       }
     } catch {
       setLocationsError('fetch_failed')

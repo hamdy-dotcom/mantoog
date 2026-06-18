@@ -36,6 +36,7 @@ type Props = {
 type StoreMeta = {
   id: string
   slug: string
+  name?: string
   currency: string
   ad_currency?: string
   tiktok_pixel_id: string | null
@@ -322,6 +323,7 @@ export default function TikTokBulkLaunchTab({
       store: {
         tiktok_pixel_id: store.tiktok_pixel_id,
         currency: store.ad_currency || store.currency,
+        name: store.name || null,
       },
     }
   }

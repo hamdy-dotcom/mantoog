@@ -52,6 +52,7 @@ type Props = {
 type StoreMeta = {
   id: string
   slug: string
+  name?: string
   currency: string
   ad_currency?: string
   tiktok_pixel_id: string | null
@@ -357,6 +358,7 @@ export default function TikTokCreateAdWizard({
       store: {
         tiktok_pixel_id: store.tiktok_pixel_id,
         currency: store.ad_currency || store.currency,
+        name: store.name || null,
       },
     }
   }, [selectedProduct, creativeSource, store, caption, cta, selectedCreativeIds, selectedCreativeItems, goal, dailyBudget, scheduleStart, scheduleEnd, locationId, ageGroups, gender, advanced, leadFormSelection, conversionEvent])

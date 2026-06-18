@@ -116,6 +116,8 @@ export type CreateAdWizardPayload = {
   store: {
     tiktok_pixel_id: string | null
     currency: string
+    /** Merchant storefront display name for TikTok ad display_name. */
+    name?: string | null
   }
 }
 

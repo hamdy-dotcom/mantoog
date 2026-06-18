@@ -1035,34 +1035,39 @@ export async function uploadCreativeToTikTok(opts: {
   }
 }
 
-export async function createTikTokAd(opts: {
-  connection: Connection
+const TIKTOK_DISPLAY_NAME_MAX = 40
+
+function truncateDisplayName(name: string): string {
+  return name.trim().slice(0, TIKTOK_DISPLAY_NAME_MAX)
+}
+
+function preferredStoreDisplayName(payload: CreateAdWizardPayload): string | null {
+  const name = payload.store.name?.trim()
+  if (!name) return null
+  return truncateDisplayName(name)
+}
+
+function identityFallbackDisplayName(
+  identity: IdentityChoice,
   payload: CreateAdWizardPayload
-  adgroup_id: string
+): string {
+  return truncateDisplayName(identity.display_name || payload.product.title || 'Shop')
+}
+
+function isDisplayNameRejected(json: TikTokRawResponse): boolean {
+  const text = `${json.message || ''} ${JSON.stringify(json.data ?? '')}`.toLowerCase()
+  return /display.?name|displayname|identity.*name|brand.*name|app.*name/i.test(text)
+}
+
+function buildAdCreativeObject(opts: {
+  payload: CreateAdWizardPayload
   identity: IdentityChoice
   creative: UploadedCreative
-  /** 0-based index when creating multiple video ads in one ad group. */
-  adIndex?: number
-}): Promise<{ ok: true; ad_id: string; ad_name: string } | CreateFlowError> {
-  const { connection, payload, adgroup_id, identity, creative, adIndex } = opts
+  ad_name: string
+  display_name: string
+}): Record<string, unknown> {
+  const { payload, identity, creative, ad_name, display_name } = opts
   const adv = payload.targeting.advanced
-
-  const titleBase = payload.product.title.slice(0, 35)
-  const adLabel = adIndex != null && adIndex >= 0
-    ? `${titleBase} - Ad ${adIndex + 1}`
-    : `${titleBase} - Ad`
-  const ad_name = uniqueAdName(adLabel)
-  if (!identity.identity_type) {
-    return {
-      error: 'tiktok_error',
-      step: 'ad',
-      message: 'identity_type is required for /ad/create/ but was not returned by /identity/get/.',
-      category: 'missing_required_field',
-      explanation: 'Check server logs for /identity/get/ raw response — do not guess identity_type.',
-    }
-  }
-
-  const display_name = identity.display_name || payload.product.title.slice(0, 40)
 
   const creativeObject: Record<string, unknown> = {
     ad_name,
@@ -1077,7 +1082,6 @@ export async function createTikTokAd(opts: {
     creativeObject.identity_authorized_bc_id = identity.identity_authorized_bc_id
   }
 
-  // Advanced ad controls (ad-level fields).
   if (adv?.comment_disabled) creativeObject.comment_disabled = true
   if (adv?.video_download_disabled) creativeObject.video_download_disabled = true
   if (adv?.share_disabled) creativeObject.share_disabled = true
@@ -1107,39 +1111,18 @@ export async function createTikTokAd(opts: {
     creativeObject.image_ids = creative.image_ids
   }
 
-  const body: Record<string, unknown> = {
-    adgroup_id,
-    creatives: [creativeObject],
-  }
+  return creativeObject
+}
 
-  const fullRequest = {
-    advertiser_id: connection.advertiser_id,
-    ...body,
-  }
-  console.error('[tiktok/create/ad] POST /ad/create/ request body (full JSON)', JSON.stringify(fullRequest, null, 2))
-  console.error('[tiktok/create/ad] creative identity + video check', {
-    identity_id: identity.identity_id,
-    identity_type: identity.identity_type,
-    identity_authorized_bc_id: identity.identity_authorized_bc_id ?? null,
-    display_name,
-    video_id: creativeObject.video_id ?? null,
-    image_ids: creativeObject.image_ids ?? null,
-    ad_format: creativeObject.ad_format ?? null,
-  })
-
-  const json = await postLogged(connection, 'ad', '/ad/create/', body)
+function parseAdCreateResponse(
+  json: TikTokRawResponse,
+  ad_name: string
+): { ok: true; ad_id: string; ad_name: string } | CreateFlowError {
   if (isTikTokHttpError(json)) {
     const http = asTikTokHttpError(json)
     if (http) return buildTikTokHttpFlowError('ad', http)
   }
   if (json.code !== 0) {
-    console.error('[tiktok/create/ad] POST /ad/create/ failed', {
-      request: fullRequest,
-      response: json,
-      code: json.code,
-      message: json.message,
-      request_id: json.request_id,
-    })
     return buildCreateFlowError('ad', json)
   }
 
@@ -1162,5 +1145,93 @@ export async function createTikTokAd(opts: {
   }
 
   return { ok: true, ad_id, ad_name }
+}
+
+export async function createTikTokAd(opts: {
+  connection: Connection
+  payload: CreateAdWizardPayload
+  adgroup_id: string
+  identity: IdentityChoice
+  creative: UploadedCreative
+  /** 0-based index when creating multiple video ads in one ad group. */
+  adIndex?: number
+}): Promise<{ ok: true; ad_id: string; ad_name: string } | CreateFlowError> {
+  const { connection, payload, adgroup_id, identity, creative, adIndex } = opts
+
+  const titleBase = payload.product.title.slice(0, 35)
+  const adLabel = adIndex != null && adIndex >= 0
+    ? `${titleBase} - Ad ${adIndex + 1}`
+    : `${titleBase} - Ad`
+  const ad_name = uniqueAdName(adLabel)
+  if (!identity.identity_type) {
+    return {
+      error: 'tiktok_error',
+      step: 'ad',
+      message: 'identity_type is required for /ad/create/ but was not returned by /identity/get/.',
+      category: 'missing_required_field',
+      explanation: 'Check server logs for /identity/get/ raw response — do not guess identity_type.',
+    }
+  }
+
+  const identityDisplayName = identityFallbackDisplayName(identity, payload)
+  const storeDisplayName = preferredStoreDisplayName(payload)
+  const primaryDisplayName = storeDisplayName || identityDisplayName
+
+  const postAd = async (display_name: string) => {
+    const creativeObject = buildAdCreativeObject({
+      payload,
+      identity,
+      creative,
+      ad_name,
+      display_name,
+    })
+    const body: Record<string, unknown> = {
+      adgroup_id,
+      creatives: [creativeObject],
+    }
+    const fullRequest = {
+      advertiser_id: connection.advertiser_id,
+      ...body,
+    }
+    console.error('[tiktok/create/ad] POST /ad/create/ request body (full JSON)', JSON.stringify(fullRequest, null, 2))
+    console.error('[tiktok/create/ad] creative identity + video check', {
+      identity_id: identity.identity_id,
+      identity_type: identity.identity_type,
+      identity_authorized_bc_id: identity.identity_authorized_bc_id ?? null,
+      display_name,
+      video_id: creativeObject.video_id ?? null,
+      image_ids: creativeObject.image_ids ?? null,
+      ad_format: creativeObject.ad_format ?? null,
+    })
+    return postLogged(connection, 'ad', '/ad/create/', body)
+  }
+
+  let json = await postAd(primaryDisplayName)
+  if (
+    json.code !== 0
+    && storeDisplayName
+    && storeDisplayName !== identityDisplayName
+    && isDisplayNameRejected(json)
+  ) {
+    console.error('[tiktok/create/ad] store display_name rejected — retrying with identity display_name', {
+      store_display_name: storeDisplayName,
+      identity_display_name: identityDisplayName,
+      code: json.code,
+      message: json.message,
+      request_id: json.request_id,
+    })
+    json = await postAd(identityDisplayName)
+  }
+
+  if (json.code !== 0) {
+    console.error('[tiktok/create/ad] POST /ad/create/ failed', {
+      code: json.code,
+      message: json.message,
+      request_id: json.request_id,
+      display_name: json.code !== 0 && storeDisplayName ? primaryDisplayName : undefined,
+    })
+  }
+
+  return parseAdCreateResponse(json, ad_name)
 }
 

@@ -20,7 +20,7 @@ export async function GET() {
 
   const { data: store } = await supabase
     .from('stores')
-    .select('id, slug, currency, tiktok_pixel_id')
+    .select('id, slug, name, currency, tiktok_pixel_id')
     .eq('merchant_id', user.id)
     .single()
 
@@ -33,6 +33,7 @@ export async function GET() {
       store: {
         id: store.id,
         slug: store.slug,
+        name: store.name,
         currency: store.currency || 'SAR',
         ad_currency: store.currency || 'SAR',
         tiktok_pixel_id: store.tiktok_pixel_id,
@@ -92,6 +93,7 @@ export async function GET() {
     store: {
       id: store.id,
       slug: store.slug,
+      name: store.name,
       currency: storeCurrency,
       ad_currency: adCurrency,
       tiktok_pixel_id: store.tiktok_pixel_id,

@@ -11,6 +11,7 @@ import type { CreateAdWizardPayload } from '@/lib/tiktok/create-ad/types'
 import {
   finalizeMutationResult,
   resolveAdvertiserTimezone,
+  supabaseAdmin,
 } from '@/lib/tiktok/server'
 import {
   createTikTokAd,
@@ -378,6 +379,20 @@ export async function launchCreateAdAtomic(
     maxVideoAds?: number
   }
 ): Promise<LaunchSuccess | CreateFlowError> {
+  if (!payload.store.name?.trim()) {
+    const { data: storeRow } = await supabaseAdmin
+      .from('stores')
+      .select('name')
+      .eq('id', store.id)
+      .single()
+    if (storeRow?.name) {
+      payload = {
+        ...payload,
+        store: { ...payload.store, name: storeRow.name },
+      }
+    }
+  }
+
   payload = await withPublicProductLandingUrl(payload, store.id)
 
   const timezone = await resolveAdvertiserTimezone(connection, payload.store.currency)

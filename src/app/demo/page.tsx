@@ -34,16 +34,21 @@ const I = {
 function LogoHalo() {
   return (
     <div className="relative inline-flex items-center justify-center mb-8">
+      {/* Pulse rings */}
       <span className="absolute w-36 h-36 rounded-full border border-blue-400/20 animate-[ping_3s_ease-in-out_infinite]" />
       <span className="absolute w-48 h-48 rounded-full border border-violet-400/10 animate-[ping_3s_ease-in-out_infinite]" style={{ animationDelay: '1s' }} />
+      {/* Glow */}
       <div className="absolute w-20 h-20 rounded-full bg-blue-500/25 blur-2xl animate-pulse" />
+      {/* Orbit 1 — blue dot, clockwise */}
       <div className="absolute w-32 h-32 rounded-full border border-dashed border-white/8" style={{ animation: 'spin-ring 7s linear infinite' }}>
         <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-blue-400 shadow-[0_0_8px_#60a5fa]" />
       </div>
+      {/* Orbit 2 — violet + amber dots, counter-clockwise */}
       <div className="absolute w-44 h-44 rounded-full border border-dashed border-white/5" style={{ animation: 'spin-ring 11s linear infinite reverse' }}>
         <div className="absolute -top-[4px] left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-violet-400 shadow-[0_0_6px_#a78bfa]" />
         <div className="absolute -bottom-[4px] left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-amber-300 shadow-[0_0_6px_#fcd34d]" />
       </div>
+      {/* Logo */}
       <img
         src="/logo.svg" alt="Mantoog"
         className="relative z-10 w-16 h-16 object-contain"
@@ -79,10 +84,12 @@ function MockStore() {
   }, [])
   return (
     <div className="rounded-3xl border border-white/10 bg-[#12151c]/80 backdrop-blur-xl p-5 shadow-2xl shadow-black/40 max-w-md mx-auto">
+      {/* 100 orders banner */}
       <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 mb-4">
         <span className="text-emerald-400 text-xs font-semibold">🎁 100 طلب مجاني — بدون بطاقة</span>
         <span className="text-xs text-[#9aa0b4]">لكل متجر جديد</span>
       </div>
+      {/* Step indicators */}
       <div className="flex items-center gap-1.5 mb-5">
         {steps.map((s, i) => (
           <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -91,6 +98,7 @@ function MockStore() {
           </div>
         ))}
       </div>
+      {/* Step content */}
       {!done ? (
         <div className="rounded-2xl border border-white/10 bg-[#0b0d12] p-4 min-h-[90px]">
           <div className="text-xs text-[#8b8fa8] mb-2">{stepContent[step].label}</div>
@@ -116,7 +124,7 @@ function MockMigration() {
   const [state, setState] = useState<'idle'|'loading'|'done'>('idle')
   const products = ['ساعة ذكية رياضية', 'سماعة لاسلكية', 'شاحن سريع 65W']
   useEffect(() => {
-    let ts: ReturnType<typeof setTimeout>[] = []
+    let ts: ReturnType<typeof setTimeout>[]= []
     const cycle = () => {
       setState('idle')
       ts.push(setTimeout(() => setState('loading'), 1500))
@@ -129,6 +137,7 @@ function MockMigration() {
   return (
     <div className="rounded-3xl border border-white/10 bg-[#12151c]/80 backdrop-blur-xl p-5 shadow-2xl shadow-black/40 max-w-md mx-auto">
       <div className="text-sm font-bold mb-3">استيراد من متجرك القديم</div>
+      {/* Tabs */}
       <div className="flex gap-1 rounded-xl bg-[#0b0d12] p-1 mb-4">
         {(['url','api','json'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
@@ -137,6 +146,7 @@ function MockMigration() {
           </button>
         ))}
       </div>
+      {/* Input */}
       <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0b0d12] px-3 py-2.5 mb-3">
         <I.Link className="w-4 h-4 text-[#8b8fa8] shrink-0" />
         <span className="text-sm text-[#9aa0b4] font-mono" dir="ltr">
@@ -147,6 +157,7 @@ function MockMigration() {
         <I.Refresh className={`w-4 h-4 ${state==='loading' ? 'animate-spin' : ''}`} />
         {state==='idle' ? 'استيراد المنتجات والطلبات' : state==='loading' ? 'جارٍ الاستيراد…' : '✓ تم الاستيراد'}
       </button>
+      {/* Products */}
       <div className={`mt-3 space-y-2 transition-all duration-500 ${state==='done' ? 'opacity-100' : 'opacity-0'}`}>
         {products.map((p, i) => (
           <div key={i} className="flex items-center gap-2.5 rounded-lg border border-white/8 bg-[#0b0d12] px-3 py-2"
@@ -176,6 +187,7 @@ function MockAds() {
           <span>+ إنشاء</span>
         </button>
       </div>
+      {/* Header */}
       <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-2 mb-2 text-[10px] text-[#5b6072] uppercase tracking-wide">
         <span>الحملة</span><span>الإنفاق</span><span>العائد</span><span>الحالة</span>
       </div>
@@ -191,6 +203,7 @@ function MockAds() {
           </div>
         ))}
       </div>
+      {/* Bulk bar */}
       <div className={`mt-3 rounded-xl border px-3 py-2 flex items-center justify-between transition-all ${selected.length ? 'border-[#3b82f6]/40 bg-[#3b82f6]/5' : 'border-white/5 bg-[#0b0d12]'}`}>
         <span className="text-xs text-[#8b8fa8]">{selected.length ? `${selected.length} محدد` : 'انقر لتحديد الحملات'}</span>
         {selected.length > 0 && (
@@ -220,10 +233,12 @@ function MockCreativeSearch() {
   ]
   return (
     <div className="rounded-3xl border border-white/10 bg-[#12151c]/80 backdrop-blur-xl p-5 shadow-2xl shadow-black/40 max-w-md mx-auto">
+      {/* Search */}
       <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0b0d12] px-3 py-2.5 mb-3">
         <I.Search className="w-4 h-4 text-[#8b8fa8] shrink-0" />
         <span className="text-sm text-white/70">ساعة ذكية رياضية...</span>
       </div>
+      {/* Platform pills */}
       <div className="flex gap-2 mb-4">
         {(['tiktok','youtube'] as const).map(p => (
           <button key={p} onClick={() => setPlatform(p)}
@@ -233,6 +248,7 @@ function MockCreativeSearch() {
           </button>
         ))}
       </div>
+      {/* Grid */}
       <div className="grid grid-cols-2 gap-2">
         {cards.map((c, i) => (
           <div key={i}
@@ -271,6 +287,7 @@ const COPY = {
     cta: 'ابدأ الآن — 0 جنيه',
     cta2: 'شاهد كيف يعمل',
     trust: ['بدون بطاقة ائتمان', '100 طلب مجاني', 'إلغاء في أي وقت'],
+    mockTitle: 'الصق رابط المنتج',
     mockUrl: 'aliexpress.com/item/...',
     mockBtn: 'توليد بالذكاء الاصطناعي',
     mockGen: 'جارٍ التوليد…',
@@ -377,6 +394,7 @@ const COPY = {
     cta: 'Start now — 0 EGP',
     cta2: 'See how it works',
     trust: ['No credit card', '100 free orders', 'Cancel anytime'],
+    mockTitle: 'Paste a product URL',
     mockUrl: 'aliexpress.com/item/...',
     mockBtn: 'Generate with AI',
     mockGen: 'Generating…',
@@ -504,7 +522,7 @@ function StatItem({ v, suffix, label, run }: { v: number; suffix: string; label:
 }
 
 /* ─────────────────────── PAGE ─────────────────────── */
-export default function HomePage() {
+export default function DemoPage() {
   const router = useRouter()
   const [lang, setLang] = useState<'ar'|'en'>('ar')
   const [mounted, setMounted] = useState(false)
@@ -539,6 +557,7 @@ export default function HomePage() {
 
   return (
     <div dir={c.dir} className={`min-h-screen bg-[#0b0d12] text-white overflow-x-hidden ${ar ? 'font-ar' : ''}`}>
+      {/* Arabic fonts */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -550,6 +569,7 @@ export default function HomePage() {
         <div className="aurora aurora-3" />
         <div className="grid-overlay" />
       </div>
+
 
       {/* ── Nav ── */}
       <header className="fixed top-0 inset-x-0 z-50 px-4 pt-4">
@@ -581,10 +601,13 @@ export default function HomePage() {
       {/* ── Hero ── */}
       <section className="relative z-10 pt-36 pb-20 px-5">
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+          {/* Copy */}
           <div className={`text-center lg:text-start ${mounted ? 'reveal' : 'pre'}`}>
+            {/* Logo halo — brand focal point */}
             <div className="flex justify-center lg:justify-start">
               <LogoHalo />
             </div>
+
             <div className="inline-flex items-center gap-2 rounded-full border border-[#3b82f6]/30 bg-[#3b82f6]/10 text-[#9ab4ff] text-xs font-medium px-3 py-1.5 mb-7">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-[#3b82f6] opacity-75 animate-ping" />
@@ -592,6 +615,7 @@ export default function HomePage() {
               </span>
               {c.badge}
             </div>
+
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.1] tracking-tight">
               {c.h1a}{' '}
               <span className="bg-gradient-to-r from-[#60a5fa] via-[#818cf8] to-[#c084fc] bg-clip-text text-transparent">{c.h1grad}</span>{' '}
@@ -617,8 +641,9 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* Hero mock — AI landing page generator */}
           <div className={`relative ${mounted ? 'reveal reveal-2' : 'pre'}`}>
-            <div className="relative mx-auto max-w-md rounded-3xl border border-white/10 bg-[#12151c]/80 backdrop-blur-xl p-5 shadow-2xl shadow-black/40">
+            <div className="float-card relative mx-auto max-w-md rounded-3xl border border-white/10 bg-[#12151c]/80 backdrop-blur-xl p-5 shadow-2xl shadow-black/40">
               <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0b0d12] px-3 py-2.5">
                 <I.Link className="w-4 h-4 text-[#8b8fa8] shrink-0" />
                 <span className="text-sm text-[#9aa0b4] truncate font-mono" dir="ltr">{c.mockUrl}</span>
@@ -651,10 +676,10 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            <div className="absolute -top-3 -start-3 rounded-xl border border-white/10 bg-[#12151c]/90 backdrop-blur px-3 py-2 text-xs font-semibold shadow-lg">
+            <div className="absolute -top-3 -start-3 rounded-xl border border-white/10 bg-[#12151c]/90 backdrop-blur px-3 py-2 text-xs font-semibold shadow-lg float-chip">
               <span className="inline-flex items-center gap-1.5"><I.Bolt className="w-3.5 h-3.5 text-amber-300" /> 60s</span>
             </div>
-            <div className="absolute -bottom-3 -end-3 rounded-xl border border-white/10 bg-[#12151c]/90 backdrop-blur px-3 py-2 text-xs font-semibold shadow-lg">
+            <div className="absolute -bottom-3 -end-3 rounded-xl border border-white/10 bg-[#12151c]/90 backdrop-blur px-3 py-2 text-xs font-semibold shadow-lg float-chip float-chip-2">
               <span className="inline-flex items-center gap-1.5"><I.Wallet className="w-3.5 h-3.5 text-emerald-400" /> COD</span>
             </div>
           </div>
@@ -687,6 +712,7 @@ export default function HomePage() {
               const MockComp = MockComponents[i]
               return (
                 <div key={i} className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+                  {/* Text */}
                   <div className={flip ? 'lg:order-2' : ''}>
                     <div className="inline-flex items-center gap-2 rounded-full border text-xs font-medium px-3 py-1.5 mb-5"
                          style={{ borderColor: sp.accent + '40', background: sp.accent + '15', color: sp.accent }}>
@@ -704,6 +730,7 @@ export default function HomePage() {
                       ))}
                     </ul>
                   </div>
+                  {/* Mock */}
                   <div className={flip ? 'lg:order-1' : ''}>
                     <MockComp />
                   </div>
@@ -721,6 +748,7 @@ export default function HomePage() {
           <div className="mt-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {c.platforms.map((p, i) => (
               <div key={i} className="group rounded-2xl border border-white/10 bg-[#12151c]/60 p-4 text-center hover:border-white/25 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+                {/* Color dot acting as platform brand mark */}
                 <div className="w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center"
                      style={{ background: p.color + '20', border: `1px solid ${p.color}30` }}>
                   <div className="w-3 h-3 rounded-full" style={{ background: p.color, boxShadow: `0 0 8px ${p.color}80` }} />
@@ -876,6 +904,7 @@ export default function HomePage() {
       <section className="relative z-10 py-20 px-5 border-t border-white/5">
         <div className="max-w-4xl mx-auto relative rounded-[2rem] border border-white/10 overflow-hidden p-10 sm:p-16 text-center">
           <div className="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/20 via-[#7c5cff]/10 to-transparent" />
+          {/* Logo watermark inside CTA */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04]">
             <img src="/logo.svg" alt="" className="w-64 h-64 object-contain" />
           </div>
@@ -914,6 +943,10 @@ export default function HomePage() {
         </div>
         <div className="max-w-6xl mx-auto mt-10 pt-6 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs text-[#5b6072]">
           <span>© 2026 Mantoog. {c.footer.rights}</span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            {ar ? 'نسخة المعاينة' : 'Preview build'}
+          </span>
         </div>
       </footer>
 
@@ -938,6 +971,10 @@ export default function HomePage() {
         .reveal-2{animation:revealUp .8s cubic-bezier(.22,1,.36,1) .15s forwards;opacity:0}
         @keyframes revealUp{to{opacity:1;transform:translateY(0)}}
 
+        .float-card{}
+        .float-chip{}
+        .float-chip-2{}
+
         .shimmer{background:linear-gradient(90deg,#1b1f28 25%,#262b36 50%,#1b1f28 75%);background-size:200% 100%;animation:shimmer 1.4s infinite}
         @keyframes shimmer{0%{background-position:200% 0} 100%{background-position:-200% 0}}
 
@@ -950,7 +987,7 @@ export default function HomePage() {
         @keyframes marquee{from{transform:translateX(0)} to{transform:translateX(-50%)}}
 
         @media (prefers-reduced-motion:reduce){
-          .aurora,.marquee-track,.animate-spin-slow,.shimmer{animation:none!important}
+          .aurora,.float-card,.float-chip,.marquee-track,.animate-spin-slow,.shimmer{animation:none!important}
           .reveal,.reveal-2{animation:none!important;opacity:1!important;transform:none!important}
         }
       `}</style>

@@ -170,8 +170,12 @@ export default function DashboardPage() {
   const [showCustomDate, setShowCustomDate] = useState(false)
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo]     = useState('')
-  const [tiktokRows, setTiktokRows]       = useState<any[]>([])
-  const [tiktokConnected, setTiktokConnected] = useState<boolean | null>(null)
+  const [tiktokRows, setTiktokRows]               = useState<any[]>([])
+  const [tiktokConnected, setTiktokConnected]     = useState<boolean | null>(null)
+  const [tiktokChart30, setTiktokChart30]         = useState<number[]>([])
+  const [tiktokChart30Labels, setTiktokChart30Labels] = useState<string[]>([])
+  const [tiktokCurrency, setTiktokCurrency]       = useState<string>('')
+  const [tiktokBarReady, setTiktokBarReady]       = useState(false)
   const router   = useRouter()
   const supabase = createClient()
   const { lang, dir } = useLang()
@@ -220,29 +224,40 @@ export default function DashboardPage() {
     init()
   }, [])
 
-  // 30-day daily order counts (unfiltered) for TikTok conversion chart
-  const [conversionChart30, conversionChart30Labels] = useMemo(() => {
-    const today = new Date()
-    const days = Array.from({ length: 30 }, (_, i) => {
-      const d = new Date(today)
-      d.setDate(today.getDate() - (29 - i))
-      return formatLocalDate(d)
-    })
-    return [
-      days.map(day => orders.filter(o => o.created_at?.slice(0, 10) === day).length),
-      days,
-    ]
-  }, [orders])
-
   useEffect(() => {
     if (loading) return
     const today = formatLocalDate(new Date())
-    fetch(`/api/tiktok/campaigns?level=campaigns&start_date=${today}&end_date=${today}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) { setTiktokConnected(false); return }
-        setTiktokConnected(true)
-        const campaigns = (data.campaigns || data.items || []) as any[]
+    const d30 = new Date(); d30.setDate(d30.getDate() - 29)
+    const start30 = formatLocalDate(d30)
+
+    Promise.all([
+      fetch(`/api/tiktok/campaigns?level=campaigns&start_date=${today}&end_date=${today}`).then(r => r.json()),
+      fetch(`/api/tiktok/report?start_date=${start30}&end_date=${today}`).then(r => r.json()),
+    ]).then(([campaignData, reportData]) => {
+      if (campaignData.error && reportData.error) { setTiktokConnected(false); return }
+      setTiktokConnected(true)
+
+      // Ad account currency from the report
+      if (reportData.currency) setTiktokCurrency(reportData.currency)
+
+      // 30-day conversion chart from TikTok report (ad account conversions, not store orders)
+      if (Array.isArray(reportData.data)) {
+        const convByDate: Record<string, number> = {}
+        reportData.data.forEach((row: any) => {
+          const date = String(row.dimensions?.stat_time_day || '').slice(0, 10)
+          if (date) convByDate[date] = (convByDate[date] || 0) + Number(row.metrics?.conversion ?? 0)
+        })
+        const days = Array.from({ length: 30 }, (_, i) => {
+          const d = new Date(); d.setDate(d.getDate() - (29 - i))
+          return formatLocalDate(d)
+        })
+        setTiktokChart30(days.map(day => convByDate[day] || 0))
+        setTiktokChart30Labels(days)
+      }
+
+      // Today's top campaigns
+      if (!campaignData.error) {
+        const campaigns = (campaignData.campaigns || campaignData.items || []) as any[]
         const rows = campaigns
           .map(r => ({
             name:        r.name || r.campaign_name || '—',
@@ -254,8 +269,10 @@ export default function DashboardPage() {
           .sort((a, b) => b.conversions - a.conversions || b.spend - a.spend)
           .slice(0, 3)
         setTiktokRows(rows)
-      })
-      .catch(() => setTiktokConnected(false))
+        // short delay so the width transition actually fires from 0→target
+        setTimeout(() => setTiktokBarReady(true), 80)
+      }
+    }).catch(() => setTiktokConnected(false))
   }, [loading])
 
   const filteredOrders = useMemo(() => applyOrderFilters(orders, filters), [orders, filters])
@@ -631,7 +648,7 @@ export default function DashboardPage() {
                   <>
                     <div className="mb-3">
                       <div className="text-[10px] text-[#4a4e60] mb-1">{lang === 'ar' ? 'التحويلات — آخر 30 يوم' : 'Conversions — last 30 days'}</div>
-                      <Sparkline data={conversionChart30} labels={conversionChart30Labels} color="#7c5cff" h={50} />
+                      <Sparkline data={tiktokChart30} labels={tiktokChart30Labels} color="#7c5cff" h={50} />
                     </div>
                     {tiktokRows.length === 0 ? (
                       <div className="text-xs text-[#4a4e60] text-center py-1">
@@ -641,11 +658,12 @@ export default function DashboardPage() {
                       <div className="space-y-2.5">
                         {tiktokRows.map((row, i) => {
                           const budgetPct = row.budget > 0 ? Math.min(100, Math.round((row.spend / row.budget) * 100)) : 0
+                          const hasBudget = row.budget > 0
                           return (
                             <div key={i} className="flex items-center gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="text-[11px] font-medium truncate text-white">{row.name}</div>
-                                <div className="text-[10px] text-[#4a4e60]">{row.spend.toFixed(0)} {store?.currency ?? 'EGP'}</div>
+                                <div className="text-[10px] text-[#4a4e60]">{row.spend.toFixed(0)} {tiktokCurrency || 'SAR'}</div>
                               </div>
                               <div className="text-center shrink-0">
                                 <div className="text-xs font-bold text-[#60a5fa]">{row.conversions}</div>
@@ -656,11 +674,17 @@ export default function DashboardPage() {
                                 <div className="text-[9px] text-[#4a4e60]">CPA</div>
                               </div>
                               <div className="shrink-0 flex flex-col items-end gap-0.5">
-                                <div className="w-10 h-1.5 bg-[#2a2d35] rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full transition-all duration-700"
-                                    style={{ width: `${budgetPct}%`, background: budgetPct > 80 ? '#f87171' : '#3b82f6' }} />
-                                </div>
-                                <div className="text-[9px] text-[#4a4e60]">{budgetPct}%</div>
+                                {hasBudget ? (
+                                  <>
+                                    <div className="w-10 h-1.5 bg-[#2a2d35] rounded-full overflow-hidden">
+                                      <div className="h-full rounded-full transition-all duration-700"
+                                        style={{ width: tiktokBarReady ? `${budgetPct}%` : '0%', background: budgetPct > 80 ? '#f87171' : '#3b82f6' }} />
+                                    </div>
+                                    <div className="text-[9px] text-[#4a4e60]">{budgetPct}%</div>
+                                  </>
+                                ) : (
+                                  <span className="text-[9px] text-[#4a4e60] w-10 text-center">ABO</span>
+                                )}
                               </div>
                             </div>
                           )

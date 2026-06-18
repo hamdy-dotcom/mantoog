@@ -35,6 +35,8 @@ const I = {
   Cal:     (p: IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
   ChevD:   (p: IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="m6 9 6 6 6-6"/></svg>,
   Box:     (p: IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>,
+  TikTok:  (p: IP) => <svg viewBox="0 0 24 24" fill="currentColor" className={p.className}><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.76a4.85 4.85 0 0 1-1.01-.07Z"/></svg>,
+  CreditCard: (p: IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><rect width="22" height="16" x="1" y="4" rx="2"/><line x1="1" x2="23" y1="10" y2="10"/></svg>,
 }
 
 /* ── sparkline ── */
@@ -134,6 +136,8 @@ export default function DashboardPage() {
   const [showCustomDate, setShowCustomDate] = useState(false)
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo]     = useState('')
+  const [tiktokRows, setTiktokRows]       = useState<any[]>([])
+  const [tiktokConnected, setTiktokConnected] = useState<boolean | null>(null)
   const router   = useRouter()
   const supabase = createClient()
   const { lang, dir } = useLang()
@@ -181,6 +185,41 @@ export default function DashboardPage() {
     }
     init()
   }, [])
+
+  // 30-day daily order counts (unfiltered) for TikTok conversion chart
+  const conversionChart30 = useMemo(() => {
+    const today = new Date()
+    return Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(today)
+      d.setDate(today.getDate() - (29 - i))
+      const day = formatLocalDate(d)
+      return orders.filter(o => o.created_at?.slice(0, 10) === day).length
+    })
+  }, [orders])
+
+  useEffect(() => {
+    if (loading) return
+    const today = formatLocalDate(new Date())
+    fetch(`/api/tiktok/report?start_date=${today}&end_date=${today}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error || !data.data) { setTiktokConnected(false); return }
+        setTiktokConnected(true)
+        const rows = (data.data as any[])
+          .map(r => ({
+            name:        r.campaign_name || r.name || '—',
+            spend:       Number(r.spend ?? 0),
+            conversions: Number(r.conversions ?? 0),
+            cpa:         Number(r.cpa ?? 0),
+            budget:      Number(r.budget ?? 0),
+          }))
+          .filter(r => r.spend > 0 || r.conversions > 0)
+          .sort((a, b) => b.spend - a.spend)
+          .slice(0, 3)
+        setTiktokRows(rows)
+      })
+      .catch(() => setTiktokConnected(false))
+  }, [loading])
 
   const filteredOrders = useMemo(() => applyOrderFilters(orders, filters), [orders, filters])
 
@@ -431,6 +470,26 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* Credits balance strip — shown when credits are healthy (warnings handle the low/zero states) */}
+          {credits && credits.credits_remaining > 20 && (
+            <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
+              <I.CreditCard className="w-4 h-4 text-[#8b8fa8] shrink-0" />
+              <span className="text-xs text-[#8b8fa8]">{lang === 'ar' ? 'رصيد الطلبات' : 'Order credits'}</span>
+              <div className="flex-1 min-w-[80px] max-w-[160px]">
+                <div className="h-1.5 bg-[#2a2d35] rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-gradient-to-l from-[#3b82f6] to-[#7c5cff] transition-all duration-700"
+                    style={{ width: `${Math.min(100, (credits.credits_remaining / 2000) * 100)}%` }} />
+                </div>
+              </div>
+              <span className="text-sm font-bold">{credits.credits_remaining.toLocaleString()}</span>
+              <span className="text-xs text-[#4a4e60]">{lang === 'ar' ? 'طلب متبقي' : 'orders left'}</span>
+              <button onClick={() => setShowCreditsModal(true)}
+                className="cursor-pointer ms-auto text-xs bg-[#3b82f6]/15 hover:bg-[#3b82f6]/25 text-[#60a5fa] px-3 py-1.5 rounded-lg border border-[#3b82f6]/30 transition-colors font-medium whitespace-nowrap">
+                {lang === 'ar' ? 'شراء رصيد' : 'Buy credits'}
+              </button>
+            </div>
+          )}
+
           {/* KPI cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
             {KPIS.map((k, i) => {
@@ -469,30 +528,112 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="rounded-2xl bg-[#1a1d24] border border-[#2a2d35] p-4">
-              <h2 className="font-semibold text-sm mb-4">{lang === 'ar' ? 'حالة الطلبات' : 'Order status'}</h2>
-              {metrics.totalOrders === 0 ? (
-                <div className="flex items-center justify-center h-24 text-[#4a4e60] text-sm">
-                  {lang === 'ar' ? 'لا توجد طلبات بعد' : 'No orders yet'}
+            <div className="flex flex-col gap-3">
+
+              {/* Order status */}
+              <div className="rounded-2xl bg-[#1a1d24] border border-[#2a2d35] p-4">
+                <h2 className="font-semibold text-sm mb-4">{lang === 'ar' ? 'حالة الطلبات' : 'Order status'}</h2>
+                {metrics.totalOrders === 0 ? (
+                  <div className="flex items-center justify-center h-24 text-[#4a4e60] text-sm">
+                    {lang === 'ar' ? 'لا توجد طلبات بعد' : 'No orders yet'}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {metrics.statusBreakdown.map(s => (
+                      <div key={s.key}>
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span className="text-[#8b8fa8]">{s.label}</span>
+                          <span className="font-semibold" style={{ color: s.color }}>
+                            {s.count} ({metrics.totalOrders > 0 ? Math.round((s.count / metrics.totalOrders) * 100) : 0}%)
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-[#2a2d35]">
+                          <div className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${metrics.totalOrders > 0 ? (s.count / metrics.totalOrders) * 100 : 0}%`, background: s.color, minWidth: s.count > 0 ? '4px' : 0 }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* TikTok Ads */}
+              <div className="rounded-2xl bg-[#1a1d24] border border-[#2a2d35] p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <I.TikTok className="w-4 h-4 text-white" />
+                    <h2 className="font-semibold text-sm">TikTok Ads</h2>
+                  </div>
+                  {tiktokConnected === true && (
+                    <span className="flex items-center gap-1 text-[10px] text-emerald-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      {lang === 'ar' ? 'متصل' : 'Connected'}
+                    </span>
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {metrics.statusBreakdown.map(s => (
-                    <div key={s.key}>
-                      <div className="flex justify-between text-xs mb-1.5">
-                        <span className="text-[#8b8fa8]">{s.label}</span>
-                        <span className="font-semibold" style={{ color: s.color }}>
-                          {s.count} ({metrics.totalOrders > 0 ? Math.round((s.count / metrics.totalOrders) * 100) : 0}%)
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-[#2a2d35]">
-                        <div className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${metrics.totalOrders > 0 ? (s.count / metrics.totalOrders) * 100 : 0}%`, background: s.color, minWidth: s.count > 0 ? '4px' : 0 }} />
-                      </div>
+
+                {tiktokConnected === null && (
+                  <div className="text-[#4a4e60] text-xs py-3 text-center animate-pulse">
+                    {lang === 'ar' ? 'جاري التحميل...' : 'Loading...'}
+                  </div>
+                )}
+
+                {tiktokConnected === false && (
+                  <div className="text-center py-3">
+                    <I.TikTok className="w-7 h-7 text-[#4a4e60] mx-auto mb-2" />
+                    <div className="text-sm text-[#8b8fa8] mb-0.5">{lang === 'ar' ? 'اربط حسابك الإعلاني' : 'Connect your ad account'}</div>
+                    <div className="text-xs text-[#4a4e60] mb-3">{lang === 'ar' ? 'لمتابعة حملاتك وتحويلاتك' : 'Track campaigns & conversions'}</div>
+                    <button onClick={() => router.push('/dashboard/tiktok')}
+                      className="cursor-pointer inline-flex items-center gap-1.5 bg-[#3b82f6]/15 hover:bg-[#3b82f6]/25 text-[#60a5fa] text-xs font-medium px-3 py-1.5 rounded-lg border border-[#3b82f6]/30 transition-colors">
+                      {lang === 'ar' ? 'ربط TikTok' : 'Connect TikTok'} →
+                    </button>
+                  </div>
+                )}
+
+                {tiktokConnected === true && (
+                  <>
+                    <div className="mb-3">
+                      <div className="text-[10px] text-[#4a4e60] mb-1">{lang === 'ar' ? 'التحويلات — آخر 30 يوم' : 'Conversions — last 30 days'}</div>
+                      <Sparkline data={conversionChart30} color="#7c5cff" h={50} />
                     </div>
-                  ))}
-                </div>
-              )}
+                    {tiktokRows.length === 0 ? (
+                      <div className="text-xs text-[#4a4e60] text-center py-1">
+                        {lang === 'ar' ? 'لا توجد بيانات اليوم' : 'No data for today'}
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {tiktokRows.map((row, i) => {
+                          const budgetPct = row.budget > 0 ? Math.min(100, Math.round((row.spend / row.budget) * 100)) : 0
+                          return (
+                            <div key={i} className="flex items-center gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[11px] font-medium truncate text-white">{row.name}</div>
+                                <div className="text-[10px] text-[#4a4e60]">{row.spend.toFixed(0)} {store?.currency ?? 'EGP'}</div>
+                              </div>
+                              <div className="text-center shrink-0">
+                                <div className="text-xs font-bold text-[#60a5fa]">{row.conversions}</div>
+                                <div className="text-[9px] text-[#4a4e60]">{lang === 'ar' ? 'طلب' : 'orders'}</div>
+                              </div>
+                              <div className="text-center shrink-0">
+                                <div className="text-xs text-[#8b8fa8]">{row.cpa.toFixed(1)}</div>
+                                <div className="text-[9px] text-[#4a4e60]">CPA</div>
+                              </div>
+                              <div className="shrink-0 flex flex-col items-end gap-0.5">
+                                <div className="w-10 h-1.5 bg-[#2a2d35] rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full transition-all duration-700"
+                                    style={{ width: `${budgetPct}%`, background: budgetPct > 80 ? '#f87171' : '#3b82f6' }} />
+                                </div>
+                                <div className="text-[9px] text-[#4a4e60]">{budgetPct}%</div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
             </div>
           </div>
 

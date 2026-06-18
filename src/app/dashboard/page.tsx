@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
-import DashboardFiltersBar, { DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from '@/components/dashboard/DashboardFiltersBar'
+import { DEFAULT_DASHBOARD_FILTERS, type DashboardFilters } from '@/components/dashboard/DashboardFiltersBar'
 import { loadMerchantStore } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
-import { daysBetween } from '@/lib/dashboard/date-range'
+import { daysBetween, shortcutRange, rangesEqual, formatLocalDate } from '@/lib/dashboard/date-range'
 
 /* ── helpers ── */
 function applyOrderFilters(orders: any[], filters: DashboardFilters) {
@@ -32,6 +32,9 @@ const I = {
   Zap:     (p: IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>,
   Map:     (p: IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z"/><path d="M9 3v15"/><path d="M15 6v15"/></svg>,
   Plus:    (p: IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="M12 5v14M5 12h14"/></svg>,
+  Cal:     (p: IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
+  ChevD:   (p: IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="m6 9 6 6 6-6"/></svg>,
+  Box:     (p: IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>,
 }
 
 /* ── sparkline ── */
@@ -128,6 +131,9 @@ export default function DashboardPage() {
   const [countRun, setCountRun]     = useState(false)
   const [showCreditsModal, setShowCreditsModal] = useState(false)
   const [filters, setFilters]       = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS)
+  const [showCustomDate, setShowCustomDate] = useState(false)
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo]     = useState('')
   const router   = useRouter()
   const supabase = createClient()
   const { lang, dir } = useLang()
@@ -304,14 +310,92 @@ export default function DashboardPage() {
         </header>
 
         {/* Filters */}
-        <div className="border-b border-[#2a2d35] bg-[#0f1117] px-4 sm:px-6 py-3">
-          <DashboardFiltersBar
-            lang={lang}
-            filters={filters}
-            onChange={setFilters}
-            products={products.map(p => ({ id: p.id, title: p.title }))}
-            regions={regionOptions}
-          />
+        <div className="border-b border-[#2a2d35] bg-[#0f1117] px-4 sm:px-6 py-2.5 flex flex-wrap items-center gap-2">
+          {/* Date shortcuts + custom */}
+          <div className="flex items-center gap-1 bg-[#1a1d24] border border-[#2a2d35] rounded-lg p-0.5">
+            {([
+              { id: 'today', label: lang === 'ar' ? 'اليوم'      : 'Today'   },
+              { id: '7',     label: lang === 'ar' ? 'آخر 7 أيام' : '7 days'  },
+              { id: '30',    label: lang === 'ar' ? 'آخر 30 يوم' : '30 days' },
+            ] as { id: '7'|'30'|'today'; label: string }[]).map(s => {
+              const r      = shortcutRange(s.id)
+              const active = rangesEqual({ start: filters.dateStart, end: filters.dateEnd }, r)
+              return (
+                <button key={s.id}
+                  onClick={() => { const r2 = shortcutRange(s.id); setFilters(f => ({ ...f, dateStart: r2.start, dateEnd: r2.end })); setShowCustomDate(false) }}
+                  className={`cursor-pointer text-[11px] font-medium px-2.5 py-1 rounded-md transition-all ${active ? 'bg-[#2a2d35] text-white' : 'text-[#8b8fa8] hover:text-white'}`}>
+                  {s.label}
+                </button>
+              )
+            })}
+            <button
+              onClick={() => setShowCustomDate(v => !v)}
+              className={`cursor-pointer flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md transition-all ${showCustomDate ? 'bg-[#2a2d35] text-white' : 'text-[#8b8fa8] hover:text-white'}`}>
+              <I.Cal className="w-3 h-3" />
+              {lang === 'ar' ? 'تخصيص' : 'Custom'}
+            </button>
+          </div>
+
+          {/* Custom date inputs */}
+          {showCustomDate && (
+            <div className="flex items-center gap-1.5 bg-[#1a1d24] border border-[#3b82f6]/30 rounded-lg px-2.5 py-1.5">
+              <I.Cal className="w-3 h-3 text-[#60a5fa] shrink-0" />
+              <input type="date" value={customFrom} max={formatLocalDate(new Date())}
+                onChange={e => { setCustomFrom(e.target.value); if (e.target.value && customTo) setFilters(f => ({ ...f, dateStart: e.target.value, dateEnd: customTo })) }}
+                className="bg-transparent text-[11px] text-white border-none outline-none [color-scheme:dark] cursor-pointer" style={{ width: 110 }} />
+              <span className="text-[10px] text-[#4a4e60] shrink-0">←</span>
+              <input type="date" value={customTo} max={formatLocalDate(new Date())}
+                onChange={e => { setCustomTo(e.target.value); if (customFrom && e.target.value) setFilters(f => ({ ...f, dateStart: customFrom, dateEnd: e.target.value })) }}
+                className="bg-transparent text-[11px] text-white border-none outline-none [color-scheme:dark] cursor-pointer" style={{ width: 110 }} />
+              {customFrom && customTo && (
+                <button onClick={() => { setCustomFrom(''); setCustomTo(''); const r = shortcutRange('7'); setFilters(f => ({ ...f, dateStart: r.start, dateEnd: r.end })); setShowCustomDate(false) }}
+                  className="cursor-pointer text-[10px] text-[#4a4e60] hover:text-red-400 transition-colors ms-1">✕</button>
+              )}
+            </div>
+          )}
+
+          {/* Product filter */}
+          <div className="relative">
+            <select value={filters.productId} onChange={e => setFilters(f => ({ ...f, productId: e.target.value }))}
+              className="cursor-pointer appearance-none flex items-center gap-1.5 text-[11px] text-[#8b8fa8] hover:text-white border border-[#2a2d35] hover:border-[#3b3f4e] bg-[#1a1d24] ps-3 pe-7 py-1.5 rounded-lg transition-colors outline-none [color-scheme:dark]">
+              <option value="">{lang === 'ar' ? 'كل المنتجات' : 'All products'}</option>
+              {products.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+            <I.ChevD className="w-3 h-3 text-[#4a4e60] pointer-events-none absolute end-2 top-1/2 -translate-y-1/2" />
+          </div>
+
+          {/* Region filter */}
+          <div className="relative">
+            <select value={filters.region} onChange={e => setFilters(f => ({ ...f, region: e.target.value }))}
+              className="cursor-pointer appearance-none text-[11px] text-[#8b8fa8] hover:text-white border border-[#2a2d35] hover:border-[#3b3f4e] bg-[#1a1d24] ps-3 pe-7 py-1.5 rounded-lg transition-colors outline-none [color-scheme:dark]">
+              <option value="">{lang === 'ar' ? 'كل المناطق' : 'All regions'}</option>
+              {regionOptions.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <I.ChevD className="w-3 h-3 text-[#4a4e60] pointer-events-none absolute end-2 top-1/2 -translate-y-1/2" />
+          </div>
+
+          {/* Status pills */}
+          <div className="flex items-center gap-1">
+            {([
+              { value: '',          label: lang === 'ar' ? 'الكل'       : 'All'       },
+              { value: 'delivered', label: lang === 'ar' ? 'مُسلَّم'    : 'Delivered' },
+              { value: 'pending',   label: lang === 'ar' ? 'قيد التنفيذ': 'Pending'   },
+              { value: 'cancelled', label: lang === 'ar' ? 'ملغي'       : 'Cancelled' },
+            ]).map(s => (
+              <button key={s.value} onClick={() => setFilters(f => ({ ...f, status: s.value }))}
+                className={`cursor-pointer text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all ${filters.status === s.value ? 'bg-[#3b82f6]/15 border-[#3b82f6]/40 text-[#60a5fa]' : 'border-[#2a2d35] text-[#8b8fa8] hover:text-white'}`}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Reset */}
+          {(filters.productId || filters.region || filters.status) && (
+            <button onClick={() => setFilters(DEFAULT_DASHBOARD_FILTERS)}
+              className="cursor-pointer ms-auto text-xs text-[#3b82f6] hover:underline">
+              {lang === 'ar' ? 'إعادة التعيين' : 'Reset'}
+            </button>
+          )}
         </div>
 
         {/* Content */}

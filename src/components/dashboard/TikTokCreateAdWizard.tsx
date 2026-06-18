@@ -52,6 +52,7 @@ type StoreMeta = {
   id: string
   slug: string
   currency: string
+  ad_currency?: string
   tiktok_pixel_id: string | null
   timezone?: string
   default_schedule_start?: string
@@ -126,6 +127,7 @@ export default function TikTokCreateAdWizard({
   const [selectedCreativeIds, setSelectedCreativeIds] = useState<string[]>([])
   const [selectedCreativeItems, setSelectedCreativeItems] = useState<ProductCreativeItem[]>([])
   const [creativeUploading, setCreativeUploading] = useState(false)
+  const adCurrency = store?.ad_currency || store?.currency || 'USD'
   const [goal, setGoal] = useState<AdGoal>('orders')
   const [dailyBudget, setDailyBudget] = useState('50')
   const [scheduleStart, setScheduleStart] = useState('')
@@ -351,7 +353,7 @@ export default function TikTokCreateAdWizard({
       },
       store: {
         tiktok_pixel_id: store.tiktok_pixel_id,
-        currency: store.currency,
+        currency: store.ad_currency || store.currency,
       },
     }
   }, [selectedProduct, creativeSource, store, caption, cta, selectedCreativeIds, selectedCreativeItems, goal, dailyBudget, scheduleStart, scheduleEnd, locationId, ageGroups, gender, advanced, leadFormSelection, conversionEvent])
@@ -548,7 +550,7 @@ export default function TikTokCreateAdWizard({
                           </div>
                           <p className="text-sm font-medium text-white line-clamp-2">{p.title}</p>
                           <p className="text-xs text-[#4ade80] mt-1 tabular-nums" dir="ltr">
-                            {fmtMoney(p.price, 0)}
+                            {p.price} {p.currency || store?.currency}
                           </p>
                         </button>
                       )
@@ -794,7 +796,7 @@ export default function TikTokCreateAdWizard({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1.5">
-                    {fieldLabel(lang === 'ar' ? 'الميزانية اليومية (EGP)' : 'Daily budget (EGP)')}
+                    {fieldLabel(lang === 'ar' ? `الميزانية اليومية (${adCurrency})` : `Daily budget (${adCurrency})`)}
                     <input type="number" min="1" value={dailyBudget} onChange={e => setDailyBudget(e.target.value)} className={inputClass()} />
                   </label>
                   <label className="flex flex-col gap-1.5">
@@ -998,7 +1000,7 @@ export default function TikTokCreateAdWizard({
                     </label>
                     {advanced.bidStrategy === 'cost_cap' && (
                       <label className="flex flex-col gap-1.5 sm:col-span-2">
-                        {fieldLabel(lang === 'ar' ? 'حد المزايدة (EGP)' : 'Bid cap (EGP)')}
+                        {fieldLabel(lang === 'ar' ? `حد المزايدة (${adCurrency})` : `Bid cap (${adCurrency})`)}
                         <input
                           type="number"
                           min="1"

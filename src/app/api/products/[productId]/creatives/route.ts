@@ -88,6 +88,43 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   }
 
   const body = await req.json().catch(() => ({}))
+  if (body.action === 'register_upload' && body.url) {
+    const url = String(body.url)
+    const type = body.type === 'video' || body.type === 'image'
+      ? body.type
+      : mediaTypeFromUrl(url)
+    const thumbnail_url = body.thumbnail_url ? String(body.thumbnail_url) : (type === 'image' ? url : null)
+    const name = body.name ? String(body.name).trim() || null : null
+
+    const { data: existing } = await supabaseAdmin
+      .from('product_creatives')
+      .select('*')
+      .eq('product_id', productId)
+      .eq('url', url)
+      .maybeSingle()
+
+    if (existing) {
+      return NextResponse.json({ item: { ...existing, virtual: false } })
+    }
+
+    const { data: row, error } = await supabaseAdmin
+      .from('product_creatives')
+      .insert({
+        product_id: productId,
+        store_id: access.product.store_id,
+        type,
+        url,
+        thumbnail_url,
+        name,
+        source: 'upload',
+      })
+      .select('*')
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ item: { ...row, virtual: false } })
+  }
+
   if (body.action === 'register_product_media' && body.url) {
     const url = String(body.url)
     const type = mediaTypeFromUrl(url)

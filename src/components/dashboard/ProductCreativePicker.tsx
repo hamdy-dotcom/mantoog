@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { captureVideoThumbnail, dataUrlToFile } from '@/lib/product-creatives/client'
+import { parseJsonResponse, uploadAndRegisterCreative } from '@/lib/product-creatives/client'
 import type { ProductCreativeItem } from '@/lib/product-creatives/types'
 
 const MAX_VIDEO_SELECTION = 5
@@ -43,7 +43,7 @@ export default function ProductCreativePicker({
     setError('')
     try {
       const res = await fetch(`/api/products/${productId}/creatives`)
-      const data = await res.json()
+      const data = await parseJsonResponse<{ items?: ProductCreativeItem[]; error?: string }>(res)
       if (!res.ok) throw new Error(data.error || 'load_failed')
       const all = (data.items || []) as ProductCreativeItem[]
       const filtered = all.filter(i => {
@@ -93,24 +93,7 @@ export default function ProductCreativePicker({
     onUploadingChange?.(true)
     setError('')
     try {
-      const form = new FormData()
-      form.set('file', file)
-      form.set('name', file.name)
-      if (file.type.startsWith('video/')) {
-        const thumbData = await captureVideoThumbnail(file)
-        if (thumbData) {
-          form.set('thumbnail', await dataUrlToFile(thumbData, 'thumb.jpg'))
-        }
-      }
-
-      const res = await fetch(`/api/products/${productId}/creatives`, {
-        method: 'POST',
-        body: form,
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'upload_failed')
-
-      const item = data.item as ProductCreativeItem
+      const item = await uploadAndRegisterCreative(productId, file)
       await load()
 
       if (mode === 'video') {

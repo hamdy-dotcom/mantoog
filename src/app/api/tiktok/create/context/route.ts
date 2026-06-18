@@ -30,14 +30,21 @@ export async function GET() {
   if ('error' in resolved) {
     return NextResponse.json({
       error: resolved.error,
-      store,
+      store: {
+        id: store.id,
+        slug: store.slug,
+        currency: store.currency || 'SAR',
+        ad_currency: store.currency || 'SAR',
+        tiktok_pixel_id: store.tiktok_pixel_id,
+      },
       products: [],
       has_active_account: false,
     })
   }
 
-  const currency = await resolveAdvertiserCurrency(resolved.connection, store.id)
-  const timezone = await resolveAdvertiserTimezone(resolved.connection, currency)
+  const storeCurrency = store.currency || 'SAR'
+  const adCurrency = await resolveAdvertiserCurrency(resolved.connection, store.id)
+  const timezone = await resolveAdvertiserTimezone(resolved.connection, adCurrency)
 
   const { data: products } = await supabase
     .from('products')
@@ -53,7 +60,7 @@ export async function GET() {
       title: p.title,
       description: p.description,
       price: Number(p.price),
-      currency: p.currency || currency,
+      currency: p.currency || storeCurrency,
       images,
       landing_url: getProductLandingUrl(store.slug, p.id),
     }
@@ -85,7 +92,8 @@ export async function GET() {
     store: {
       id: store.id,
       slug: store.slug,
-      currency,
+      currency: storeCurrency,
+      ad_currency: adCurrency,
       tiktok_pixel_id: store.tiktok_pixel_id,
       timezone,
       default_schedule_start: defaultScheduleStartLocal(timezone),

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { captureVideoThumbnail, dataUrlToFile } from '@/lib/product-creatives/client'
+import { parseJsonResponse, uploadAndRegisterCreative } from '@/lib/product-creatives/client'
 import { isVirtualCreativeId, type ProductCreativeItem } from '@/lib/product-creatives/types'
 
 type Props = {
@@ -22,7 +22,7 @@ export default function ProductCreativesSection({ productId, lang, productImages
     setError('')
     try {
       const res = await fetch(`/api/products/${productId}/creatives`)
-      const data = await res.json()
+      const data = await parseJsonResponse<{ items?: ProductCreativeItem[]; error?: string }>(res)
       if (!res.ok) throw new Error(data.error || 'load_failed')
       setItems(data.items || [])
     } catch (e: unknown) {
@@ -38,24 +38,7 @@ export default function ProductCreativesSection({ productId, lang, productImages
     setUploading(true)
     setError('')
     try {
-      const form = new FormData()
-      form.set('file', file)
-      form.set('name', file.name)
-
-      if (file.type.startsWith('video/')) {
-        const thumbData = await captureVideoThumbnail(file)
-        if (thumbData) {
-          const thumbFile = await dataUrlToFile(thumbData, 'thumb.jpg')
-          form.set('thumbnail', thumbFile)
-        }
-      }
-
-      const res = await fetch(`/api/products/${productId}/creatives`, {
-        method: 'POST',
-        body: form,
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'upload_failed')
+      await uploadAndRegisterCreative(productId, file)
       await load()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'upload_failed')
@@ -73,7 +56,7 @@ export default function ProductCreativesSection({ productId, lang, productImages
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'register_product_media', url }),
       })
-      const data = await res.json()
+      const data = await parseJsonResponse<{ item?: ProductCreativeItem; error?: string }>(res)
       if (!res.ok) throw new Error(data.error || 'register_failed')
       await load()
     } catch (e: unknown) {
@@ -87,7 +70,7 @@ export default function ProductCreativesSection({ productId, lang, productImages
     setError('')
     try {
       const res = await fetch(`/api/products/${productId}/creatives/${id}`, { method: 'DELETE' })
-      const data = await res.json()
+      const data = await parseJsonResponse<{ item?: ProductCreativeItem; error?: string }>(res)
       if (!res.ok) throw new Error(data.error || 'delete_failed')
       await load()
     } catch (e: unknown) {

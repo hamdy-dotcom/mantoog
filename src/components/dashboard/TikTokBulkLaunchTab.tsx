@@ -36,6 +36,7 @@ type StoreMeta = {
   id: string
   slug: string
   currency: string
+  ad_currency?: string
   tiktok_pixel_id: string | null
   timezone?: string
   default_schedule_start?: string
@@ -317,7 +318,7 @@ export default function TikTokBulkLaunchTab({
       },
       store: {
         tiktok_pixel_id: store.tiktok_pixel_id,
-        currency: store.currency,
+        currency: store.ad_currency || store.currency,
       },
     }
   }
@@ -533,7 +534,7 @@ export default function TikTokBulkLaunchTab({
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-white truncate">{p.title}</p>
-                          <p className="text-xs text-[#4ade80] tabular-nums" dir="ltr">{fmtMoney(p.price, 0)}</p>
+                          <p className="text-xs text-[#4ade80] tabular-nums" dir="ltr">{p.price} {p.currency || store?.currency}</p>
                         </div>
                       </label>
                     )
@@ -625,7 +626,7 @@ export default function TikTokBulkLaunchTab({
               {sectionTitle(3, 'Targeting & budget (shared)', 'الاستهداف والميزانية (مشترك)', lang)}
               <CreateAdTargetingSection
                 lang={lang}
-                currency={store?.currency || 'EGP'}
+                currency={store?.ad_currency || store?.currency || 'USD'}
                 goal={goal}
                 setGoal={setGoal}
                 dailyBudget={dailyBudget}

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Script from 'next/script'
 import { createClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
+import { useStorePublic } from '@/components/store/StorePublicProvider'
 
 export default function StorePage() {
   const [store, setStore] = useState<any>(null)
@@ -14,6 +15,7 @@ export default function StorePage() {
   const params = useParams()
   const router = useRouter()
   const supabase = createClient()
+  const { showPoweredBy } = useStorePublic()
 
   useEffect(() => {
     const load = async () => {
@@ -284,9 +286,11 @@ export default function StorePage() {
       </section>
 
       {/* Footer */}
-      <footer style={{ position: 'relative', zIndex: 1, borderTop: '1px solid rgba(255,255,255,0.05)', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+      <footer style={{ position: 'relative', zIndex: 1, borderTop: '1px solid rgba(255,255,255,0.05)', padding: '24px 32px', display: 'flex', justifyContent: showPoweredBy ? 'space-between' : 'center', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <span style={{ fontSize: 13, fontWeight: 700, background: `linear-gradient(135deg, #fff, rgba(${primaryRgb}, 0.7))`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{store?.name}</span>
-        <span style={{ fontSize: 12, color: '#333' }}>{isRTL ? 'مدعوم بواسطة منتوج' : 'Powered by Mantoog'}</span>
+        {showPoweredBy && (
+          <span style={{ fontSize: 12, color: '#333' }}>{isRTL ? 'مدعوم بواسطة منتوج' : 'Powered by Mantoog'}</span>
+        )}
       </footer>
     </div>
   )

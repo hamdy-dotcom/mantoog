@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { StorePublicProvider } from '@/components/store/StorePublicProvider'
 import { buildStoreMetadata, fetchStoreBySlug } from '@/lib/store/metadata'
 
 type LayoutProps = {
@@ -15,6 +16,14 @@ export async function generateMetadata({ params }: Pick<LayoutProps, 'params'>):
   return buildStoreMetadata(store)
 }
 
-export default function StoreLayout({ children }: LayoutProps) {
-  return children
+export default async function StoreLayout({ children, params }: LayoutProps) {
+  const { storeSlug } = await params
+  const store = await fetchStoreBySlug(storeSlug)
+  const showPoweredBy = store ? !store.has_paid : true
+
+  return (
+    <StorePublicProvider showPoweredBy={showPoweredBy}>
+      {children}
+    </StorePublicProvider>
+  )
 }

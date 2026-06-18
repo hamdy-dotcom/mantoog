@@ -5,11 +5,13 @@ const MANTOOG_ICON = '/logo.svg'
 
 export type PublicStore = {
   id: string
+  merchant_id: string
   name: string
   slug: string
   logo_url: string | null
   currency: string | null
   language: string | null
+  has_paid: boolean
 }
 
 export type PublicProduct = {
@@ -51,10 +53,14 @@ function productImages(product: PublicProduct): string[] {
 export async function fetchStoreBySlug(slug: string): Promise<PublicStore | null> {
   const { data } = await supabaseAdmin
     .from('stores')
-    .select('id, name, slug, logo_url, currency, language')
+    .select('id, merchant_id, name, slug, logo_url, currency, language, has_paid')
     .eq('slug', slug)
     .single()
-  return data as PublicStore | null
+  if (!data) return null
+  return {
+    ...(data as Omit<PublicStore, 'has_paid'>),
+    has_paid: Boolean((data as { has_paid?: boolean }).has_paid),
+  }
 }
 
 export async function fetchProductForStore(

@@ -10,8 +10,6 @@ import { loadMerchantStore } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 import { daysBetween } from '@/lib/dashboard/date-range'
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-
 function applyOrderFilters(orders: any[], filters: DashboardFilters) {
   return orders.filter(o => {
     const day = o.created_at?.slice(0, 10)
@@ -33,29 +31,52 @@ const STATUS_COLORS: Record<string, string> = {
   returned: 'bg-[#3a1414] text-[#f87171]',
 }
 
-function yDomain(data: { count: number }[]) {
-  const values = data.map(d => d.count)
-  if (!values.length) return [0, 1]
-  const max = Math.max(...values)
-  const pad = max === 0 ? 1 : Math.max(max * 0.15, 1)
-  return [0, max + pad]
+/* ── pure-SVG area sparkline ── */
+function Sparkline({ data, color = '#60a5fa', h = 160 }: { data: number[]; color?: string; h?: number }) {
+  const W = 400, pad = 4
+  if (data.length < 2) return <div style={{ height: h }} className="flex items-center justify-center text-[#4a4e60] text-xs">{data.length === 0 ? '—' : ''}</div>
+  const max = Math.max(...data), min = Math.min(...data)
+  const pts = data.map((v, i) => {
+    const x = pad + (i / (data.length - 1)) * (W - pad * 2)
+    const y = h - pad - ((v - min) / (max - min || 1)) * (h - pad * 2)
+    return [x, y] as [number, number]
+  })
+  const line = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+  const area = `${line} L${pts[pts.length-1][0].toFixed(1)},${h} L${pts[0][0].toFixed(1)},${h} Z`
+  const last = pts[pts.length - 1]
+  const gid = `sg${color.replace(/[^a-z0-9]/gi, '')}`
+  return (
+    <svg viewBox={`0 0 ${W} ${h}`} className="w-full" style={{ height: h }} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gid})`} />
+      <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last[0]} cy={last[1]} r="4" fill={color} />
+    </svg>
+  )
 }
 
-function OrdersChartTooltip({ active, payload, label, lang }: {
-  active?: boolean
-  payload?: { value: number }[]
-  label?: string
-  lang: string
-}) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-2.5 py-1.5 text-xs shadow-xl">
-      <div className="text-[#8b8fa8] mb-0.5">{label}</div>
-      <div className="text-white font-semibold">
-        {payload[0].value} {lang === 'ar' ? 'طلب' : 'orders'}
-      </div>
-    </div>
-  )
+/* ── count-up animation ── */
+function useCountUp(target: number, run: boolean, decimals = 0) {
+  const [val, setVal] = useState(0)
+  useEffect(() => {
+    if (!run) return
+    let raf = 0, start = 0
+    const step = (ts: number) => {
+      if (!start) start = ts
+      const p = Math.min((ts - start) / 1000, 1)
+      const eased = 1 - Math.pow(1 - p, 3)
+      setVal(+(target * eased).toFixed(decimals))
+      if (p < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [target, run, decimals])
+  return val
 }
 
 export default function DashboardPage() {
@@ -65,6 +86,7 @@ export default function DashboardPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [countRun, setCountRun] = useState(false)
   const [showCreditsModal, setShowCreditsModal] = useState(false)
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS)
   const router = useRouter()
@@ -111,6 +133,7 @@ export default function DashboardPage() {
       }
 
       setLoading(false)
+      setCountRun(true)
     }
     init()
   }, [])
@@ -203,7 +226,11 @@ export default function DashboardPage() {
     }
   }, [filteredOrders, products, filters.productId, filters.dateStart, filters.dateEnd, lang])
 
-  const chartDomain = useMemo(() => yDomain(metrics.ordersByDay), [metrics.ordersByDay])
+  const totalOrdersAnim  = useCountUp(metrics.totalOrders,       countRun)
+  const revenueAnim      = useCountUp(metrics.totalRevenue,      countRun)
+  const deliveryAnim     = useCountUp(metrics.deliveryRate,      countRun)
+  const cancellationAnim = useCountUp(metrics.cancellationRate,  countRun)
+  const conversionAnim   = useCountUp(metrics.conversionRate,    countRun, 1)
 
   if (loading) {
     return (
@@ -216,23 +243,23 @@ export default function DashboardPage() {
   const periodSub = lang === 'ar' ? 'في الفترة المحددة' : 'In selected period'
 
   const kpiCards = [
-    { label: tr.totalOrders, value: metrics.totalOrders, sub: periodSub },
-    { label: tr.revenue, value: `${metrics.totalRevenue.toLocaleString()} ${store?.currency}`, sub: lang === 'ar' ? 'من الطلبات المُسلَّمة' : 'From delivered orders' },
+    { label: tr.totalOrders, value: totalOrdersAnim.toLocaleString(), sub: periodSub },
+    { label: tr.revenue, value: `${revenueAnim.toLocaleString()} ${store?.currency ?? ''}`, sub: lang === 'ar' ? 'من الطلبات المُسلَّمة' : 'From delivered orders' },
     {
       label: lang === 'ar' ? 'معدل التسليم' : 'Delivery rate',
-      value: `${metrics.deliveryRate}%`,
+      value: `${deliveryAnim}%`,
       sub: lang === 'ar' ? `${metrics.deliveredOrders} تم التسليم` : `${metrics.deliveredOrders} delivered`,
       color: metrics.deliveryRate >= 50 ? 'text-[#4ade80]' : 'text-[#f87171]',
     },
     {
       label: lang === 'ar' ? 'معدل الإلغاء' : 'Cancellation rate',
-      value: `${metrics.cancellationRate}%`,
+      value: `${cancellationAnim}%`,
       sub: lang === 'ar' ? `${metrics.cancelledOrders} ملغي` : `${metrics.cancelledOrders} cancelled`,
       color: metrics.cancellationRate <= 20 ? 'text-[#4ade80]' : 'text-[#f87171]',
     },
     {
       label: lang === 'ar' ? 'معدل التحويل' : 'Conversion rate',
-      value: `${metrics.conversionRate.toFixed(1)}%`,
+      value: `${conversionAnim.toFixed(1)}%`,
       sub: lang === 'ar' ? 'طلبات / زيارات الصفحة' : 'Orders / landing page visits',
     },
   ]
@@ -312,34 +339,19 @@ export default function DashboardPage() {
         {/* Daily orders + Order status */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4">
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 md:p-5">
-            <h2 className="text-white font-medium text-sm mb-3">
-              {lang === 'ar' ? 'الطلبات اليومية' : 'Daily orders'}
-            </h2>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart
-                data={metrics.ordersByDay}
-                margin={{ top: 8, right: dir === 'rtl' ? 0 : 4, left: dir === 'rtl' ? 4 : 0, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="dashboard-orders-gradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.45} />
-                    <stop offset="100%" stopColor="#60a5fa" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="label" tick={{ fill: '#4a4e60', fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                <YAxis hide domain={chartDomain} allowDecimals={false} />
-                <Tooltip content={<OrdersChartTooltip lang={lang} />} />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#60a5fa"
-                  strokeWidth={2}
-                  fill="url(#dashboard-orders-gradient)"
-                  dot={{ r: 2.5, fill: '#60a5fa', strokeWidth: 0 }}
-                  activeDot={{ r: 4, fill: '#60a5fa' }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div className="flex items-start justify-between mb-3">
+              <h2 className="text-white font-medium text-sm">
+                {lang === 'ar' ? 'الطلبات اليومية' : 'Daily orders'}
+              </h2>
+              <span className="text-2xl font-bold text-white">{totalOrdersAnim.toLocaleString()}</span>
+            </div>
+            <Sparkline data={metrics.ordersByDay.map(d => d.count)} color="#60a5fa" h={160} />
+            {metrics.ordersByDay.length >= 2 && (
+              <div className="flex justify-between mt-1.5">
+                <span className="text-[10px] text-[#4a4e60]">{metrics.ordersByDay[0]?.label}</span>
+                <span className="text-[10px] text-[#4a4e60]">{metrics.ordersByDay[metrics.ordersByDay.length - 1]?.label}</span>
+              </div>
+            )}
           </div>
 
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 md:p-5 flex flex-col">
@@ -424,7 +436,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="h-1.5 bg-[#2a2d35] rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[#3b82f6] rounded-full"
+                        className="h-full rounded-full bg-gradient-to-l from-[#3b82f6] to-[#7c5cff] transition-all duration-700"
                         style={{ width: `${(count / metrics.topGovs[0][1]) * 100}%` }}
                       />
                     </div>

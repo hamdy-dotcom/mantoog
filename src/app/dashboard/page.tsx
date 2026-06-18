@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
@@ -40,7 +40,9 @@ const I = {
 }
 
 /* ── sparkline ── */
-function Sparkline({ data, color = '#3b82f6', h = 120 }: { data: number[]; color?: string; h?: number }) {
+function Sparkline({ data, color = '#3b82f6', h = 120, labels }: { data: number[]; color?: string; h?: number; labels?: string[] }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
   const W = 400, pad = 4
   if (data.length < 2) return <div style={{ height: h }} className="flex items-center justify-center text-[#4a4e60] text-sm">—</div>
   const max = Math.max(...data), min = Math.min(...data)
@@ -53,18 +55,50 @@ function Sparkline({ data, color = '#3b82f6', h = 120 }: { data: number[]; color
   const area = `${line} L${pts[pts.length-1][0].toFixed(1)},${h} L${pts[0][0].toFixed(1)},${h} Z`
   const last = pts[pts.length - 1]
   const gid = `sg${color.replace(/[^a-z0-9]/gi, '')}`
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return
+    const rect = svgRef.current.getBoundingClientRect()
+    const xRatio = (e.clientX - rect.left) / rect.width
+    const svgX = xRatio * W
+    let nearest = 0, minDist = Infinity
+    pts.forEach(([px], i) => { const d = Math.abs(px - svgX); if (d < minDist) { minDist = d; nearest = i } })
+    setHoverIdx(nearest)
+  }
+
+  const tipIdx = hoverIdx
+  const tipLeft = tipIdx !== null ? `${Math.min(Math.max((pts[tipIdx][0] / W) * 100, 8), 88)}%` : '0'
+
   return (
-    <svg viewBox={`0 0 ${W} ${h}`} className="w-full" style={{ height: h }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill={`url(#${gid})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={last[0]} cy={last[1]} r="4" fill={color} />
-    </svg>
+    <div className="relative" onMouseLeave={() => setHoverIdx(null)}>
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${h}`} className="w-full cursor-crosshair" style={{ height: h }} preserveAspectRatio="none" onMouseMove={handleMouseMove}>
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill={`url(#${gid})`} />
+        <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {tipIdx !== null ? (
+          <>
+            <line x1={pts[tipIdx][0]} y1={pad} x2={pts[tipIdx][0]} y2={h - pad} stroke={color} strokeWidth="1" strokeDasharray="3,3" opacity="0.4" />
+            <circle cx={pts[tipIdx][0]} cy={pts[tipIdx][1]} r="5" fill={color} />
+            <circle cx={pts[tipIdx][0]} cy={pts[tipIdx][1]} r="2.5" fill="white" />
+          </>
+        ) : (
+          <circle cx={last[0]} cy={last[1]} r="4" fill={color} />
+        )}
+      </svg>
+      {tipIdx !== null && (
+        <div className="absolute top-1 pointer-events-none z-10" style={{ left: tipLeft, transform: 'translateX(-50%)' }}>
+          <div className="bg-[#0f1117] border border-[#2a2d35] rounded-lg px-2.5 py-1.5 shadow-xl whitespace-nowrap text-center">
+            {labels?.[tipIdx] && <div className="text-[10px] text-[#8b8fa8]">{labels[tipIdx]}</div>}
+            <div className="text-sm font-bold" style={{ color }}>{data[tipIdx]}</div>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -187,34 +221,37 @@ export default function DashboardPage() {
   }, [])
 
   // 30-day daily order counts (unfiltered) for TikTok conversion chart
-  const conversionChart30 = useMemo(() => {
+  const [conversionChart30, conversionChart30Labels] = useMemo(() => {
     const today = new Date()
-    return Array.from({ length: 30 }, (_, i) => {
+    const days = Array.from({ length: 30 }, (_, i) => {
       const d = new Date(today)
       d.setDate(today.getDate() - (29 - i))
-      const day = formatLocalDate(d)
-      return orders.filter(o => o.created_at?.slice(0, 10) === day).length
+      return formatLocalDate(d)
     })
+    return [
+      days.map(day => orders.filter(o => o.created_at?.slice(0, 10) === day).length),
+      days,
+    ]
   }, [orders])
 
   useEffect(() => {
     if (loading) return
     const today = formatLocalDate(new Date())
-    fetch(`/api/tiktok/report?start_date=${today}&end_date=${today}`)
+    fetch(`/api/tiktok/campaigns?level=campaigns&start_date=${today}&end_date=${today}`)
       .then(r => r.json())
       .then(data => {
-        if (data.error || !data.data) { setTiktokConnected(false); return }
+        if (data.error) { setTiktokConnected(false); return }
         setTiktokConnected(true)
-        const rows = (data.data as any[])
+        const campaigns = (data.campaigns || data.items || []) as any[]
+        const rows = campaigns
           .map(r => ({
-            name:        r.campaign_name || r.name || '—',
+            name:        r.name || r.campaign_name || '—',
             spend:       Number(r.spend ?? 0),
             conversions: Number(r.conversions ?? 0),
             cpa:         Number(r.cpa ?? 0),
-            budget:      Number(r.budget ?? 0),
+            budget:      r.budget != null ? Number(r.budget) : 0,
           }))
-          .filter(r => r.spend > 0 || r.conversions > 0)
-          .sort((a, b) => b.spend - a.spend)
+          .sort((a, b) => b.conversions - a.conversions || b.spend - a.spend)
           .slice(0, 3)
         setTiktokRows(rows)
       })
@@ -519,7 +556,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-2xl font-bold">{totalOrdersAnim.toLocaleString()}</div>
               </div>
-              <Sparkline data={metrics.ordersByDay.map(d => d.count)} color="#3b82f6" h={130} />
+              <Sparkline data={metrics.ordersByDay.map(d => d.count)} labels={metrics.ordersByDay.map(d => d.date)} color="#3b82f6" h={130} />
               {metrics.ordersByDay.length >= 2 && (
                 <div className="flex justify-between mt-1.5">
                   <span className="text-[10px] text-[#4a4e60]">{metrics.ordersByDay[0]?.label}</span>
@@ -594,7 +631,7 @@ export default function DashboardPage() {
                   <>
                     <div className="mb-3">
                       <div className="text-[10px] text-[#4a4e60] mb-1">{lang === 'ar' ? 'التحويلات — آخر 30 يوم' : 'Conversions — last 30 days'}</div>
-                      <Sparkline data={conversionChart30} color="#7c5cff" h={50} />
+                      <Sparkline data={conversionChart30} labels={conversionChart30Labels} color="#7c5cff" h={50} />
                     </div>
                     {tiktokRows.length === 0 ? (
                       <div className="text-xs text-[#4a4e60] text-center py-1">

@@ -21,6 +21,8 @@ const TIKTOK_UPLOAD_BY_URL = 'UPLOAD_BY_URL'
 const TIKTOK_UPLOAD_BY_FILE = 'UPLOAD_BY_FILE'
 
 const VIDEO_POLL_DELAYS_MS = [0, 1500, 2000, 3000, 4000, 5000]
+/** Poll /file/video/ad/info/ for poster_url — TikTok often returns it async after upload. */
+const POSTER_POLL_DELAYS_MS = [0, 2000, 2000, 2000, 2000, 2000, 2000, 2000]
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -154,22 +156,79 @@ async function pollVideoIdFromInfo(
   return null
 }
 
-async function fetchVideoPosterUrl(
+function extractVideoInfoRows(data: unknown): Record<string, unknown>[] {
+  if (data == null) return []
+  if (Array.isArray(data)) return data.filter(isRecord)
+  if (!isRecord(data)) return []
+
+  for (const key of ['list', 'videos', 'video_list', 'results']) {
+    const nested = data[key]
+    if (Array.isArray(nested)) return nested.filter(isRecord)
+  }
+
+  return [data]
+}
+
+function findVideoInfoRow(rows: Record<string, unknown>[], video_id: string): Record<string, unknown> | null {
+  const normalized = video_id.trim()
+  if (normalized) {
+    const match = rows.find(row => {
+      const id = readStringField(row, ['video_id', 'videoId', 'id'])
+      return id === normalized
+    })
+    if (match) return match
+  }
+  return rows[0] ?? null
+}
+
+function posterUrlFromVideoInfoRow(row: Record<string, unknown>): string | null {
+  return readStringField(row, ['poster_url', 'video_cover_url', 'cover_url'])
+}
+
+async function pollVideoPosterUrl(
   connection: Connection,
   video_id: string
 ): Promise<string | null> {
-  const json = await getLogged(
-    connection,
-    'creative_upload_video_info',
-    '/file/video/ad/info/',
-    { video_ids: JSON.stringify([video_id]) }
-  )
-  if (isTikTokHttpError(json) || json.code !== 0) return null
+  const ids = [video_id.trim()].filter(Boolean)
+  if (!ids.length) return null
 
-  const row = firstUploadRow(json.data)
-  if (!row) return null
-  return readStringField(row, ['poster_url', 'video_cover_url', 'cover_url'])
+  for (let attempt = 0; attempt < POSTER_POLL_DELAYS_MS.length; attempt++) {
+    const delay = POSTER_POLL_DELAYS_MS[attempt]
+    if (delay > 0) await sleep(delay)
+
+    const json = await getLogged(
+      connection,
+      'creative_upload_video_info',
+      '/file/video/ad/info/',
+      { video_ids: JSON.stringify(ids) }
+    )
+
+    console.error(
+      `[tiktok/create/creative_upload_video_info] poster_url poll attempt ${attempt + 1}/${POSTER_POLL_DELAYS_MS.length}`,
+      {
+        video_id,
+        delay_ms: delay,
+        code: json.code,
+        message: json.message,
+        request_id: json.request_id,
+        data: json.data,
+        full: json,
+      }
+    )
+
+    if (isTikTokHttpError(json) || json.code !== 0) continue
+
+    const rows = extractVideoInfoRows(json.data)
+    const row = findVideoInfoRow(rows, video_id)
+    if (!row) continue
+
+    const poster_url = posterUrlFromVideoInfoRow(row)
+    if (poster_url) return poster_url
+  }
+
+  return null
 }
+
 
 async function resolveUploadedVideo(
   connection: Connection,
@@ -189,13 +248,11 @@ async function resolveUploadedVideo(
 
   const polled = await pollVideoIdFromInfo(connection, pollCandidates)
   if (polled) {
-    const poster_url = parsed.poster_url || await fetchVideoPosterUrl(connection, polled)
-    return { ok: true, video_id: polled, poster_url }
+    return { ok: true, video_id: polled, poster_url: parsed.poster_url }
   }
 
   if (parsed.video_id) {
-    const poster_url = parsed.poster_url || await fetchVideoPosterUrl(connection, parsed.video_id)
-    return { ok: true, video_id: parsed.video_id, poster_url }
+    return { ok: true, video_id: parsed.video_id, poster_url: parsed.poster_url }
   }
 
   return buildCreateFlowError(
@@ -233,8 +290,7 @@ async function uploadVideoToTikTok(
         video_id: existing,
         searchHints,
       })
-      const poster_url = await fetchVideoPosterUrl(connection, existing)
-      return { ok: true, video_id: existing, poster_url }
+      return { ok: true, video_id: existing, poster_url: null }
     }
   }
 
@@ -253,8 +309,7 @@ async function uploadVideoToTikTok(
         console.error(`[tiktok/create/${logStep}] recovered 40911 via material search`, {
           video_id: existing,
         })
-        const poster_url = await fetchVideoPosterUrl(connection, existing)
-        return { ok: true, video_id: existing, poster_url }
+        return { ok: true, video_id: existing, poster_url: null }
       }
     }
     return buildCreateFlowError('creative_upload', json)
@@ -341,6 +396,33 @@ async function uploadCoverFromPosterUrl(
   )
 }
 
+async function uploadCoverFromProductImage(
+  connection: Connection,
+  payload: CreateAdWizardPayload,
+  video_id: string,
+  imageUrl: string
+): Promise<{ ok: true; image_id: string } | CreateFlowError> {
+  const baseName = materialBaseName(payload, { url: imageUrl, kind: 'image' })
+  const fileName = uniqueMaterialName(`${baseName}-cover-fallback`)
+  const searchHints: MaterialSearchHints = {
+    baseNames: [baseName, `${video_id}-cover-fallback`],
+    urlBasename: urlDerivedFileName(imageUrl),
+    sourceUrl: imageUrl,
+  }
+
+  const form = new FormData()
+  form.set('upload_type', TIKTOK_UPLOAD_BY_URL)
+  form.set('image_url', imageUrl)
+  form.set('file_name', fileName)
+  return uploadImageToTikTok(
+    connection,
+    form,
+    'creative_upload_cover_fallback',
+    { upload_type: TIKTOK_UPLOAD_BY_URL, image_url: imageUrl, file_name: fileName },
+    searchHints
+  )
+}
+
 async function finalizeVideoCreative(
   connection: Connection,
   payload: CreateAdWizardPayload,
@@ -350,22 +432,44 @@ async function finalizeVideoCreative(
 ): Promise<{ ok: true; creative: UploadedCreative } | CreateFlowError> {
   let poster_url = uploaded.poster_url
   if (!poster_url) {
-    poster_url = await fetchVideoPosterUrl(connection, uploaded.video_id)
-  }
-  if (!poster_url) {
-    return buildCreateFlowError('creative_upload', {
-      message: 'No poster_url returned from TikTok video upload',
-    }, {
-      explanation: 'TikTok did not return a cover thumbnail URL for this video. Retry upload or pick a different video.',
-    })
+    poster_url = await pollVideoPosterUrl(connection, uploaded.video_id)
   }
 
-  const cover = await uploadCoverFromPosterUrl(
-    connection,
-    payload,
-    poster_url,
-    uploaded.video_id
-  )
+  let cover: { ok: true; image_id: string } | CreateFlowError
+
+  if (poster_url) {
+    cover = await uploadCoverFromPosterUrl(
+      connection,
+      payload,
+      poster_url,
+      uploaded.video_id
+    )
+  } else {
+    const productImage = (payload.product.images || []).find(url => url && String(url).trim())
+    if (productImage) {
+      console.error(
+        '[tiktok/create/creative_upload_cover] poster_url missing after polling — using product image fallback',
+        {
+          video_id: uploaded.video_id,
+          product_image_url: productImage,
+        }
+      )
+      cover = await uploadCoverFromProductImage(
+        connection,
+        payload,
+        uploaded.video_id,
+        productImage
+      )
+    } else {
+      return buildCreateFlowError('creative_upload', {
+        message: 'No poster_url returned from TikTok video upload',
+      }, {
+        explanation:
+          'TikTok did not return a cover thumbnail after polling and this product has no image to use as a fallback cover. Add a product image or retry with a different video.',
+      })
+    }
+  }
+
   if ('error' in cover) return cover
 
   const creative: UploadedCreative = {

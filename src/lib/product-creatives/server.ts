@@ -233,22 +233,41 @@ export async function cacheTikTokCreativeIds(opts: {
   const rows = await getCreativeRowsByIds(opts.creativeIds)
 
   if (opts.video_id) {
-    const videoRow = rows.find(r => r.type === 'video')
-    const url = videoRow?.url || opts.video_url
+    const url = opts.video_url?.trim() || null
+    const videoRowByUrl = url ? rows.find(r => r.type === 'video' && r.url === url) : undefined
+    const videoRowById =
+      !videoRowByUrl && opts.creativeIds.length === 1
+        ? rows.find(r => r.id === opts.creativeIds[0] && r.type === 'video')
+        : undefined
+    const videoRow = videoRowByUrl ?? videoRowById
+
     if (videoRow) {
-      await supabaseAdmin.from('product_creatives').update({
-        tiktok_video_id: opts.video_id,
-        ...(opts.cover_image_id ? { tiktok_image_id: opts.cover_image_id } : {}),
-      }).eq('id', videoRow.id)
-    } else if (url) {
-      await upsertTikTokCache({
-        productId: opts.productId,
-        storeId: opts.storeId,
-        url,
-        type: 'video',
-        tiktok_video_id: opts.video_id,
-        tiktok_image_id: opts.cover_image_id || null,
-      })
+      if (url && videoRow.url !== url) {
+        console.error('[product-creatives] cacheTikTokCreativeIds row url mismatch — skipping row update', {
+          row_id: videoRow.id,
+          row_url: videoRow.url,
+          video_url: url,
+          video_id: opts.video_id,
+        })
+      } else {
+        await supabaseAdmin.from('product_creatives').update({
+          tiktok_video_id: opts.video_id,
+          ...(opts.cover_image_id ? { tiktok_image_id: opts.cover_image_id } : {}),
+        }).eq('id', videoRow.id)
+      }
+    }
+
+    if (!videoRow || (url && videoRow.url !== url)) {
+      if (url) {
+        await upsertTikTokCache({
+          productId: opts.productId,
+          storeId: opts.storeId,
+          url,
+          type: 'video',
+          tiktok_video_id: opts.video_id,
+          tiktok_image_id: opts.cover_image_id || null,
+        })
+      }
     }
   }
 

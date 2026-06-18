@@ -87,24 +87,24 @@ function searchHasMore(data: unknown, page: number, rowCount: number): boolean {
 
 function fileNameMatches(
   fileName: string | null,
-  hints: { baseNames: string[]; urlBasename?: string }
+  hints: { baseNames: string[]; urlBasename?: string; uploadFileName?: string }
 ): boolean {
   if (!fileName) return false
+  if (hints.uploadFileName && fileName === hints.uploadFileName) return true
   if (hints.urlBasename && fileName === hints.urlBasename) return true
   return hints.baseNames.some(base => {
     if (!base) return false
-    if (fileName === base) return true
-    if (fileName.startsWith(`${base}-`)) return true
-    return false
+    return fileName === base
   })
 }
 
 /** TikTok documents GET /file/video/ad/search/ — not POST. */
 async function searchVideoMaterialPages(
   connection: Connection,
-  hints: { baseNames: string[]; urlBasename?: string; sourceUrl?: string }
+  hints: { baseNames: string[]; urlBasename?: string; sourceUrl?: string; uploadFileName?: string }
 ): Promise<string | null> {
   const path = '/file/video/ad/search/'
+  const normalizedSource = hints.sourceUrl?.trim() || null
 
   for (let page = 1; page <= 5; page++) {
     const json = await tiktokGet(connection, path, {
@@ -135,7 +135,7 @@ async function searchVideoMaterialPages(
 
       if (!materialId) continue
 
-      if (hints.sourceUrl && materialUrl && materialUrl === hints.sourceUrl) {
+      if (normalizedSource && materialUrl && materialUrl.trim() === normalizedSource) {
         return materialId
       }
       if (fileNameMatches(fileName, hints)) {
@@ -151,7 +151,7 @@ async function searchVideoMaterialPages(
 
 export async function searchExistingVideoId(
   connection: Connection,
-  hints: { baseNames: string[]; urlBasename?: string; sourceUrl?: string }
+  hints: { baseNames: string[]; urlBasename?: string; sourceUrl?: string; uploadFileName?: string }
 ): Promise<string | null> {
   return searchVideoMaterialPages(connection, hints)
 }

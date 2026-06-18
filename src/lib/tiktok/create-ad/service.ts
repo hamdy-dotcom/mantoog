@@ -119,6 +119,13 @@ async function launchVideoAdsInGroup(opts: {
 
   const adResults: LaunchAdResult[] = []
 
+  type PendingVideoAd = {
+    item: (typeof videoItems)[number]
+    uploadRes: { ok: true; creative: import('@/lib/tiktok/create-ad/publish').UploadedCreative }
+    videoIndex: number
+  }
+  const pending: PendingVideoAd[] = []
+
   for (let i = 0; i < videoItems.length; i++) {
     const item = videoItems[i]
     const uploadRes = await uploadSingleVideoCreative({
@@ -139,6 +146,69 @@ async function launchVideoAdsInGroup(opts: {
       continue
     }
 
+    const sourceUrl = item.url || uploadRes.creative.video_url || ''
+    console.error('[tiktok/create/launch] multi-video creative resolved', {
+      ad_index: i,
+      creative_id: item.id,
+      source_url: sourceUrl,
+      video_id: uploadRes.creative.video_id,
+    })
+
+    pending.push({ item, uploadRes, videoIndex: i })
+  }
+
+  if (pending.length > 1) {
+    const sourceUrls = pending
+      .map(p => p.item.url || p.uploadRes.creative.video_url || '')
+      .filter(Boolean)
+    const distinctUrls = new Set(sourceUrls)
+    const distinctVideoIds = new Set(pending.map(p => p.uploadRes.creative.video_id))
+
+    if (distinctUrls.size > 1 && distinctVideoIds.size === 1) {
+      const dupId = [...distinctVideoIds][0]
+      const rollback = await rollbackCreated(connection, {
+        campaignId: campaign.campaign_id,
+        adgroupId: adgroup.adgroup_id,
+      })
+      return {
+        error: 'validation_error',
+        step: 'creative_upload',
+        message: `All ${pending.length} selected videos resolved to the same TikTok video (${dupId}). Each video must be a distinct creative.`,
+        category: 'duplicate_material_name',
+        explanation:
+          'The selected videos share one TikTok video ID — usually a cache lookup matched the wrong file. Try again or re-upload the videos.',
+        rolled_back: rollback.rolled_back,
+        rollback_error: rollback.rollback_error,
+      }
+    }
+
+    const videoIdToUrl = new Map<string, string>()
+    for (const p of pending) {
+      const url = p.item.url || p.uploadRes.creative.video_url || ''
+      const videoId = p.uploadRes.creative.video_id
+      if (!videoId) continue
+      const priorUrl = videoIdToUrl.get(videoId)
+      if (priorUrl && priorUrl !== url) {
+        const rollback = await rollbackCreated(connection, {
+          campaignId: campaign.campaign_id,
+          adgroupId: adgroup.adgroup_id,
+        })
+        return {
+          error: 'validation_error',
+          step: 'creative_upload',
+          message: `Two different videos resolved to the same TikTok video (${videoId}).`,
+          category: 'duplicate_material_name',
+          explanation:
+            'Each selected video must map to its own TikTok video ID. Re-select creatives or re-upload the conflicting video.',
+          rolled_back: rollback.rolled_back,
+          rollback_error: rollback.rollback_error,
+        }
+      }
+      if (!priorUrl) videoIdToUrl.set(videoId, url)
+    }
+  }
+
+  for (const { item, uploadRes, videoIndex } of pending) {
     await cacheUploadedCreative(uploadRes, payload, store.id)
 
     const adRes = await createTikTokAd({
@@ -147,7 +217,7 @@ async function launchVideoAdsInGroup(opts: {
       adgroup_id: adgroup.adgroup_id,
       identity,
       creative: uploadRes.creative,
-      adIndex: i,
+      adIndex: videoIndex,
     })
 
     if (!('ok' in adRes) || !adRes.ok) {

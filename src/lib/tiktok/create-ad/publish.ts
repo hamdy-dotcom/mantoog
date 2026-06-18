@@ -270,10 +270,25 @@ async function resolveUploadedVideo(
   )
 }
 
+/** Build dedup hints keyed to a specific source video URL — not shared product-level names. */
+function videoMaterialSearchHints(
+  sourceUrl: string,
+  uploadFileName?: string
+): MaterialSearchHints {
+  return {
+    baseNames: [],
+    sourceUrl,
+    urlBasename: urlDerivedFileName(sourceUrl),
+    uploadFileName,
+  }
+}
+
 type MaterialSearchHints = {
   baseNames: string[]
   urlBasename?: string
   sourceUrl?: string
+  /** Exact TikTok file_name from a prior upload attempt (40911 recovery). */
+  uploadFileName?: string
 }
 
 async function uploadVideoToTikTok(
@@ -812,6 +827,13 @@ export async function uploadSingleVideoCreative(opts: {
   const resolved = resolvedForVideoItem(videoItem)
 
   if (videoItem.tiktok_video_id && videoItem.tiktok_image_id) {
+    console.error('[tiktok/create/creative_upload] using cached tiktok ids for video', {
+      creative_id: videoItem.id,
+      source_url: videoItem.url,
+      tiktok_video_id: videoItem.tiktok_video_id,
+      tiktok_image_id: videoItem.tiktok_image_id,
+      video_index: videoIndex,
+    })
     const creative: UploadedCreative = {
       video_id: videoItem.tiktok_video_id,
       cover_image_id: videoItem.tiktok_image_id,
@@ -824,6 +846,12 @@ export async function uploadSingleVideoCreative(opts: {
   }
 
   if (videoItem.tiktok_video_id) {
+    console.error('[tiktok/create/creative_upload] using cached tiktok_video_id (cover pending)', {
+      creative_id: videoItem.id,
+      source_url: videoItem.url,
+      tiktok_video_id: videoItem.tiktok_video_id,
+      video_index: videoIndex,
+    })
     return finalizeVideoCreative(
       connection,
       payload,
@@ -848,11 +876,7 @@ export async function uploadSingleVideoCreative(opts: {
     const urlBasename = urlDerivedFileName(url)
     const baseName = materialBaseName(payload, { url, kind: 'video', index: videoIndex })
     const fileName = uniqueMaterialName(baseName)
-    const searchHints: MaterialSearchHints = {
-      baseNames: [baseName, urlBasename],
-      urlBasename,
-      sourceUrl: url,
-    }
+    const searchHints = videoMaterialSearchHints(url, fileName)
 
     const form = new FormData()
     form.set('upload_type', TIKTOK_UPLOAD_BY_URL)
@@ -884,6 +908,7 @@ export async function uploadSingleVideoCreative(opts: {
   const fileName = uniqueMaterialName(baseName)
   const searchHints: MaterialSearchHints = {
     baseNames: [baseName, videoFile.name],
+    uploadFileName: fileName,
   }
 
   const form = new FormData()

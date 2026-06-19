@@ -15,6 +15,7 @@ function seedNum(id: string, min: number, max: number) {
 function parseCust(store: any) {
   return (store?.customizations || {}) as {
     whatsapp?: string
+    headerImageUrl?: string
     announcement?: { text: string; bg?: string; textColor?: string }
     tagline?: string
     social?: { instagram?: string; tiktok?: string; snapchat?: string; twitter?: string }
@@ -361,15 +362,24 @@ export default function ThemedStoreFront({ store, products }: { store: any; prod
   const hasSocial = social.instagram || social.tiktok || social.snapchat || social.twitter
 
   return (
+    <>
     <div dir="rtl" style={{ background: k.pageBg, color: k.text, fontFamily: k.font, minHeight: '100vh' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Cormorant+Garamond:wght@400;600;700&family=Nunito:wght@400;700;800&family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@400;500;700;900&family=Lora:wght@400;700&family=Outfit:wght@400;700;800&display=swap');
         *{box-sizing:border-box}
       `}</style>
 
-      {/* Announcement bar — in page flow so it doesn't cover sticky nav */}
+      {/* Announcement bar */}
       {cust.announcement?.text && (
         <AnnouncementBar text={cust.announcement.text} bg={cust.announcement.bg} textColor={cust.announcement.textColor} />
+      )}
+
+      {/* Store header image */}
+      {cust.headerImageUrl && (
+        <div style={{ width: '100%', height: 200, overflow: 'hidden', position: 'relative' }}>
+          <img src={cust.headerImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.35) 100%)' }} />
+        </div>
       )}
 
       {/* Nav */}
@@ -441,9 +451,10 @@ export default function ThemedStoreFront({ store, products }: { store: any; prod
         )}
         <p style={{ fontSize: 10, color: '#6b7280', margin: 0 }}>مدعوم بـ منتوج</p>
       </footer>
-
-      {/* WhatsApp floating button */}
-      {cust.whatsapp && <WhatsAppButton phone={cust.whatsapp} />}
     </div>
+
+    {/* WhatsApp — outside the main div to avoid overflow:hidden stacking context bug */}
+    {cust.whatsapp && <WhatsAppButton phone={cust.whatsapp} />}
+    </>
   )
 }

@@ -30,6 +30,26 @@ const STATUS_LABELS: Record<string, string> = {
   returned: 'Returned',
 }
 
+const SOURCE_META: Record<string, { icon: string; color: string }> = {
+  tiktok:    { icon: '🎵', color: 'text-[#ff2d55]' },
+  facebook:  { icon: '📘', color: 'text-[#60a5fa]' },
+  instagram: { icon: '📸', color: 'text-[#e1306c]' },
+  google:    { icon: '🔍', color: 'text-[#4285f4]' },
+  snapchat:  { icon: '👻', color: 'text-[#fbbf24]' },
+  twitter:   { icon: '𝕏', color: 'text-[#8b8fa8]' },
+  x:         { icon: '𝕏', color: 'text-[#8b8fa8]' },
+  direct:    { icon: '🔗', color: 'text-[#8b8fa8]' },
+}
+
+function getSourceMeta(src: string | null | undefined) {
+  if (!src || src === 'direct') return { icon: '🔗', label: 'Direct', color: 'text-[#8b8fa8]' }
+  const lower = src.toLowerCase()
+  for (const [key, meta] of Object.entries(SOURCE_META)) {
+    if (lower.includes(key)) return { ...meta, label: src.charAt(0).toUpperCase() + src.slice(1) }
+  }
+  return { icon: '🌐', label: src, color: 'text-[#8b8fa8]' }
+}
+
 export default function OrdersPage() {
   const { lang, dir } = useLang()
   const tr = t[lang]
@@ -38,6 +58,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('all')
+  const [exportFilter, setExportFilter] = useState<'all' | 'new' | 'exported'>('all')
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7d' | '30d'>('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -50,7 +72,6 @@ export default function OrdersPage() {
       const ctx = await loadMerchantStore(supabase, router, '*')
       if (!ctx) return
       setStore(ctx.store)
-
       const { data: ordersData } = await supabase
         .from('orders')
         .select('*, products(title, images)')
@@ -69,21 +90,23 @@ export default function OrdersPage() {
     setUpdatingId(null)
   }
 
+  const markExported = async (ids: string[]) => {
+    if (ids.length === 0) return
+    const now = new Date().toISOString()
+    await supabase.from('orders').update({ exported_at: now }).in('id', ids)
+    setOrders(prev => prev.map(o => ids.includes(o.id) ? { ...o, exported_at: now } : o))
+  }
+
+  // Unique traffic sources present in this merchant's orders
+  const uniqueSources = Array.from(new Set(orders.map(o => o.traffic_source || 'direct')))
+
   const filteredByDate = orders.filter(order => {
     if (dateFilter === 'all' && !dateFrom) return true
     const orderDate = new Date(order.created_at)
     const now = new Date()
-    if (dateFilter === 'today') {
-      return orderDate.toDateString() === now.toDateString()
-    }
-    if (dateFilter === '7d') {
-      const d = new Date(); d.setDate(d.getDate() - 7)
-      return orderDate >= d
-    }
-    if (dateFilter === '30d') {
-      const d = new Date(); d.setDate(d.getDate() - 30)
-      return orderDate >= d
-    }
+    if (dateFilter === 'today') return orderDate.toDateString() === now.toDateString()
+    if (dateFilter === '7d') { const d = new Date(); d.setDate(d.getDate() - 7); return orderDate >= d }
+    if (dateFilter === '30d') { const d = new Date(); d.setDate(d.getDate() - 30); return orderDate >= d }
     if (dateFrom || dateTo) {
       const from = dateFrom ? new Date(dateFrom) : new Date(0)
       const to = dateTo ? new Date(dateTo + 'T23:59:59') : new Date()
@@ -93,16 +116,21 @@ export default function OrdersPage() {
   })
 
   const filteredOrders = filteredByDate.filter(o => {
-    const matchesFilter = filter === 'all' || o.status === filter
+    const matchesStatus = filter === 'all' || o.status === filter
     const matchesSearch = !search ||
       o.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
       o.customer_phone?.includes(search) ||
       o.products?.title?.toLowerCase().includes(search.toLowerCase())
-    return matchesFilter && matchesSearch
+    const matchesSource = sourceFilter === 'all' || (o.traffic_source || 'direct') === sourceFilter
+    const matchesExport = exportFilter === 'all' ||
+      (exportFilter === 'new' ? !o.exported_at : !!o.exported_at)
+    return matchesStatus && matchesSearch && matchesSource && matchesExport
   })
 
-  const exportCSV = () => {
-    const headers = ['Order', 'Customer', 'Phone', 'Product', 'Qty', 'Total', 'Governorate', 'Address', 'Status', 'Date']
+  const newOrdersCount = orders.filter(o => !o.exported_at).length
+
+  const exportCSV = async () => {
+    const headers = ['Order', 'Customer', 'Phone', 'Product', 'Qty', 'Total', 'Governorate', 'Address', 'Source', 'Status', 'Date']
     const rows = filteredOrders.map(o => [
       o.order_number || o.id.slice(0, 8),
       o.customer_name,
@@ -112,19 +140,21 @@ export default function OrdersPage() {
       `${o.total_price} ${o.currency}`,
       o.address_governorate || '',
       o.address_line1 || '',
+      o.traffic_source || 'direct',
       o.status,
       new Date(o.created_at).toLocaleDateString(),
     ])
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = `orders-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
+    await markExported(filteredOrders.map(o => o.id))
   }
 
-  const exportOrdersExcel = () => {
+  const exportOrdersExcel = async () => {
     const rows = filteredOrders.map((order: any) => ({
       'الاسم': order.customer_name || '',
       'الهاتف': order.customer_phone || '',
@@ -133,6 +163,7 @@ export default function OrdersPage() {
       'المبلغ': order.total_price || '',
       'العملة': order.currency || '',
       'العنوان': [order.address_line1, order.address_governorate].filter(Boolean).join(', ') || '',
+      'المصدر': order.traffic_source || 'direct',
       'الحالة': order.status || '',
       'التاريخ': new Date(order.created_at).toLocaleString('ar-EG'),
       'رابط الموقع': order.map_link || '',
@@ -141,6 +172,7 @@ export default function OrdersPage() {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Orders')
     XLSX.writeFile(wb, `orders-${new Date().toISOString().slice(0, 10)}.xlsx`)
+    await markExported(filteredOrders.map(o => o.id))
   }
 
   if (loading) {
@@ -166,10 +198,17 @@ export default function OrdersPage() {
       <main className={DASHBOARD_MAIN_CLASS}>
 
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-semibold text-white">{tr.ordersTitle}</h1>
-            <p className="text-[#8b8fa8] text-sm mt-1">{filteredByDate.length} total orders</p>
+            <p className="text-[#8b8fa8] text-sm mt-1">
+              {filteredByDate.length} {lang === 'ar' ? 'طلب' : 'total orders'}
+              {newOrdersCount > 0 && (
+                <span className="ms-2 text-[#fbbf24] font-medium">
+                  · {newOrdersCount} {lang === 'ar' ? 'جديد (لم يُصدَّر)' : 'new (unexported)'}
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex gap-2">
             <button onClick={exportCSV}
@@ -177,8 +216,13 @@ export default function OrdersPage() {
               📥 CSV
             </button>
             <button onClick={exportOrdersExcel}
-              className="text-xs bg-[#14321f] hover:bg-[#1a4a2a] border border-[#4ade80]/20 text-[#4ade80] hover:text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5">
+              className="relative text-xs bg-[#14321f] hover:bg-[#1a4a2a] border border-[#4ade80]/20 text-[#4ade80] hover:text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5">
               📊 Excel
+              {newOrdersCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#fbbf24] text-black text-[9px] font-bold flex items-center justify-center leading-none">
+                  {newOrdersCount > 99 ? '99+' : newOrdersCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -186,11 +230,11 @@ export default function OrdersPage() {
         {/* Stats */}
         <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mb-4">
           {[
-            { label: 'Total', value: stats.total },
-            { label: 'Pending', value: stats.pending, color: 'text-[#fbbf24]' },
-            { label: 'Delivered', value: stats.delivered, color: 'text-[#4ade80]' },
-            { label: 'Cancelled', value: stats.cancelled, color: 'text-[#f87171]' },
-            { label: `Revenue (${store?.currency})`, value: stats.revenue.toLocaleString(), color: 'text-[#4ade80]' },
+            { label: lang === 'ar' ? 'الإجمالي' : 'Total', value: stats.total },
+            { label: lang === 'ar' ? 'معلق' : 'Pending', value: stats.pending, color: 'text-[#fbbf24]' },
+            { label: lang === 'ar' ? 'مُسلَّم' : 'Delivered', value: stats.delivered, color: 'text-[#4ade80]' },
+            { label: lang === 'ar' ? 'ملغي' : 'Cancelled', value: stats.cancelled, color: 'text-[#f87171]' },
+            { label: `${lang === 'ar' ? 'الإيراد' : 'Revenue'} (${store?.currency})`, value: stats.revenue.toLocaleString(), color: 'text-[#4ade80]' },
           ].map((s, i) => (
             <div key={i} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4">
               <div className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider mb-1">{s.label}</div>
@@ -199,16 +243,16 @@ export default function OrdersPage() {
           ))}
         </div>
 
-        {/* Filters + search */}
-        <div className="flex items-center gap-3 mb-5 flex-wrap">
-          <div className="flex gap-1 mb-4 overflow-x-auto pb-1 scrollbar-hide p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl">
+        {/* Status filter + search */}
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
+          <div className="flex gap-1 overflow-x-auto scrollbar-hide p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl">
             {['all', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'].map(f => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${filter === f ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${filter === f ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'}`}
               >
-                {f === 'all' ? 'All' : STATUS_LABELS[f]}
+                {f === 'all' ? (lang === 'ar' ? 'الكل' : 'All') : STATUS_LABELS[f]}
               </button>
             ))}
           </div>
@@ -220,7 +264,64 @@ export default function OrdersPage() {
           />
         </div>
 
-        {/* Date Filter Bar */}
+        {/* Source + Export filters */}
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+
+          {/* Source filter — only shown when more than one source exists */}
+          {uniqueSources.length > 1 && (
+            <div className="flex gap-1 p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-x-auto scrollbar-hide">
+              <button
+                onClick={() => setSourceFilter('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${sourceFilter === 'all' ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'}`}
+              >
+                {lang === 'ar' ? 'كل المصادر' : 'All Sources'}
+              </button>
+              {uniqueSources.map(s => {
+                const meta = getSourceMeta(s)
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setSourceFilter(s)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${sourceFilter === s ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'}`}
+                  >
+                    <span>{meta.icon}</span>
+                    <span>{meta.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Export status filter */}
+          <div className="flex gap-1 p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl">
+            <button
+              onClick={() => setExportFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${exportFilter === 'all' ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'}`}
+            >
+              {lang === 'ar' ? 'الكل' : 'All'}
+            </button>
+            <button
+              onClick={() => setExportFilter('new')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${exportFilter === 'new' ? 'bg-[#fbbf24] text-black' : 'text-[#8b8fa8] hover:text-white'}`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+              {lang === 'ar' ? 'جديد' : 'New'}
+              {newOrdersCount > 0 && (
+                <span className={`px-1 rounded text-[10px] font-bold ${exportFilter === 'new' ? 'bg-black/20 text-black' : 'bg-[#fbbf24]/20 text-[#fbbf24]'}`}>
+                  {newOrdersCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setExportFilter('exported')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${exportFilter === 'exported' ? 'bg-[#14321f] text-[#4ade80] border border-[#4ade80]/30' : 'text-[#8b8fa8] hover:text-white'}`}
+            >
+              ✓ {lang === 'ar' ? 'مُصدَّر' : 'Exported'}
+            </button>
+          </div>
+        </div>
+
+        {/* Date filter bar */}
         <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 mb-6">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex gap-2">
@@ -248,18 +349,14 @@ export default function OrdersPage() {
             <div className="h-6 w-px bg-[#2a2d35] mx-1 hidden sm:block" />
 
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-[#4a4e60] font-medium">
-                {lang === 'ar' ? 'من' : 'From'}
-              </span>
+              <span className="text-xs text-[#4a4e60] font-medium">{lang === 'ar' ? 'من' : 'From'}</span>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={e => { setDateFrom(e.target.value); setDateFilter('all') }}
                 className="bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#3b82f6] transition-colors"
               />
-              <span className="text-xs text-[#4a4e60] font-medium">
-                {lang === 'ar' ? 'إلى' : 'To'}
-              </span>
+              <span className="text-xs text-[#4a4e60] font-medium">{lang === 'ar' ? 'إلى' : 'To'}</span>
               <input
                 type="date"
                 value={dateTo}
@@ -306,91 +403,125 @@ export default function OrdersPage() {
           </div>
         ) : (
           <div className="overflow-x-auto -mx-4 md:mx-0">
-          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden min-w-[700px]">
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden min-w-[960px]">
+
             {/* Table header */}
-            <div className="grid grid-cols-11 gap-3 px-5 py-3 border-b border-[#2a2d35]">
+            <div className="grid grid-cols-12 gap-3 px-5 py-3 border-b border-[#2a2d35]">
               <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.customer}</span>
               <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">📍</span>
               <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.product}</span>
               <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.address}</span>
               <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.total}</span>
               <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.qty}</span>
+              <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'المصدر' : 'Source'}</span>
               <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.status}</span>
               <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{tr.date}</span>
             </div>
 
-            {filteredOrders.map(order => (
-              <div key={order.id} className="grid grid-cols-11 gap-3 px-5 py-4 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors items-center">
+            {filteredOrders.map(order => {
+              const srcMeta = getSourceMeta(order.traffic_source)
+              const isExported = !!order.exported_at
+              return (
+                <div
+                  key={order.id}
+                  className={`grid grid-cols-12 gap-3 px-5 py-4 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors items-center ${isExported ? 'opacity-60' : ''}`}
+                >
+                  {/* Customer — yellow dot = not yet exported */}
+                  <div className="col-span-2">
+                    <div className="flex items-center gap-1.5">
+                      {!isExported && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] flex-shrink-0" />
+                      )}
+                      <div className="text-sm text-white font-medium truncate">{order.customer_name}</div>
+                    </div>
+                    <div className="text-xs text-[#4a4e60] mt-0.5 ms-3">{order.customer_phone}</div>
+                  </div>
 
-                {/* Customer */}
-                <div className="col-span-2">
-                  <div className="text-sm text-white font-medium truncate">{order.customer_name}</div>
-                  <div className="text-xs text-[#4a4e60] mt-0.5">{order.customer_phone}</div>
+                  {/* Location */}
+                  <div className="col-span-1">
+                    {order.map_link ? (
+                      <a href={order.map_link} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-[#3b82f6] hover:text-white bg-[#1a3a5c] hover:bg-[#3b82f6] px-2 py-1.5 rounded-lg transition-colors font-medium whitespace-nowrap">
+                        🗺️ {lang === 'ar' ? 'خريطة' : 'Map'}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-[#4a4e60]">—</span>
+                    )}
+                  </div>
+
+                  {/* Product */}
+                  <div className="col-span-2 flex items-center gap-2">
+                    {order.products?.images?.[0] && (
+                      <img src={order.products.images[0]} alt="" className="w-8 h-8 rounded-lg object-cover border border-[#2a2d35] shrink-0" />
+                    )}
+                    <span className="text-xs text-[#8b8fa8] truncate">{order.products?.title || '—'}</span>
+                  </div>
+
+                  {/* Address */}
+                  <div className="col-span-1">
+                    <div className="text-xs text-[#8b8fa8] truncate">{order.address_governorate}</div>
+                    <div className="text-xs text-[#4a4e60] truncate">{order.address_line1}</div>
+                  </div>
+
+                  {/* Total */}
+                  <div className="col-span-1">
+                    <span className="text-sm text-white font-medium">{order.total_price}</span>
+                    <span className="text-xs text-[#4a4e60] ms-1">{order.currency}</span>
+                  </div>
+
+                  {/* Qty */}
+                  <div className="col-span-1">
+                    <span className="text-sm text-[#8b8fa8]">×{order.quantity}</span>
+                  </div>
+
+                  {/* Source */}
+                  <div className="col-span-1">
+                    <span className={`text-xs font-medium flex items-center gap-1 ${srcMeta.color}`}>
+                      <span>{srcMeta.icon}</span>
+                      <span className="truncate">{srcMeta.label}</span>
+                    </span>
+                  </div>
+
+                  {/* Status */}
+                  <div className="col-span-2">
+                    <select
+                      value={order.status}
+                      onChange={e => updateStatus(order.id, e.target.value)}
+                      disabled={updatingId === order.id}
+                      className={`text-xs font-medium px-2 py-1 rounded-lg border-0 cursor-pointer focus:outline-none ${STATUS_COLORS[order.status] || 'bg-[#1f2229] text-[#8b8fa8]'}`}
+                    >
+                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Date + export badge */}
+                  <div className="col-span-1">
+                    <div className="text-xs text-[#4a4e60]">
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </div>
+                    {isExported ? (
+                      <div
+                        className="text-xs text-[#4ade80] mt-0.5 cursor-default"
+                        title={`Exported: ${new Date(order.exported_at).toLocaleDateString()}`}
+                      >
+                        ✓ {lang === 'ar' ? 'مُصدَّر' : 'exported'}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-[#fbbf24] mt-0.5">
+                        ● {lang === 'ar' ? 'جديد' : 'new'}
+                      </div>
+                    )}
+                  </div>
+
                 </div>
-
-                {/* Location */}
-                <div className="col-span-1">
-                  {order.map_link ? (
-                    <a href={order.map_link} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-[#3b82f6] hover:text-white bg-[#1a3a5c] hover:bg-[#3b82f6] px-2.5 py-1.5 rounded-lg transition-colors font-medium whitespace-nowrap">
-                      🗺️ {lang === 'ar' ? 'الموقع' : 'Location'}
-                    </a>
-                  ) : (
-                    <span className="text-xs text-[#4a4e60]">—</span>
-                  )}
-                </div>
-
-                {/* Product */}
-                <div className="col-span-2 flex items-center gap-2">
-                  {order.products?.images?.[0] && (
-                    <img src={order.products.images[0]} alt="" className="w-8 h-8 rounded-lg object-cover border border-[#2a2d35] shrink-0" />
-                  )}
-                  <span className="text-xs text-[#8b8fa8] truncate">{order.products?.title || '—'}</span>
-                </div>
-
-                {/* Address */}
-                <div className="col-span-1">
-                  <div className="text-xs text-[#8b8fa8] truncate">{order.address_governorate}</div>
-                  <div className="text-xs text-[#4a4e60] truncate">{order.address_line1}</div>
-                </div>
-
-                {/* Total */}
-                <div className="col-span-1">
-                  <span className="text-sm text-white font-medium">{order.total_price}</span>
-                  <span className="text-xs text-[#4a4e60] ml-1">{order.currency}</span>
-                </div>
-
-                {/* Qty */}
-                <div className="col-span-1">
-                  <span className="text-sm text-[#8b8fa8]">×{order.quantity}</span>
-                </div>
-
-                {/* Status dropdown */}
-                <div className="col-span-2">
-                  <select
-                    value={order.status}
-                    onChange={e => updateStatus(order.id, e.target.value)}
-                    disabled={updatingId === order.id}
-                    className={`text-xs font-medium px-2 py-1 rounded-lg border-0 cursor-pointer focus:outline-none ${STATUS_COLORS[order.status] || 'bg-[#1f2229] text-[#8b8fa8]'}`}
-                  >
-                    {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Date */}
-                <div className="col-span-1">
-                  <span className="text-xs text-[#4a4e60]">
-                    {new Date(order.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-
-              </div>
-            ))}
+              )
+            })}
           </div>
           </div>
         )}
+
       </main>
     </div>
   )

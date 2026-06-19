@@ -170,7 +170,7 @@ export default function StorePage() {
 
       {/* Store header image */}
       {cust.headerImageUrl && (
-        <div style={{ width: '100%', height: 220, overflow: 'hidden', position: 'relative', marginTop: 0 }}>
+        <div style={{ width: '100%', height: 320, overflow: 'hidden', position: 'relative', marginTop: 0 }}>
           <img src={cust.headerImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(8,8,8,0.3) 0%, rgba(8,8,8,0.5) 100%)' }} />
         </div>

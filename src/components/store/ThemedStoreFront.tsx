@@ -376,7 +376,7 @@ export default function ThemedStoreFront({ store, products }: { store: any; prod
 
       {/* Store header image */}
       {cust.headerImageUrl && (
-        <div style={{ width: '100%', height: 200, overflow: 'hidden', position: 'relative' }}>
+        <div style={{ width: '100%', height: 320, overflow: 'hidden', position: 'relative' }}>
           <img src={cust.headerImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.35) 100%)' }} />
         </div>

@@ -9,6 +9,7 @@ import { getAuthenticatedUser, loadMerchantStore, signOutAndGoToLogin } from '@/
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
 import { formatStoreUrlDisplay, getStoreShareUrl } from '@/lib/site-url'
+import { STORE_THEMES } from '@/lib/store-themes/tokens'
 
 const currencies = [
   { code: 'EGP', label: 'Egyptian Pound', flag: '🇪🇬' },
@@ -77,6 +78,7 @@ export default function SettingsPage() {
   const [language, setLanguage] = useState('ar')
   const [primaryColor, setPrimaryColor] = useState('#3b82f6')
   const [theme, setTheme] = useState('classic')
+  const [storeTheme, setStoreTheme] = useState<string | null>(null)
   const [shippingType, setShippingType] = useState('static')
   const [staticShippingCost, setStaticShippingCost] = useState('')
   const [customDomain, setCustomDomain] = useState('')
@@ -131,6 +133,7 @@ export default function SettingsPage() {
       setLanguage(store.language || 'ar')
       setPrimaryColor(store.primary_color || '#3b82f6')
       setTheme(store.theme || 'classic')
+      setStoreTheme(store.store_theme || null)
       setShippingType(store.shipping_type || 'static')
       setStaticShippingCost(store.static_shipping_cost?.toString() || '')
       setCustomDomain(store.custom_domain || '')
@@ -187,6 +190,7 @@ export default function SettingsPage() {
       language,
       primary_color: primaryColor,
       theme: theme,
+      store_theme: storeTheme || null,
       shipping_type: shippingType,
       static_shipping_cost: shippingType === 'static' ? parseFloat(staticShippingCost) || 0 : null,
       custom_domain: customDomain || null,
@@ -392,12 +396,90 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Theme Picker */}
+              {/* Store Theme Picker */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-6">
+                <h3 className="text-white font-semibold mb-1">{lang === 'ar' ? '🏪 قالب المتجر' : '🏪 Store Theme'}</h3>
+                <p className="text-[#8b8fa8] text-sm mb-1">{lang === 'ar' ? 'اختر التصميم الكامل لمتجرك — يغير الصفحة الرئيسية وشبكة المنتجات وصفحات المنتجات كلياً' : 'Pick a complete storefront design — changes home page, product grid, and product pages'}</p>
+                <a href="/demo/themes" target="_blank" rel="noopener noreferrer" className="text-xs text-[#3b82f6] hover:underline inline-block mb-5">{lang === 'ar' ? 'معاينة جميع القوالب ↗' : 'Preview all themes ↗'}</a>
+                {/* No theme option */}
+                <div className="flex items-center gap-3 mb-4 p-3 rounded-lg border border-dashed border-[#2a2d35] cursor-pointer hover:border-[#3b82f6] transition-colors" onClick={() => setStoreTheme(null)}>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${!storeTheme ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-[#3a3d4a]'}`}>
+                    {!storeTheme && <div className="w-2 h-2 rounded-full bg-white" />}
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-medium">{lang === 'ar' ? 'بدون قالب متجر' : 'No store theme'}</p>
+                    <p className="text-[#8b8fa8] text-xs">{lang === 'ar' ? 'الصفحة الرئيسية الافتراضية (داكن وأنيق)' : 'Default dark home page'}</p>
+                  </div>
+                </div>
+                {/* 11 theme chips */}
+                <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
+                  {STORE_THEMES.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setStoreTheme(t.id)}
+                      className="flex-shrink-0 flex flex-col items-center gap-1.5 p-0 border-0 bg-transparent cursor-pointer"
+                      style={{ width: 88 }}
+                    >
+                      {/* Mini preview chip */}
+                      <div style={{
+                        width: 88, height: 58, borderRadius: 8, overflow: 'hidden',
+                        border: storeTheme === t.id ? '2.5px solid #3b82f6' : '2px solid #1c1f28',
+                        background: t.pageBg,
+                        boxShadow: storeTheme === t.id ? '0 0 0 3px rgba(59,130,246,0.25)' : '0 2px 8px rgba(0,0,0,0.4)',
+                        position: 'relative',
+                        transition: 'all 0.15s',
+                      }}>
+                        {/* Nav bar */}
+                        <div style={{ height: 11, background: t.dark ? '#000' : '#fff', borderBottom: `1px solid ${t.divider}`, display: 'flex', alignItems: 'center', padding: '0 5px', gap: 3 }}>
+                          <div style={{ width: 16, height: 3, borderRadius: 2, background: t.accent }} />
+                          <div style={{ flex: 1 }} />
+                          <div style={{ width: 8, height: 3, borderRadius: 2, background: t.muted, opacity: 0.4 }} />
+                        </div>
+                        {/* Hero strip */}
+                        <div style={{ padding: '4px 5px', background: t.heroGradient, height: 24, display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ fontSize: 11 }}>{t.emoji}</span>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <div style={{ width: '56%', height: 3, borderRadius: 2, background: t.heroTextColor, opacity: 0.7 }} />
+                            <div style={{ width: '36%', height: 2, borderRadius: 2, background: t.muted, opacity: 0.5 }} />
+                          </div>
+                        </div>
+                        {/* Card row */}
+                        <div style={{ display: 'flex', gap: 3, padding: '3px 4px' }}>
+                          {[0, 1, 2].map(i => (
+                            <div key={i} style={{ flex: 1, height: 12, borderRadius: 3, background: t.cardBg, border: `1px solid ${t.cardBorder || t.border}` }} />
+                          ))}
+                        </div>
+                        {/* Accent bottom bar */}
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2.5, background: t.accent }} />
+                        {/* Selected check */}
+                        {storeTheme === t.id && (
+                          <div style={{ position: 'absolute', top: 4, right: 4, width: 14, height: 14, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff', fontWeight: 700 }}>✓</div>
+                        )}
+                      </div>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: storeTheme === t.id ? '#3b82f6' : '#d1d5db', margin: 0, textAlign: 'center' }}>{t.nameAr}</p>
+                    </button>
+                  ))}
+                </div>
+                {storeTheme && (
+                  <p className="text-[#8b8fa8] text-xs mt-3">
+                    {lang === 'ar' ? `القالب المختار: ${STORE_THEMES.find(t => t.id === storeTheme)?.nameAr} · ${STORE_THEMES.find(t => t.id === storeTheme)?.nicheAr}` : `Selected: ${storeTheme}`}
+                  </p>
+                )}
+              </div>
+
+              {/* Product Page Theme Picker */}
               <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-6">
                 <h3 className="text-white font-semibold mb-1">{lang === 'ar' ? '🎨 ثيم صفحة المنتج' : '🎨 Landing Page Theme'}</h3>
                 <p className="text-[#8b8fa8] text-sm mb-5">{lang === 'ar' ? 'اختر الثيم المناسب لنوع منتجاتك — سيطبق على جميع صفحات منتجاتك' : 'Choose the theme that fits your products — applies to all your landing pages'}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[
+                    {
+                      id: 'store_theme',
+                      name: { ar: 'يتبع قالب المتجر', en: 'Follow Store Theme' },
+                      desc: { ar: 'صفحة المنتج تتبع تصميم قالب المتجر المختار أعلاه', en: 'Product page follows the store theme selected above' },
+                      emoji: '🔗',
+                      preview: ['#3b82f6', '#1a1d24', '#ffffff'],
+                    },
                     {
                       id: 'classic',
                       name: { ar: 'Classic', en: 'Classic' },
@@ -436,21 +518,28 @@ export default function SettingsPage() {
                         <div className="absolute top-2 left-2 z-10 w-5 h-5 rounded-full bg-[#3b82f6] flex items-center justify-center text-white text-xs">✓</div>
                       )}
 
-                      <div style={{ width: '100%', height: 200, overflow: 'hidden', position: 'relative', background: '#fff', borderRadius: '10px 10px 0 0' }}>
-                        <iframe
-                          src={`/theme-preview/${t.id}`}
-                          title={`${t.name[lang as 'ar' | 'en']} preview`}
-                          style={{
-                            width: '390px',
-                            height: '844px',
-                            border: 'none',
-                            transform: 'scale(0.42)',
-                            transformOrigin: 'top right',
-                            pointerEvents: 'none',
-                          }}
-                          scrolling="no"
-                          loading="lazy"
-                        />
+                      <div style={{ width: '100%', height: 200, overflow: 'hidden', position: 'relative', background: t.id === 'store_theme' ? '#111318' : '#fff', borderRadius: '10px 10px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {t.id === 'store_theme' ? (
+                          <div style={{ textAlign: 'center', padding: 16 }}>
+                            <div style={{ fontSize: 36, marginBottom: 10 }}>🔗</div>
+                            <p style={{ color: '#8b8fa8', fontSize: 12, margin: 0, lineHeight: 1.5 }}>{lang === 'ar' ? 'سيتبع تصميم قالب المتجر\nالمختار أعلاه' : 'Follows store theme\nselected above'}</p>
+                          </div>
+                        ) : (
+                          <iframe
+                            src={`/theme-preview/${t.id}`}
+                            title={`${t.name[lang as 'ar' | 'en']} preview`}
+                            style={{
+                              width: '390px',
+                              height: '844px',
+                              border: 'none',
+                              transform: 'scale(0.42)',
+                              transformOrigin: 'top right',
+                              pointerEvents: 'none',
+                            }}
+                            scrolling="no"
+                            loading="lazy"
+                          />
+                        )}
                       </div>
 
                       <div className="p-4">
@@ -459,15 +548,17 @@ export default function SettingsPage() {
                         </div>
                         <div className="text-[#8b8fa8] text-xs mb-3">{t.desc[lang as 'ar' | 'en']}</div>
 
-                        <a
-                          href={`/theme-preview/${t.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          className="text-xs text-[#3b82f6] hover:underline"
-                        >
-                          {lang === 'ar' ? 'معاينة كاملة ↗' : 'Full preview ↗'}
-                        </a>
+                        {t.id !== 'store_theme' && (
+                          <a
+                            href={`/theme-preview/${t.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="text-xs text-[#3b82f6] hover:underline"
+                          >
+                            {lang === 'ar' ? 'معاينة كاملة ↗' : 'Full preview ↗'}
+                          </a>
+                        )}
                       </div>
                     </button>
                   ))}

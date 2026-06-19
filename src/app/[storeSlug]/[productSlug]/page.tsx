@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation'
 import FashionTheme from '@/components/landing/FashionTheme'
 import BeautyTheme from '@/components/landing/BeautyTheme'
 import HomeTheme from '@/components/landing/HomeTheme'
+import ThemedProductPage from '@/components/store/ThemedProductPage'
 import { getOrderAttributionPayload, initAttributionFromLanding } from '@/lib/analytics/attribution'
 
 const MARKET: Record<string, any> = {
@@ -632,6 +633,24 @@ export default function LandingPage() {
     })
 
     return { reviews, reviewCount }
+  }
+
+  // Store theme product page — merchant chose "يتبع قالب المتجر"
+  if (store?.theme === 'store_theme' && store?.store_theme) {
+    return (
+      <ThemedProductPage
+        store={store}
+        product={product}
+        landingPage={landingPage}
+        sections={sections}
+        images={images}
+        shippingCost={shippingCost}
+        submitting={submitting}
+        formError={formError}
+        onBack={() => window.history.back()}
+        onSubmit={handleSubmit}
+      />
+    )
   }
 
   // Theme routing

@@ -96,6 +96,20 @@ export default function SettingsPage() {
   const [showNote, setShowNote] = useState(false)
   const [noteRequired, setNoteRequired] = useState(false)
 
+  // Customizations
+  const [custWhatsapp, setCustWhatsapp] = useState('')
+  const [custAnnText, setCustAnnText] = useState('')
+  const [custAnnBg, setCustAnnBg] = useState('#dc2626')
+  const [custTagline, setCustTagline] = useState('')
+  const [custInstagram, setCustInstagram] = useState('')
+  const [custTiktok, setCustTiktok] = useState('')
+  const [custSnapchat, setCustSnapchat] = useState('')
+  const [custTwitter, setCustTwitter] = useState('')
+  const [custGuarantees, setCustGuarantees] = useState<string[]>([])
+  const [custFaq, setCustFaq] = useState<Array<{ q: string; a: string }>>([])
+  const [custVideo, setCustVideo] = useState('')
+  const [custCtaLabel, setCustCtaLabel] = useState('')
+
   // Merchant fields
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
@@ -148,6 +162,20 @@ export default function SettingsPage() {
       setShowQuantity(store.show_quantity || false)
       setShowNote(store.show_note || false)
       setNoteRequired(store.note_required || false)
+
+      const c = store.customizations || {}
+      setCustWhatsapp(c.whatsapp || '')
+      setCustAnnText(c.announcement?.text || '')
+      setCustAnnBg(c.announcement?.bg || '#dc2626')
+      setCustTagline(c.tagline || '')
+      setCustInstagram(c.social?.instagram || '')
+      setCustTiktok(c.social?.tiktok || '')
+      setCustSnapchat(c.social?.snapchat || '')
+      setCustTwitter(c.social?.twitter || '')
+      setCustGuarantees(c.guarantees || [])
+      setCustFaq(c.faq || [])
+      setCustVideo(c.video || '')
+      setCustCtaLabel(c.ctaLabel || '')
       setLoading(false)
     }
     init()
@@ -205,6 +233,23 @@ export default function SettingsPage() {
       snapchat_pixel_id: snapchatPixelId.trim() || null,
       google_ads_conversion_id: googleAdsConversionId.trim() || null,
       google_ads_conversion_label: googleAdsConversionLabel.trim() || null,
+      customizations: {
+        ...(custWhatsapp.trim() && { whatsapp: custWhatsapp.trim() }),
+        ...(custAnnText.trim() && { announcement: { text: custAnnText.trim(), bg: custAnnBg } }),
+        ...(custTagline.trim() && { tagline: custTagline.trim() }),
+        ...((custInstagram || custTiktok || custSnapchat || custTwitter) && {
+          social: {
+            ...(custInstagram.trim() && { instagram: custInstagram.trim() }),
+            ...(custTiktok.trim() && { tiktok: custTiktok.trim() }),
+            ...(custSnapchat.trim() && { snapchat: custSnapchat.trim() }),
+            ...(custTwitter.trim() && { twitter: custTwitter.trim() }),
+          }
+        }),
+        ...(custGuarantees.length > 0 && { guarantees: custGuarantees }),
+        ...(custFaq.filter(f => f.q && f.a).length > 0 && { faq: custFaq.filter(f => f.q && f.a) }),
+        ...(custVideo.trim() && { video: custVideo.trim() }),
+        ...(custCtaLabel.trim() && { ctaLabel: custCtaLabel.trim() }),
+      },
       updated_at: new Date().toISOString(),
     }).eq('merchant_id', user.id)
 
@@ -291,6 +336,7 @@ export default function SettingsPage() {
             { id: 'checkout', label: { ar: 'نموذج الطلب', en: 'Order Form' }, icon: '🛒' },
             { id: 'shipping', label: tr.shipping },
             { id: 'domain', label: tr.customDomain },
+            { id: 'customize', label: lang === 'ar' ? '✨ تخصيص' : '✨ Customize' },
             { id: 'account', label: tr.account },
           ].map(tab => (
             <button
@@ -938,6 +984,217 @@ export default function SettingsPage() {
                 onCopy={copyStoreUrl}
               />
             </Section>
+          )}
+
+          {activeTab === 'customize' && (
+            <div className="space-y-5">
+
+              {/* WhatsApp */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#25d366]/20 flex items-center justify-center text-lg">💬</div>
+                  <div>
+                    <h3 className="text-white font-semibold text-sm">{lang === 'ar' ? 'زر واتساب' : 'WhatsApp Button'}</h3>
+                    <p className="text-[#8b8fa8] text-xs">{lang === 'ar' ? 'يظهر زر تواصل ثابت في الزاوية' : 'Floating contact button in corner'}</p>
+                  </div>
+                </div>
+                <input
+                  value={custWhatsapp}
+                  onChange={e => setCustWhatsapp(e.target.value)}
+                  placeholder={lang === 'ar' ? 'رقم الهاتف مع كود الدولة — مثال: 966501234567' : 'Phone with country code — e.g. 966501234567'}
+                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#25d366] transition-colors"
+                />
+                {custWhatsapp && (
+                  <p className="text-xs text-[#25d366]">✓ {lang === 'ar' ? 'الزر سيظهر على متجرك' : 'Button will appear on your store'}</p>
+                )}
+              </div>
+
+              {/* Announcement Bar */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#f59e0b]/20 flex items-center justify-center text-lg">📢</div>
+                  <div>
+                    <h3 className="text-white font-semibold text-sm">{lang === 'ar' ? 'شريط الإعلانات' : 'Announcement Bar'}</h3>
+                    <p className="text-[#8b8fa8] text-xs">{lang === 'ar' ? 'شريط ملون في أعلى المتجر لإعلانات العروض' : 'Colored strip at the top for promotions'}</p>
+                  </div>
+                </div>
+                <input
+                  value={custAnnText}
+                  onChange={e => setCustAnnText(e.target.value)}
+                  placeholder={lang === 'ar' ? 'مثال: 🚚 شحن مجاني على جميع الطلبات اليوم فقط!' : 'e.g. 🚚 Free shipping on all orders today only!'}
+                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors"
+                />
+                <div className="flex items-center gap-3">
+                  <label className="text-xs text-[#8b8fa8]">{lang === 'ar' ? 'لون الخلفية:' : 'Background:'}</label>
+                  <input type="color" value={custAnnBg} onChange={e => setCustAnnBg(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0.5 bg-transparent" />
+                  <div style={{ background: custAnnBg }} className="flex-1 rounded py-1.5 px-3 text-white text-xs font-medium text-center truncate">
+                    {custAnnText || (lang === 'ar' ? 'معاينة النص هنا...' : 'Preview text here...')}
+                  </div>
+                </div>
+              </div>
+
+              {/* Store Tagline */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#8b5cf6]/20 flex items-center justify-center text-lg">✍️</div>
+                  <div>
+                    <h3 className="text-white font-semibold text-sm">{lang === 'ar' ? 'وصف المتجر (Tagline)' : 'Store Tagline'}</h3>
+                    <p className="text-[#8b8fa8] text-xs">{lang === 'ar' ? 'يظهر تحت اسم متجرك في قسم الهيرو' : 'Shown under your store name in the hero section'}</p>
+                  </div>
+                </div>
+                <input
+                  value={custTagline}
+                  onChange={e => setCustTagline(e.target.value)}
+                  placeholder={lang === 'ar' ? 'مثال: اكتشف منتجات مميزة بأفضل الأسعار' : 'e.g. Discover premium products at the best prices'}
+                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#8b5cf6] transition-colors"
+                />
+              </div>
+
+              {/* Social Links */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-9 h-9 rounded-xl bg-[#ec4899]/20 flex items-center justify-center text-lg">🔗</div>
+                  <div>
+                    <h3 className="text-white font-semibold text-sm">{lang === 'ar' ? 'حسابات التواصل الاجتماعي' : 'Social Media Links'}</h3>
+                    <p className="text-[#8b8fa8] text-xs">{lang === 'ar' ? 'تظهر في فوتر المتجر' : 'Shown in the store footer'}</p>
+                  </div>
+                </div>
+                {[
+                  { icon: '📸', label: 'Instagram', val: custInstagram, set: setCustInstagram, ph: 'handle (بدون @)' },
+                  { icon: '🎵', label: 'TikTok', val: custTiktok, set: setCustTiktok, ph: 'handle (بدون @)' },
+                  { icon: '👻', label: 'Snapchat', val: custSnapchat, set: setCustSnapchat, ph: 'username' },
+                  { icon: '𝕏', label: 'Twitter / X', val: custTwitter, set: setCustTwitter, ph: 'handle (بدون @)' },
+                ].map(s => (
+                  <div key={s.label} className="flex items-center gap-2">
+                    <span className="w-7 text-center text-base flex-shrink-0">{s.icon}</span>
+                    <span className="text-sm text-[#8b8fa8] w-20 flex-shrink-0">{s.label}</span>
+                    <input
+                      value={s.val}
+                      onChange={e => s.set(e.target.value)}
+                      placeholder={s.ph}
+                      className="flex-1 bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Guarantee Badges */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-9 h-9 rounded-xl bg-[#10b981]/20 flex items-center justify-center text-lg">🛡️</div>
+                  <div>
+                    <h3 className="text-white font-semibold text-sm">{lang === 'ar' ? 'شارات الضمان' : 'Guarantee Badges'}</h3>
+                    <p className="text-[#8b8fa8] text-xs">{lang === 'ar' ? 'تظهر شريطاً من الثقة في المتجر وصفحات المنتجات' : 'Trust strip shown on store and product pages'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'shipping', label: '🚚 شحن مجاني' },
+                    { id: 'return', label: '↩️ إرجاع مجاني' },
+                    { id: 'original', label: '✅ منتج أصلي' },
+                    { id: 'cod', label: '💵 الدفع عند الاستلام' },
+                    { id: 'warranty', label: '🛡️ ضمان سنة' },
+                  ].map(b => {
+                    const active = custGuarantees.includes(b.id)
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => setCustGuarantees(prev => active ? prev.filter(x => x !== b.id) : [...prev, b.id])}
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-colors text-right ${active ? 'border-[#10b981] bg-[#14321f] text-[#4ade80]' : 'border-[#2a2d35] text-[#8b8fa8] hover:border-[#10b981]'}`}
+                      >
+                        <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${active ? 'bg-[#10b981] border-[#10b981]' : 'border-[#4a4e60]'}`}>
+                          {active && <span className="text-white text-xs">✓</span>}
+                        </div>
+                        {b.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* FAQ */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5 space-y-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#3b82f6]/20 flex items-center justify-center text-lg">❓</div>
+                    <div>
+                      <h3 className="text-white font-semibold text-sm">{lang === 'ar' ? 'أسئلة شائعة (FAQ)' : 'FAQ Section'}</h3>
+                      <p className="text-[#8b8fa8] text-xs">{lang === 'ar' ? 'تظهر في صفحات المنتجات — حتى 5 أسئلة' : 'Shown on product pages — up to 5 Q&As'}</p>
+                    </div>
+                  </div>
+                  {custFaq.length < 5 && (
+                    <button
+                      onClick={() => setCustFaq(prev => [...prev, { q: '', a: '' }])}
+                      className="text-xs bg-[#3b82f6] text-white px-3 py-1.5 rounded-lg hover:bg-[#2563eb] transition-colors flex-shrink-0"
+                    >
+                      + {lang === 'ar' ? 'إضافة سؤال' : 'Add Q&A'}
+                    </button>
+                  )}
+                </div>
+                {custFaq.length === 0 && (
+                  <p className="text-[#4a4e60] text-xs text-center py-3">{lang === 'ar' ? 'لا توجد أسئلة بعد. اضغط + لإضافة سؤال.' : 'No questions yet. Click + to add.'}</p>
+                )}
+                {custFaq.map((item, i) => (
+                  <div key={i} className="space-y-2 pb-3 border-b border-[#2a2d35] last:border-0 last:pb-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[#4a4e60] w-4 flex-shrink-0">Q{i + 1}</span>
+                      <input
+                        value={item.q}
+                        onChange={e => setCustFaq(prev => prev.map((f, j) => j === i ? { ...f, q: e.target.value } : f))}
+                        placeholder={lang === 'ar' ? 'السؤال' : 'Question'}
+                        className="flex-1 bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors"
+                      />
+                      <button onClick={() => setCustFaq(prev => prev.filter((_, j) => j !== i))} className="text-[#f87171] text-sm hover:text-red-400 flex-shrink-0">✕</button>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-[#4a4e60] w-4 flex-shrink-0 mt-2">A</span>
+                      <textarea
+                        value={item.a}
+                        onChange={e => setCustFaq(prev => prev.map((f, j) => j === i ? { ...f, a: e.target.value } : f))}
+                        placeholder={lang === 'ar' ? 'الجواب' : 'Answer'}
+                        rows={2}
+                        className="flex-1 bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors resize-none"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Video Section */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#ef4444]/20 flex items-center justify-center text-lg">▶️</div>
+                  <div>
+                    <h3 className="text-white font-semibold text-sm">{lang === 'ar' ? 'فيديو المنتج' : 'Product Video'}</h3>
+                    <p className="text-[#8b8fa8] text-xs">{lang === 'ar' ? 'يُضاف قسم فيديو في صفحات المنتجات — YouTube أو TikTok' : 'Video section on product pages — YouTube or TikTok'}</p>
+                  </div>
+                </div>
+                <input
+                  value={custVideo}
+                  onChange={e => setCustVideo(e.target.value)}
+                  placeholder="https://youtube.com/watch?v=... أو https://tiktok.com/@.../video/..."
+                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#ef4444] transition-colors font-mono"
+                />
+              </div>
+
+              {/* Custom CTA Label */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#f59e0b]/20 flex items-center justify-center text-lg">🛒</div>
+                  <div>
+                    <h3 className="text-white font-semibold text-sm">{lang === 'ar' ? 'نص زر الطلب' : 'Order Button Label'}</h3>
+                    <p className="text-[#8b8fa8] text-xs">{lang === 'ar' ? 'خصّص نص زر الطلب في صفحات المنتجات' : 'Customize the order button text on product pages'}</p>
+                  </div>
+                </div>
+                <input
+                  value={custCtaLabel}
+                  onChange={e => setCustCtaLabel(e.target.value)}
+                  placeholder={lang === 'ar' ? 'الافتراضي: اطلب الآن — مثال: احجز الآن' : 'Default: Order Now — e.g. Book Now'}
+                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#f59e0b] transition-colors"
+                />
+              </div>
+
+            </div>
           )}
 
           {activeTab === 'account' && (

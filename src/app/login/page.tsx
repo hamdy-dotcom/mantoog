@@ -10,7 +10,7 @@ import { recordActivity } from '@/lib/auth/client'
 
 type View = 'login' | 'forgot' | 'otp'
 
-/* ─── inline SVG icons ───────────────────────────────────────────────────── */
+/* ─── icons ──────────────────────────────────────────────────────────────── */
 const MailIcon = () => (
   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/>
@@ -55,11 +55,21 @@ const CheckIcon = () => (
   </svg>
 )
 
-/* ─── shared input styles ────────────────────────────────────────────────── */
-const inputCls = 'w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-3.5 text-sm text-white placeholder-[#2a3a4a] focus:outline-none focus:border-[#3b82f6]/60 focus:bg-white/[0.07] transition-all duration-200'
-const labelCls = 'block text-[11px] font-semibold text-[#3a5470] uppercase tracking-widest mb-2'
+/* ─── shared styles ──────────────────────────────────────────────────────── */
+const inputCls = 'w-full bg-white/[0.06] border border-white/[0.1] rounded-xl px-4 py-3.5 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[#3b82f6]/70 focus:bg-white/[0.08] transition-all duration-200'
+const labelCls = 'block text-[11px] font-semibold text-[#6b7a99] uppercase tracking-widest mb-2'
 
-/* ─── main component ─────────────────────────────────────────────────────── */
+/* ─── aurora styles (same as homepage) ───────────────────────────────────── */
+const AURORA_CSS = `
+  .aurora{position:absolute;border-radius:9999px;filter:blur(110px);opacity:.28}
+  .aurora-1{width:40vw;height:40vw;left:-8vw;top:-6vw;background:radial-gradient(circle,#3b82f6,transparent 70%);animation:drift1 22s ease-in-out infinite}
+  .aurora-2{width:35vw;height:35vw;right:-6vw;top:18vh;background:radial-gradient(circle,#7c5cff,transparent 70%);animation:drift2 26s ease-in-out infinite}
+  .aurora-3{width:32vw;height:32vw;left:25vw;top:55vh;background:radial-gradient(circle,#0ea5e9,transparent 70%);opacity:.15;animation:drift1 30s ease-in-out infinite}
+  .grid-overlay{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,black,transparent 75%)}
+  @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(60px,-40px) scale(1.1)}66%{transform:translate(-30px,60px) scale(.95)}}
+  @keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-50px,50px) scale(1.05)}66%{transform:translate(40px,-30px) scale(.98)}}
+`
+
 export default function LoginPage() {
   const { lang, dir, setLang } = useLang()
   const tr = t[lang]
@@ -110,129 +120,64 @@ export default function LoginPage() {
   }
 
   return (
-    <div dir={dir} className="min-h-screen flex relative overflow-hidden"
-      style={{ background: 'linear-gradient(160deg, #020913 0%, #06142a 45%, #050c1c 100%)' }}>
+    <div dir={dir} className="min-h-screen bg-[#0b0d12] text-white overflow-x-hidden">
+      <style>{AURORA_CSS}</style>
 
-      {/* ── page-wide background effects ── */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.035]"
-        style={{ backgroundImage: 'radial-gradient(circle, #fff 1.5px, transparent 1.5px)', backgroundSize: '30px 30px' }} />
-
-      {/* glow orbs — brand side (right in RTL) */}
-      <div className="absolute -top-40 -end-20 w-[700px] h-[700px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 65%)', filter: 'blur(10px)' }} />
-      {/* glow orb — form side (left in RTL) */}
-      <div className="absolute top-1/2 -start-20 w-[500px] h-[500px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.13) 0%, transparent 65%)', filter: 'blur(10px)' }} />
-      {/* bottom accent */}
-      <div className="absolute -bottom-20 start-1/3 w-[400px] h-[400px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 65%)', filter: 'blur(10px)' }} />
-
-      {/* ── brand content (desktop, appears on RIGHT in RTL) ── */}
-      <div className="hidden lg:flex flex-col w-[420px] xl:w-[480px] shrink-0 relative z-10 px-10 xl:px-14 py-12">
-        {/* logo */}
-        <div className="flex items-center gap-3 mb-16">
-          <div className="relative w-10 h-10 shrink-0">
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#3b82f6] to-[#7c5cff] blur-lg opacity-60" />
-            <div className="relative w-10 h-10 rounded-2xl bg-gradient-to-br from-[#3b82f6] to-[#7c5cff] flex items-center justify-center">
-              <img src="/logo.svg" alt="Mantoog" className="w-6 h-6 object-contain" />
-            </div>
-          </div>
-          <span className="text-white text-xl font-bold tracking-tight">منتوج</span>
-        </div>
-
-        {/* headline */}
-        <div className="flex-1">
-          <h1 className="text-[2.6rem] font-black text-white leading-[1.15] mb-5 tracking-tight">
-            {ar ? (
-              <>حوّل أي رابط<br />
-                <span style={{ background: 'linear-gradient(90deg,#60a5fa,#a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  لمتجر يبيع
-                </span><br />في 60 ثانية</>
-            ) : (
-              <>Turn any link<br />
-                <span style={{ background: 'linear-gradient(90deg,#60a5fa,#a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  into a store
-                </span><br />in 60 seconds</>
-            )}
-          </h1>
-          <p className="text-[#3a5470] text-[15px] leading-relaxed mb-10">
-            {ar ? 'إدارة طلباتك، إعلاناتك، ومتجرك من مكان واحد' : 'Manage orders, ads, and your store in one place'}
-          </p>
-
-          {/* trust signals */}
-          <div className="space-y-4 mb-12">
-            {[
-              { icon: '🆓', ar: '١٠٠ طلب مجاني — بدون بطاقة ائتمان', en: '100 free orders — no credit card' },
-              { icon: '⚡', ar: 'متجرك جاهز في أقل من دقيقة', en: 'Your store live in under a minute' },
-              { icon: '📊', ar: 'تقارير + إعلانات TikTok مدمجة', en: 'Reports + TikTok ads built in' },
-            ].map(sig => (
-              <div key={sig.ar} className="flex items-center gap-3.5">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  {sig.icon}
-                </div>
-                <span className="text-[#4a6a88] text-[13.5px]">{ar ? sig.ar : sig.en}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* stats — single unified card with dividers */}
-        <div className="rounded-2xl px-5 py-4 flex items-center"
-          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          {([
-            { val: '٠٪',    label: ar ? 'عمولة على مبيعاتك' : 'Commission',  color: '#60a5fa' },
-            { val: '٩٩.٩٪', label: ar ? 'وقت التشغيل'       : 'Uptime',      color: '#4ade80' },
-            { val: '60ث',   label: ar ? 'للإطلاق'            : 'To launch',   color: '#c084fc' },
-          ] as const).map((s, i) => (
-            <div key={s.label} className="flex-1 flex items-center">
-              {i > 0 && <div className="w-px self-stretch mx-3 shrink-0" style={{ background: 'rgba(255,255,255,0.07)' }} />}
-              <div className="flex-1 text-center">
-                <div className="text-[19px] font-black mb-0.5" style={{ color: s.color }}>{s.val}</div>
-                <div className="text-[10px] text-[#2a4060] leading-tight">{s.label}</div>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* ── aurora background (identical to homepage) ── */}
+      <div className="fixed inset-0 pointer-events-none -z-0" aria-hidden>
+        <div className="aurora aurora-1" />
+        <div className="aurora aurora-2" />
+        <div className="aurora aurora-3" />
+        <div className="grid-overlay" />
       </div>
 
-      {/* ── subtle vertical divider (desktop only) ── */}
-      <div className="hidden lg:block w-px self-stretch my-14 shrink-0"
-        style={{ background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.07) 25%, rgba(255,255,255,0.07) 75%, transparent)' }} />
+      {/* ── nav (identical to homepage) ── */}
+      <header className="fixed top-0 inset-x-0 z-50 px-4 pt-4">
+        <nav className="max-w-6xl mx-auto flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#0b0d12]/70 backdrop-blur-xl px-4 sm:px-6 py-3 shadow-lg shadow-black/20">
+          <a href="/" className="flex items-center gap-2">
+            <img src="/logo.svg" alt="Mantoog" className="h-9 w-9 object-contain" />
+            <span className="font-extrabold text-lg tracking-tight">Mantoog</span>
+          </a>
+          <div className="hidden md:flex items-center gap-7 text-sm text-[#9aa0b4]">
+            <a href="/#features" className="hover:text-white transition-colors">{ar ? 'المميزات' : 'Features'}</a>
+            <a href="/#how" className="hover:text-white transition-colors">{ar ? 'كيف يعمل' : 'How it works'}</a>
+            <a href="/#pricing" className="hover:text-white transition-colors">{ar ? 'الأسعار' : 'Pricing'}</a>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+              className="cursor-pointer text-xs font-medium border border-white/10 hover:border-white/25 text-[#9aa0b4] hover:text-white px-3 py-1.5 rounded-lg transition-colors">
+              {ar ? 'EN' : 'ع'}
+            </button>
+            <Link href="/login" className="hidden sm:inline text-sm text-[#9aa0b4] hover:text-white transition-colors px-3 py-1.5 font-medium">
+              {ar ? 'تسجيل الدخول' : 'Sign in'}
+            </Link>
+            <Link href="/signup" className="text-sm font-semibold bg-white text-[#0b0d12] hover:bg-white/90 px-4 py-2 rounded-xl transition-colors">
+              {ar ? 'ابدأ مجاناً' : 'Start free'}
+            </Link>
+          </div>
+        </nav>
+      </header>
 
-      {/* ── form area (appears on LEFT in RTL) ── */}
-      <div className="flex-1 flex flex-col relative z-10 px-6 sm:px-10">
+      {/* ── form centered below nav ── */}
+      <div className="relative z-10 flex items-center justify-center min-h-screen px-5 pt-24 pb-12">
+        <div className="w-full max-w-[420px]">
 
-        {/* centered form */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="w-full max-w-[400px]">
-
-            {/* mobile logo */}
-            <div className="lg:hidden flex items-center gap-3 mb-10">
-              <div className="relative w-12 h-12 shrink-0">
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#3b82f6] to-[#7c5cff] blur-xl opacity-50" />
-                <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-[#3b82f6] to-[#7c5cff] flex items-center justify-center shadow-xl shadow-blue-600/30">
-                  <img src="/logo.svg" alt="Mantoog" className="w-7 h-7 object-contain" />
-                </div>
+          {/* ── LOGIN VIEW ── */}
+          {view === 'login' && (
+            <div>
+              <div className="mb-8">
+                <h2 className="text-[2rem] font-black text-white mb-2 tracking-tight">
+                  {ar ? 'أهلاً بعودتك 👋' : 'Welcome back 👋'}
+                </h2>
+                <p className="text-[#9aa0b4] text-sm">{tr.signIn}</p>
               </div>
-              <span className="text-white text-xl font-black tracking-tight">منتوج</span>
-            </div>
 
-            {/* ── LOGIN VIEW ── */}
-            {view === 'login' && (
-              <div>
-                <div className="mb-8">
-                  <h2 className="text-[1.9rem] font-black text-white mb-2 tracking-tight">
-                    {ar ? 'أهلاً بعودتك 👋' : 'Welcome back 👋'}
-                  </h2>
-                  <p className="text-[#3a5470] text-sm">{tr.signIn}</p>
-                </div>
-
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm p-7 space-y-5">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div>
                     <label className={labelCls}>{tr.emailLabel}</label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 start-3.5 flex items-center text-[#2a3a4a] pointer-events-none"><MailIcon /></span>
+                      <span className="absolute inset-y-0 start-3.5 flex items-center text-[#4a5568] pointer-events-none"><MailIcon /></span>
                       <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
                         placeholder="you@example.com" className={inputCls + ' ps-10'} />
                     </div>
@@ -248,11 +193,11 @@ export default function LoginPage() {
                       </button>
                     </div>
                     <div className="relative">
-                      <span className="absolute inset-y-0 start-3.5 flex items-center text-[#2a3a4a] pointer-events-none"><LockIcon /></span>
+                      <span className="absolute inset-y-0 start-3.5 flex items-center text-[#4a5568] pointer-events-none"><LockIcon /></span>
                       <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required
                         placeholder="••••••••" className={inputCls + ' ps-10 pe-11'} />
                       <button type="button" onClick={() => setShowPw(!showPw)}
-                        className="absolute inset-y-0 end-0 px-3.5 flex items-center text-[#2a3a4a] hover:text-[#64748b] transition-colors">
+                        className="absolute inset-y-0 end-0 px-3.5 flex items-center text-[#4a5568] hover:text-[#9aa0b4] transition-colors">
                         {showPw ? <EyeOffIcon /> : <EyeIcon />}
                       </button>
                     </div>
@@ -267,47 +212,49 @@ export default function LoginPage() {
                   )}
 
                   <button type="submit" disabled={loading}
-                    className="relative w-full py-3.5 rounded-xl font-bold text-sm text-white overflow-hidden transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-                    style={{ background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', boxShadow: '0 4px 28px rgba(37,99,235,0.35)' }}>
+                    className="relative w-full py-3.5 rounded-xl font-bold text-sm text-white overflow-hidden transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ background: 'linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)', boxShadow: '0 4px 24px rgba(37,99,235,0.35)' }}>
                     <span className={loading ? 'opacity-0' : ''}>{tr.signinBtn}</span>
                     {loading && <span className="absolute inset-0 flex items-center justify-center"><SpinnerIcon /></span>}
                   </button>
                 </form>
+              </div>
 
-                <p className="text-sm text-[#2a3a4a] mt-7">
-                  {tr.noAccount}{' '}
-                  <Link href="/signup" className="text-[#3b82f6] hover:text-[#60a5fa] font-semibold transition-colors">
-                    {tr.signupBtn}
-                  </Link>
+              <p className="text-sm text-[#6b7a99] mt-6 text-center">
+                {tr.noAccount}{' '}
+                <Link href="/signup" className="text-[#3b82f6] hover:text-[#60a5fa] font-semibold transition-colors">
+                  {tr.signupBtn}
+                </Link>
+              </p>
+            </div>
+          )}
+
+          {/* ── FORGOT VIEW ── */}
+          {view === 'forgot' && (
+            <div>
+              <button onClick={() => { setView('login'); setResetError('') }}
+                className="flex items-center gap-2 text-[#6b7a99] hover:text-white text-sm mb-7 transition-colors group">
+                <span className="group-hover:-translate-x-0.5 transition-transform"><BackIcon flip={ar} /></span>
+                {ar ? 'العودة لتسجيل الدخول' : 'Back to sign in'}
+              </button>
+
+              <div className="mb-8">
+                <div className="w-12 h-12 rounded-2xl mb-5 flex items-center justify-center text-2xl"
+                  style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>🔑</div>
+                <h2 className="text-[2rem] font-black text-white mb-2 tracking-tight">
+                  {ar ? 'استعادة كلمة المرور' : 'Reset your password'}
+                </h2>
+                <p className="text-[#9aa0b4] text-sm">
+                  {ar ? 'أدخل بريدك وسنرسل لك كود الاستعادة' : "Enter your email and we'll send a reset code"}
                 </p>
               </div>
-            )}
 
-            {/* ── FORGOT VIEW ── */}
-            {view === 'forgot' && (
-              <div>
-                <button onClick={() => { setView('login'); setResetError('') }}
-                  className="flex items-center gap-2 text-[#3a5470] hover:text-white text-sm mb-7 transition-colors group">
-                  <span className="group-hover:-translate-x-0.5 transition-transform"><BackIcon flip={ar} /></span>
-                  {ar ? 'العودة لتسجيل الدخول' : 'Back to sign in'}
-                </button>
-
-                <div className="mb-8">
-                  <div className="w-12 h-12 rounded-2xl mb-5 flex items-center justify-center text-2xl"
-                    style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>🔑</div>
-                  <h2 className="text-[1.9rem] font-black text-white mb-2 tracking-tight">
-                    {ar ? 'استعادة كلمة المرور' : 'Reset your password'}
-                  </h2>
-                  <p className="text-[#3a5470] text-sm">
-                    {ar ? 'أدخل بريدك وسنرسل لك كود الاستعادة' : "Enter your email and we'll send a reset code"}
-                  </p>
-                </div>
-
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm p-7">
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div>
                     <label className={labelCls}>{tr.emailLabel}</label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 start-3.5 flex items-center text-[#2a3a4a] pointer-events-none"><MailIcon /></span>
+                      <span className="absolute inset-y-0 start-3.5 flex items-center text-[#4a5568] pointer-events-none"><MailIcon /></span>
                       <input type="email" value={resetEmail}
                         onChange={e => { setResetEmail(e.target.value); setResetSuccess(false) }}
                         required placeholder="you@example.com" className={inputCls + ' ps-10'} />
@@ -324,95 +271,77 @@ export default function LoginPage() {
 
                   <button type="submit" disabled={resetLoading}
                     className="relative w-full py-3.5 rounded-xl font-bold text-sm text-white overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', boxShadow: '0 4px 28px rgba(37,99,235,0.35)' }}>
+                    style={{ background: 'linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)', boxShadow: '0 4px 24px rgba(37,99,235,0.35)' }}>
                     <span className={resetLoading ? 'opacity-0' : ''}>{ar ? 'إرسال كود الاستعادة' : 'Send reset code'}</span>
                     {resetLoading && <span className="absolute inset-0 flex items-center justify-center"><SpinnerIcon /></span>}
                   </button>
                 </form>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* ── OTP VIEW ── */}
-            {view === 'otp' && (
-              <div>
-                <button onClick={() => setView('forgot')}
-                  className="flex items-center gap-2 text-[#3a5470] hover:text-white text-sm mb-7 transition-colors group">
-                  <span className="group-hover:-translate-x-0.5 transition-transform"><BackIcon flip={ar} /></span>
-                  {ar ? 'العودة' : 'Back'}
+          {/* ── OTP VIEW ── */}
+          {view === 'otp' && (
+            <div>
+              <button onClick={() => setView('forgot')}
+                className="flex items-center gap-2 text-[#6b7a99] hover:text-white text-sm mb-7 transition-colors group">
+                <span className="group-hover:-translate-x-0.5 transition-transform"><BackIcon flip={ar} /></span>
+                {ar ? 'العودة' : 'Back'}
+              </button>
+
+              <div className="mb-8">
+                <div className="w-12 h-12 rounded-2xl mb-5 flex items-center justify-center text-2xl"
+                  style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>📬</div>
+                <h2 className="text-[2rem] font-black text-white mb-2 tracking-tight">
+                  {ar ? 'تحقق من بريدك' : 'Check your inbox'}
+                </h2>
+                <p className="text-[#9aa0b4] text-sm">
+                  {ar ? `أرسلنا كود مكون من 8 أرقام إلى ${resetEmail}` : `We sent an 8-digit code to ${resetEmail}`}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm p-7 space-y-4">
+                <div>
+                  <label className={labelCls}>{ar ? 'كود التحقق' : 'Verification code'}</label>
+                  <input value={otpCode}
+                    onChange={e => { setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8)); setResetError('') }}
+                    placeholder="00000000" maxLength={8} dir="ltr"
+                    className="w-full bg-white/[0.06] border border-white/[0.1] rounded-xl px-4 py-4 text-white text-center text-2xl font-bold tracking-[0.3em] placeholder-[#2a3a4a] focus:outline-none focus:border-[#3b82f6]/70 focus:bg-white/[0.08] transition-all" />
+                </div>
+
+                {resetError && (
+                  <div className="flex items-center gap-2.5 rounded-xl px-4 py-3"
+                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    <span className="text-red-400"><AlertIcon /></span>
+                    <p className="text-red-400 text-sm">{resetError}</p>
+                  </div>
+                )}
+
+                {resetSuccess && (
+                  <div className="flex items-center gap-2.5 rounded-xl px-4 py-3"
+                    style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                    <span className="text-emerald-400"><CheckIcon /></span>
+                    <p className="text-emerald-400 text-sm">{ar ? 'تم إرسال الكود بنجاح' : 'Code sent successfully'}</p>
+                  </div>
+                )}
+
+                <button onClick={verifyOtp} disabled={resetLoading || otpCode.length !== 8}
+                  className="relative w-full py-3.5 rounded-xl font-bold text-sm text-white overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ background: 'linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)', boxShadow: '0 4px 24px rgba(37,99,235,0.35)' }}>
+                  <span className={resetLoading ? 'opacity-0' : ''}>{ar ? 'تأكيد الكود' : 'Verify code'}</span>
+                  {resetLoading && <span className="absolute inset-0 flex items-center justify-center"><SpinnerIcon /></span>}
                 </button>
 
-                <div className="mb-8">
-                  <div className="w-12 h-12 rounded-2xl mb-5 flex items-center justify-center text-2xl"
-                    style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)' }}>📬</div>
-                  <h2 className="text-[1.9rem] font-black text-white mb-2 tracking-tight">
-                    {ar ? 'تحقق من بريدك' : 'Check your inbox'}
-                  </h2>
-                  <p className="text-[#3a5470] text-sm">
-                    {ar ? `أرسلنا كود مكون من 8 أرقام إلى ${resetEmail}` : `We sent an 8-digit code to ${resetEmail}`}
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className={labelCls}>{ar ? 'كود التحقق' : 'Verification code'}</label>
-                    <input value={otpCode}
-                      onChange={e => { setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8)); setResetError('') }}
-                      placeholder="00000000" maxLength={8} dir="ltr"
-                      className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-4 text-white text-center text-2xl font-bold tracking-[0.3em] placeholder-[#1a2a3a] focus:outline-none focus:border-[#3b82f6]/60 focus:bg-white/[0.07] transition-all" />
-                  </div>
-
-                  {resetError && (
-                    <div className="flex items-center gap-2.5 rounded-xl px-4 py-3"
-                      style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                      <span className="text-red-400"><AlertIcon /></span>
-                      <p className="text-red-400 text-sm">{resetError}</p>
-                    </div>
-                  )}
-
-                  {resetSuccess && (
-                    <div className="flex items-center gap-2.5 rounded-xl px-4 py-3"
-                      style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)' }}>
-                      <span className="text-emerald-400"><CheckIcon /></span>
-                      <p className="text-emerald-400 text-sm">{ar ? 'تم إرسال الكود بنجاح' : 'Code sent successfully'}</p>
-                    </div>
-                  )}
-
-                  <button onClick={verifyOtp} disabled={resetLoading || otpCode.length !== 8}
-                    className="relative w-full py-3.5 rounded-xl font-bold text-sm text-white overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', boxShadow: '0 4px 28px rgba(37,99,235,0.35)' }}>
-                    <span className={resetLoading ? 'opacity-0' : ''}>{ar ? 'تأكيد الكود' : 'Verify code'}</span>
-                    {resetLoading && <span className="absolute inset-0 flex items-center justify-center"><SpinnerIcon /></span>}
-                  </button>
-
-                  <button onClick={() => { setView('forgot'); setOtpCode(''); setResetError('') }}
-                    className="w-full text-sm text-[#3a5470] hover:text-[#64748b] transition-colors py-1">
-                    {ar ? 'إعادة إرسال الكود' : 'Resend code'}
-                  </button>
-                </div>
+                <button onClick={() => { setView('forgot'); setOtpCode(''); setResetError('') }}
+                  className="w-full text-sm text-[#6b7a99] hover:text-[#9aa0b4] transition-colors py-1">
+                  {ar ? 'إعادة إرسال الكود' : 'Resend code'}
+                </button>
               </div>
-            )}
+            </div>
+          )}
 
-          </div>
-        </div>{/* end centering */}
-
-        {/* lang toggle — pinned bottom */}
-        <div className="flex-shrink-0 py-7 flex justify-start">
-          <div className="inline-flex p-1 rounded-xl gap-0.5"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-            {(['ar', 'en'] as const).map(l => (
-              <button key={l} onClick={() => setLang(l)}
-                className={`px-5 py-1.5 rounded-[10px] text-xs font-semibold transition-all duration-200 ${
-                  lang === l
-                    ? 'bg-white/[0.08] text-[#60a5fa]'
-                    : 'text-[#2a4060] hover:text-[#4a6a88]'
-                }`}>
-                {l === 'ar' ? 'العربية' : 'English'}
-              </button>
-            ))}
-          </div>
         </div>
-
-      </div>{/* end form area */}
+      </div>
     </div>
   )
 }

@@ -360,31 +360,22 @@ export default function ProductsPage() {
                     </div>
 
                     {/* Hover actions */}
-                    <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {/* Edit */}
-                      <button onClick={() => router.push(`/dashboard/products/${p.id}`)}
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Edit → product edit page */}
+                      <button
+                        onClick={() => router.push(`/dashboard/products/${p.id}`)}
                         title={ar?'تعديل':'Edit'}
                         className="p-1.5 rounded-lg text-[#525669] hover:text-white hover:bg-[#1e2130] transition-colors">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
                       </button>
-                      {/* Landing page */}
-                      {pg ? (
-                        <button
-                          onClick={() => window.open(`/${store?.slug}/${p.id}`, '_blank')}
-                          title={ar?'فتح صفحة الهبوط':'Open landing page'}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#60a5fa] hover:text-white bg-[#1a2744]/60 hover:bg-[#3b82f6] border border-[#3b82f6]/20 hover:border-transparent transition-all whitespace-nowrap">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3 shrink-0"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-                          {ar?'شاهد صفحة المنتج':'View product page'}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => router.push(`/dashboard/products/${p.id}`)}
-                          title={ar?'إنشاء صفحة':'Create page'}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#f59e0b] hover:text-white bg-[#3a2800]/50 hover:bg-[#f59e0b] border border-[#f59e0b]/20 hover:border-transparent transition-all whitespace-nowrap">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                          {ar?'صفحة هبوط':'Create page'}
-                        </button>
-                      )}
+                      {/* View product page → always opens store page in new tab */}
+                      <button
+                        onClick={() => window.open(`/${store?.slug}/${p.id}`, '_blank')}
+                        title={ar?'شاهد صفحة المنتج':'View product page'}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#60a5fa] hover:text-white bg-[#1a2744]/60 hover:bg-[#3b82f6] border border-[#3b82f6]/20 hover:border-transparent transition-all whitespace-nowrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3 shrink-0"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                        {ar?'شاهد صفحة المنتج':'View product page'}
+                      </button>
                       {/* Ad creative */}
                       <button
                         onClick={() => router.push(`/dashboard/products/${p.id}/creative`)}

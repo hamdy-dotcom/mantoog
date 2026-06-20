@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { STORE_THEMES } from '@/lib/store-themes/tokens'
+type ST = typeof STORE_THEMES[0]
 
 /* ─────────────────────────── ICONS ─────────────────────────── */
 type IP = { className?: string }
@@ -503,6 +505,231 @@ function StatItem({ v, suffix, label, run }: { v: number; suffix: string; label:
   )
 }
 
+/* ─────────────────────── THEME MINI CARD ─────────────────────── */
+function ThemeMiniCard({ th }: { th: ST }) {
+  const W = 380, H = 508, S = 0.5 // renders at 380×508, displayed as 190×254
+  const p = { emoji:'🎧', name:'سماعة إيربودز برو', price:299, compare:599, tag:'الأكثر مبيعاً', disc:50 }
+
+  const heroContent = () => {
+    if (th.layout === 'editorial') return (
+      <div style={{display:'flex',alignItems:'center',gap:24,padding:'28px 20px',borderBottom:`1px solid ${th.border}`}}>
+        <div style={{flex:1}}>
+          <p style={{fontSize:7,letterSpacing:'0.22em',color:th.muted,textTransform:'uppercase',margin:'0 0 8px'}}>COLLECTION 2025</p>
+          <h2 style={{fontFamily:th.headingFont,fontWeight:th.headingWeight,fontSize:28,color:th.accent,lineHeight:1.05,margin:'0 0 8px'}}>متجر النجوم</h2>
+          <div style={{width:30,height:1,background:th.accent,marginBottom:10}}/>
+          <button style={{background:'transparent',color:th.accent,border:`1px solid ${th.accent}`,padding:'6px 16px',fontSize:8,letterSpacing:'0.1em',cursor:'pointer',textTransform:'uppercase'}}>SHOP NOW →</button>
+        </div>
+        <div style={{fontSize:52,opacity:0.7}}>👑</div>
+      </div>
+    )
+    if (th.layout === 'dark_tech') return (
+      <div style={{background:th.heroGradient,padding:'32px 20px',textAlign:'center',position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',inset:0,backgroundImage:`radial-gradient(circle,${th.accentGlow} 1px,transparent 1px)`,backgroundSize:'20px 20px',opacity:0.5,pointerEvents:'none'}}/>
+        <div style={{position:'relative',zIndex:1}}>
+          <div style={{display:'inline-block',background:th.badgeBg,border:`1px solid ${th.accent}`,color:th.accent,fontSize:8,fontWeight:700,padding:'3px 12px',borderRadius:4,marginBottom:10,letterSpacing:'0.1em'}}>⚡ NEW DROP 2025</div>
+          <h2 style={{fontFamily:th.headingFont,fontWeight:th.headingWeight,fontSize:28,color:th.accent,margin:'0 0 6px',textShadow:`0 0 20px ${th.accent}`}}>متجر النجوم</h2>
+          <p style={{color:th.subtext,fontSize:9,marginBottom:14}}>اكتشف أفضل التقنية بأفضل الأسعار</p>
+          <button style={{background:th.accent,color:th.accentText,border:'none',padding:'8px 18px',borderRadius:th.radiusBtn,fontSize:9,fontWeight:700,boxShadow:`0 0 18px ${th.accent}`}}>تسوق الآن</button>
+        </div>
+      </div>
+    )
+    if (th.layout === 'brutalist') return (
+      <div>
+        <div style={{background:'#000',padding:'28px 20px'}}>
+          <p style={{fontSize:7,color:'#555',letterSpacing:'0.18em',textTransform:'uppercase',margin:'0 0 6px'}}>EST. 2025 — متجر النجوم</p>
+          <h2 style={{fontFamily:th.headingFont,fontWeight:900,fontSize:42,color:'#fff',margin:0,lineHeight:0.9,textTransform:'uppercase'}}>SHOP<br/>THE<br/>BEST</h2>
+        </div>
+        <div style={{background:th.discountBg,padding:'8px 20px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <span style={{color:'#fff',fontSize:9,fontWeight:700,textTransform:'uppercase'}}>🔥 عروض محدودة</span>
+          <button style={{background:'#fff',color:'#000',border:'none',padding:'5px 14px',fontSize:9,fontWeight:900,textTransform:'uppercase'}}>تسوق →</button>
+        </div>
+      </div>
+    )
+    if (th.layout === 'gallery') return (
+      <div style={{padding:'40px 20px',textAlign:'center',borderBottom:`1px solid ${th.divider}`}}>
+        <p style={{fontSize:7,letterSpacing:'0.22em',color:th.muted,textTransform:'uppercase',margin:'0 0 10px'}}>متجر النجوم</p>
+        <h2 style={{fontFamily:th.headingFont,fontWeight:th.headingWeight,fontSize:30,color:th.text,margin:'0 0 4px',lineHeight:1.05}}>مجموعة ٢٠٢٥</h2>
+        <div style={{width:22,height:1,background:th.accent,margin:'12px auto'}}/>
+        <p style={{fontSize:9,color:th.muted,marginBottom:16}}>اكتشف منتجات مميزة</p>
+        <button style={{background:'transparent',color:th.text,border:`1px solid ${th.text}`,padding:'7px 20px',fontSize:8,letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:th.headingFont}}>اكتشف المجموعة</button>
+      </div>
+    )
+    if (th.layout === 'trust') return (
+      <div>
+        <div style={{background:th.accent,padding:'22px 20px',textAlign:'center'}}>
+          <p style={{fontSize:8,color:'rgba(255,255,255,0.85)',marginBottom:6}}>✅ منتجات موثوقة · ضمان رسمي · شحن آمن</p>
+          <h2 style={{fontFamily:th.headingFont,fontWeight:th.headingWeight,fontSize:24,color:'#fff',margin:'0 0 8px'}}>متجر النجوم</h2>
+          <button style={{background:'#fff',color:th.accent,border:'none',padding:'7px 16px',borderRadius:th.radiusBtn,fontSize:9,fontWeight:700}}>تسوق بثقة →</button>
+        </div>
+        <div style={{background:th.sectionBg,padding:'6px 12px',display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap',borderBottom:`1px solid ${th.border}`}}>
+          {['🏅 ضمان','🚚 شحن مجاني','↩️ إرجاع','✅ أصلي'].map(b=><span key={b} style={{fontSize:8,color:th.subtext,fontWeight:600}}>{b}</span>)}
+        </div>
+      </div>
+    )
+    if (th.layout === 'artisan') return (
+      <div style={{background:th.heroGradient,padding:'30px 20px',textAlign:'center',borderBottom:`2px dashed ${th.border}`}}>
+        <div style={{display:'inline-block',background:th.badgeBg,color:th.accent,fontSize:8,fontWeight:700,padding:'4px 12px',borderRadius:50,marginBottom:10,border:`1px solid ${th.border}`}}>🤝 صنع بأيدٍ محلية</div>
+        <h2 style={{fontFamily:th.headingFont,fontWeight:th.headingWeight,fontSize:26,color:th.heroTextColor,margin:'0 0 8px'}}>متجر النجوم</h2>
+        <p style={{color:th.subtext,fontSize:9,marginBottom:14,fontStyle:'italic'}}>نكهة أصيلة في كل منتج</p>
+        <button style={{background:th.accent,color:'#fff',border:'none',padding:'8px 20px',borderRadius:50,fontSize:9,fontWeight:700}}>اكتشف المنتجات 🌾</button>
+      </div>
+    )
+    if (th.layout === 'neon') return (
+      <div style={{background:th.heroGradient,padding:'34px 20px',textAlign:'center',position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',width:260,height:260,borderRadius:'50%',background:'rgba(168,85,247,0.15)',filter:'blur(60px)',top:-80,left:'50%',transform:'translateX(-50%)',pointerEvents:'none'}}/>
+        <div style={{position:'relative',zIndex:1}}>
+          <p style={{fontSize:9,color:'#e879f9',fontWeight:700,marginBottom:8}}>✨ 12,430 طلب هذا الشهر</p>
+          <h2 style={{fontFamily:th.headingFont,fontWeight:th.headingWeight,fontSize:28,margin:'0 0 8px',background:'linear-gradient(135deg,#f8f0ff,#e879f9)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>متجر النجوم</h2>
+          <p style={{color:th.subtext,fontSize:9,marginBottom:14}}>اكتشف منتجات مميزة بأفضل الأسعار</p>
+          <button style={{background:'linear-gradient(135deg,#a855f7,#be185d)',color:'#fff',border:'none',padding:'9px 20px',borderRadius:50,fontSize:10,fontWeight:700,boxShadow:'0 0 22px rgba(168,85,247,0.5)'}}>✨ تسوقي الآن</button>
+        </div>
+      </div>
+    )
+    if (th.layout === 'fashion') return (
+      <div>
+        <div style={{background:'#1a1a1a',padding:'34px 20px',textAlign:'center',position:'relative',overflow:'hidden'}}>
+          <div style={{position:'absolute',inset:0,backgroundImage:'repeating-linear-gradient(-45deg,rgba(255,255,255,0.015) 0,rgba(255,255,255,0.015) 1px,transparent 0,transparent 8px)',pointerEvents:'none'}}/>
+          <div style={{position:'relative',zIndex:1}}>
+            <p style={{fontSize:7,letterSpacing:'0.35em',color:'#9a8880',textTransform:'uppercase',margin:'0 0 14px'}}>NEW COLLECTION — 2025</p>
+            <h2 style={{fontFamily:"'Playfair Display',Georgia,serif",fontWeight:700,fontSize:30,color:'#faf8f5',lineHeight:1.08,margin:'0 0 14px'}}>الأناقة<br/>في كل خطوة</h2>
+            <button style={{background:'transparent',color:'#faf8f5',border:'1px solid rgba(250,248,245,0.45)',padding:'8px 20px',fontSize:8,letterSpacing:'0.14em',textTransform:'uppercase'}}>اكتشف المجموعة</button>
+          </div>
+        </div>
+        <div style={{background:'#faf8f5',borderBottom:'1px solid #e5ddd6',padding:'0 12px',display:'flex',gap:0,overflowX:'hidden'}}>
+          {['الكل','نساء','رجال','أطفال','تخفيضات'].map((cat,i)=>(
+            <button key={cat} style={{padding:'9px 12px',background:'none',border:'none',fontSize:8,fontWeight:i===0?700:400,color:i===0?'#1a1a1a':'#9a8880',borderBottom:i===0?'2px solid #1a1a1a':'2px solid transparent',flexShrink:0,letterSpacing:'0.04em',fontFamily:"'DM Sans',system-ui,sans-serif",whiteSpace:'nowrap'}}>{cat}</button>
+          ))}
+        </div>
+      </div>
+    )
+    // default (wellness, playful, centered)
+    const isWellness = th.layout === 'wellness'
+    const isPlayful = th.layout === 'playful'
+    return (
+      <div style={{background:th.heroGradient,padding:'28px 20px',textAlign:'center',position:'relative',overflow:'hidden'}}>
+        {isPlayful&&<><div style={{position:'absolute',width:100,height:100,borderRadius:'50%',background:'rgba(192,38,211,0.1)',top:-24,right:'8%',pointerEvents:'none'}}/><div style={{position:'absolute',width:60,height:60,borderRadius:'50%',background:'rgba(147,51,234,0.1)',bottom:-16,left:'12%',pointerEvents:'none'}}/></>}
+        {isWellness&&<div style={{fontSize:22,marginBottom:6}}>🌿🍃🌱</div>}
+        {isPlayful&&<div style={{fontSize:20,marginBottom:4}}>🌸💕✨</div>}
+        <div style={{display:'inline-block',background:th.badgeBg,color:th.badgeText,fontSize:8,fontWeight:700,padding:'3px 12px',borderRadius:50,marginBottom:10}}>{isWellness?'100% طبيعي':isPlayful?'💕 الأجمل دائماً':'✦ متجر موثوق'}</div>
+        <h2 style={{fontFamily:th.headingFont,fontWeight:th.headingWeight,fontSize:26,color:th.heroTextColor,margin:'0 0 6px'}}>متجر النجوم</h2>
+        <p style={{color:th.subtext,fontSize:9,marginBottom:14}}>اكتشف منتجات مميزة بأفضل الأسعار</p>
+        <button style={{background:th.accent,color:th.accentText,border:'none',padding:'8px 18px',borderRadius:th.radiusBtn,fontSize:10,fontWeight:700,boxShadow:`0 4px 14px ${th.accentGlow}`}}>تسوق الآن</button>
+      </div>
+    )
+  }
+
+  const productContent = () => {
+    if (th.cardStyle === 'editorial') return (
+      <div style={{padding:'16px 20px'}}>
+        <div style={{display:'flex',gap:14,borderBottom:`1px solid ${th.border}`,padding:'14px 0'}}>
+          <div style={{width:64,height:64,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:30,background:th.sectionBg}}>{p.emoji}</div>
+          <div style={{flex:1}}>
+            <p style={{fontSize:7,letterSpacing:'0.18em',color:th.muted,textTransform:'uppercase',margin:'0 0 3px'}}>{p.tag}</p>
+            <p style={{fontFamily:th.headingFont,fontWeight:th.headingWeight,fontSize:14,color:th.text,margin:'0 0 3px'}}>{p.name}</p>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6}}>
+              <span style={{fontSize:13,fontWeight:600,color:th.accent}}>{p.price} SAR</span>
+              <span style={{fontSize:8,color:th.muted,letterSpacing:'0.1em',textTransform:'uppercase',borderBottom:`1px solid ${th.accent}`}}>ORDER →</span>
+            </div>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:14,padding:'14px 0'}}>
+          <div style={{width:64,height:64,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:30,background:th.sectionBg}}>⌚</div>
+          <div style={{flex:1}}>
+            <p style={{fontSize:7,letterSpacing:'0.18em',color:th.muted,textTransform:'uppercase',margin:'0 0 3px'}}>جديد</p>
+            <p style={{fontFamily:th.headingFont,fontWeight:th.headingWeight,fontSize:14,color:th.text,margin:'0 0 3px'}}>ساعة ذكية سبورت</p>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6}}>
+              <span style={{fontSize:13,fontWeight:600,color:th.accent}}>449 SAR</span>
+              <span style={{fontSize:8,color:th.muted,letterSpacing:'0.1em',textTransform:'uppercase',borderBottom:`1px solid ${th.accent}`}}>ORDER →</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+    if (th.cardStyle === 'gallery') return (
+      <div style={{padding:'16px 20px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+        {[{emoji:'🎧',name:'سماعة إيربودز',price:299},{emoji:'⌚',name:'ساعة ذكية',price:449},{emoji:'🎒',name:'حقيبة ظهر',price:199},{emoji:'💡',name:'مصباح ذكي',price:89}].map(item=>(
+          <div key={item.name} style={{cursor:'pointer',textAlign:'center'}}>
+            <div style={{background:th.sectionBg,aspectRatio:'1',display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,border:`1px solid ${th.border}`,marginBottom:6}}>{item.emoji}</div>
+            <p style={{fontSize:9,color:th.text,margin:'0 0 2px',fontFamily:th.headingFont}}>{item.name}</p>
+            <p style={{fontSize:9,color:th.muted,margin:0}}>{item.price} SAR</p>
+          </div>
+        ))}
+      </div>
+    )
+    if (th.cardStyle === 'fashion') return (
+      <div style={{padding:'12px 16px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        {[{emoji:'👗',name:'فستان صيفي',price:299,tag:'SALE'},{emoji:'👜',name:'حقيبة جلدية',price:599,tag:'NEW'},{emoji:'👟',name:'حذاء رياضي',price:399,tag:'HOT'},{emoji:'🧣',name:'وشاح حرير',price:199,tag:''}].map(item=>(
+          <div key={item.name} style={{cursor:'pointer',position:'relative'}}>
+            <div style={{aspectRatio:'2/3',background:`linear-gradient(160deg,${th.sectionBg},${th.pageBg})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,position:'relative',overflow:'hidden'}}>
+              {item.emoji}
+              <div style={{position:'absolute',top:6,left:6,width:18,height:18,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(250,248,245,0.85)',fontSize:10,color:'#4a4040'}}>♡</div>
+              {item.tag&&<div style={{position:'absolute',top:6,right:0,fontSize:7,fontWeight:700,letterSpacing:'0.1em',color:'#fff',textTransform:'uppercase',background:item.tag==='SALE'?'#8b1a1a':'#1a1a1a',padding:'3px 6px'}}>{item.tag}</div>}
+              <div style={{position:'absolute',bottom:6,right:6,display:'flex',gap:3}}>
+                {['#1a1a1a','#c9993a','#8b1a1a'].map(c=><div key={c} style={{width:8,height:8,borderRadius:'50%',background:c,border:'1px solid rgba(255,255,255,0.8)'}}/>)}
+              </div>
+            </div>
+            <p style={{fontSize:9,color:'#1a1a1a',margin:'5px 0 2px',fontFamily:"'DM Sans',system-ui,sans-serif",fontWeight:500,lineHeight:1.3}}>{item.name}</p>
+            <p style={{fontSize:9,color:'#1a1a1a',margin:0,fontWeight:600}}>{item.price}</p>
+          </div>
+        ))}
+      </div>
+    )
+    // Default card
+    return (
+      <div style={{padding:'14px 20px'}}>
+        <div style={{background:th.cardBg,borderRadius:th.radius,border:th.cardBorder&&th.cardBorder!=='transparent'?`1px solid ${th.cardBorder}`:`1px solid ${th.border}`,overflow:'hidden'}}>
+          <div style={{background:th.cardStyle==='tech'?`radial-gradient(ellipse at 40% 40%,${th.accentGlow},${th.sectionBg})`:th.cardStyle==='hype'?`radial-gradient(ellipse at 50% 30%,${th.accentGlow},transparent)`:th.cardStyle==='playful'?`linear-gradient(135deg,${th.sectionBg},${th.pageBg})`:`linear-gradient(135deg,${th.sectionBg},${th.pageBg})`,padding:'18px',textAlign:'center',borderBottom:`1px solid ${th.border}`,position:'relative'}}>
+            <div style={{fontSize:44}}>{p.emoji}</div>
+            {th.cardStyle==='hype'&&<p style={{fontSize:8,color:'#e879f9',fontWeight:700,margin:'3px 0 0'}}>🔥 {p.tag}</p>}
+            {th.cardStyle!=='hype'&&p.tag&&<div style={{position:'absolute',top:7,right:7,background:th.cardStyle==='clinical'?th.accent:th.badgeBg,color:th.cardStyle==='clinical'?'#fff':th.badgeText,fontSize:7,fontWeight:700,padding:'2px 7px',borderRadius:th.cardStyle==='clinical'?3:50}}>{th.cardStyle==='clinical'?'✅ موثوق':p.tag}</div>}
+          </div>
+          <div style={{padding:'10px 12px'}}>
+            <p style={{fontSize:11,fontWeight:th.headingWeight>700?800:700,color:th.text,margin:'0 0 4px',fontFamily:th.headingFont}}>{p.name}</p>
+            {th.cardStyle==='hype'&&<>
+              <p style={{fontSize:8,color:'#e879f9',margin:'0 0 2px'}}>⚠️ بقي 13 قطعة فقط</p>
+              <div style={{height:3,borderRadius:2,background:'rgba(255,255,255,0.1)',overflow:'hidden',marginBottom:6}}>
+                <div style={{width:'74%',height:'100%',background:'linear-gradient(90deg,#a855f7,#be185d)'}}/>
+              </div>
+            </>}
+            {(th.cardStyle==='wellness'||th.cardStyle==='clinical'||th.cardStyle==='artisan')&&['جودة عالية','شحن سريع'].map(s=>(
+              <div key={s} style={{display:'flex',alignItems:'center',gap:4,fontSize:9,color:th.subtext,marginBottom:2}}>
+                <span style={{color:th.accent,fontWeight:700}}>✓</span>{s}
+              </div>
+            ))}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',margin:'8px 0'}}>
+              <span style={{fontSize:th.cardStyle==='brutalist'?22:15,fontWeight:th.cardStyle==='brutalist'?900:800,color:th.cardStyle==='tech'||th.cardStyle==='hype'?th.accent:th.text}}>{p.price} <span style={{fontSize:9}}>{th.cardStyle!=='brutalist'?'SAR':''}</span></span>
+              <span style={{background:th.discountBg,color:'#fff',fontSize:7,fontWeight:700,padding:'2px 6px',borderRadius:th.cardStyle==='hype'||th.cardStyle==='wellness'||th.cardStyle==='playful'?50:th.radiusSm}}>-{p.disc}%</span>
+            </div>
+            <button style={{width:'100%',padding:'8px',background:th.cardStyle==='hype'?'linear-gradient(135deg,#a855f7,#be185d)':th.cardStyle==='playful'?`linear-gradient(135deg,${th.accent},${th.accentDark})`:th.accent,color:th.cardStyle==='brutalist'?'#fff':th.accentText,border:'none',borderRadius:th.cardStyle==='wellness'||th.cardStyle==='artisan'?50:th.radiusBtn,fontSize:10,fontWeight:800,cursor:'pointer',boxShadow:th.cardStyle==='tech'?`0 0 10px ${th.accentGlow}`:th.cardStyle==='hype'?'0 0 10px rgba(168,85,247,0.4)':'none',textTransform:th.cardStyle==='brutalist'?'uppercase':'none',letterSpacing:th.cardStyle==='brutalist'?'0.04em':'0'}}>
+              {th.cardStyle==='wellness'?'اطلب الآن 🌿':th.cardStyle==='playful'?'💕 أطلبيها':th.cardStyle==='hype'?'✨ اطلبي الآن':th.cardStyle==='artisan'?'اطلب 🌾':th.cardStyle==='brutalist'?'ORDER NOW →':'اطلب الآن ⚡'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ width: W * S, height: H * S, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
+      <div dir="rtl" style={{ position: 'absolute', top: 0, left: 0, width: W, height: H, transform: `scale(${S})`, transformOrigin: 'top left', background: th.pageBg, fontFamily: th.font, color: th.text, overflowY: 'hidden' }}>
+        {/* Timer bar */}
+        <div style={{ background: th.urgencyBg, color: '#fff', fontSize: 8, fontWeight: 700, padding: '4px 12px', textAlign: 'center', letterSpacing: '0.04em' }}>
+          ⏰ ينتهي العرض · 19:06:33
+        </div>
+        {/* Nav */}
+        <div style={{ background: th.navBg, padding: '9px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${th.border}`, backdropFilter: 'blur(8px)' }}>
+          <span style={{ fontFamily: th.headingFont, fontWeight: th.headingWeight, fontSize: 13, color: th.text }}>متجر النجوم</span>
+          <div style={{ width: 22, height: 22, borderRadius: '50%', background: th.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: th.accentText }}>🛒</div>
+        </div>
+        {/* Hero */}
+        {heroContent()}
+        {/* Product(s) */}
+        {productContent()}
+      </div>
+    </div>
+  )
+}
+
 /* ─────────────────────── PAGE ─────────────────────── */
 export default function HomePage() {
   const router = useRouter()
@@ -511,6 +738,8 @@ export default function HomePage() {
   const [genState, setGenState] = useState<'idle'|'gen'|'done'>('idle')
   const [openFaq, setOpenFaq] = useState<number|null>(0)
   const [statsRun, setStatsRun] = useState(false)
+  const [themeIdx, setThemeIdx] = useState(0)
+  const [themeAnim, setThemeAnim] = useState(true)
   const statsRef = useRef<HTMLDivElement>(null)
   const c = COPY[lang]
   const ar = lang === 'ar'
@@ -534,6 +763,24 @@ export default function HomePage() {
     const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setStatsRun(true); obs.disconnect() } }, { threshold: 0.3 })
     obs.observe(el); return () => obs.disconnect()
   }, [])
+
+  useEffect(() => {
+    const t = setInterval(() => setThemeIdx(i => i + 1), 2500)
+    return () => clearInterval(t)
+  }, [])
+
+  // seamless reset: after animating to N (clone), silently snap back to 0
+  useEffect(() => {
+    if (themeIdx === STORE_THEMES.length) {
+      const t = setTimeout(() => {
+        setThemeAnim(false)
+        setThemeIdx(0)
+        // re-enable transition after browser paints the instant jump
+        requestAnimationFrame(() => requestAnimationFrame(() => setThemeAnim(true)))
+      }, 750)
+      return () => clearTimeout(t)
+    }
+  }, [themeIdx])
 
   const go = (p: string) => router.push(p)
 
@@ -757,27 +1004,42 @@ export default function HomePage() {
       </section>
 
       {/* ── Themes ── */}
-      <section className="relative z-10 py-20 px-5 border-t border-white/5">
-        <div className="max-w-6xl mx-auto">
+      <section className="relative z-10 py-20 border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-5">
           <SectionHead title={c.themesTitle} sub={c.themesSub} />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-14">
-            {c.themes.map((t, i) => {
-              const grads = ['from-[#3b82f6]/25 to-[#1e293b]','from-[#ec4899]/25 to-[#1e293b]','from-[#a855f7]/25 to-[#1e293b]','from-[#10b981]/25 to-[#1e293b]']
-              return (
-                <div key={i} className="group cursor-pointer rounded-2xl border border-white/10 bg-[#12151c]/60 overflow-hidden transition-all hover:-translate-y-1 hover:border-white/25">
-                  <div className={`aspect-[3/4] bg-gradient-to-br ${grads[i]} p-4 flex flex-col`}>
-                    <div className="h-3 w-12 rounded bg-white/30 mb-2" />
-                    <div className="flex-1 rounded-lg bg-white/10 border border-white/10 group-hover:bg-white/15 transition-colors" />
-                    <div className="mt-3 h-7 rounded-md bg-white/80 group-hover:bg-white transition-colors" />
-                  </div>
-                  <div className="p-4">
-                    <div className="font-bold text-sm">{t.name}</div>
-                    <div className="text-xs text-[#8b8fa8] mt-0.5">{t.tag}</div>
-                  </div>
+        </div>
+        {/* fixed window: 5 cards × 190px + 4 gaps × 20px = 1030px */}
+        <div className="mt-14 mx-auto relative" dir="ltr" style={{ width: 1030, overflow: 'hidden' }}>
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-16 z-10" style={{ background: 'linear-gradient(to right,#0b0d12,transparent)' }} />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-16 z-10" style={{ background: 'linear-gradient(to left,#0b0d12,transparent)' }} />
+          <div
+            className="flex gap-5"
+            style={{ transform: `translateX(calc(-${themeIdx} * 210px))`, transition: themeAnim ? 'transform 700ms ease-in-out' : 'none' }}
+          >
+            {/* duplicate for seamless wrap: last 5 of first copy align with first 5 of second */}
+            {[...STORE_THEMES, ...STORE_THEMES].map((th, i) => (
+              <div
+                key={i}
+                className="group cursor-pointer rounded-2xl border overflow-hidden hover:-translate-y-1 flex-shrink-0"
+                style={{ borderColor: (i % STORE_THEMES.length) === (themeIdx % STORE_THEMES.length) ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.1)', background: (i % STORE_THEMES.length) === (themeIdx % STORE_THEMES.length) ? 'rgba(255,255,255,0.06)' : 'rgba(18,21,28,0.6)', transition: 'border-color 0.3s, background 0.3s, transform 0.2s' }}
+              >
+                <ThemeMiniCard th={th} />
+                <div className="p-4">
+                  <div className="font-bold text-sm text-white">{th.nameAr}</div>
+                  <div className="text-xs text-[#8b8fa8] mt-0.5">{th.nicheAr}</div>
                 </div>
-              )
-            })}
+              </div>
+            ))}
           </div>
+        </div>
+        {/* dot indicators */}
+        <div className="flex justify-center gap-1.5 mt-6">
+          {STORE_THEMES.map((_, i) => (
+            <button key={i} onClick={() => setThemeIdx(i)}
+              className="rounded-full transition-all duration-300"
+              style={{ width: i === (themeIdx % STORE_THEMES.length) ? 20 : 6, height: 6, background: i === (themeIdx % STORE_THEMES.length) ? '#3b82f6' : 'rgba(255,255,255,0.2)' }}
+            />
+          ))}
         </div>
       </section>
 

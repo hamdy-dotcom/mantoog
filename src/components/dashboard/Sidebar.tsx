@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
+import { useTheme } from '@/lib/ThemeContext'
 
 /* ─── icons ──────────────────────────────────────────────────────────── */
 type IP = { className?: string }
@@ -73,6 +74,7 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
   const pathname = usePathname()
   const supabase = createClient()
   const { lang, setLang, dir } = useLang()
+  const { theme, toggleTheme } = useTheme()
   const [isAdmin, setIsAdmin]   = useState(false)
   const [userName, setUserName] = useState('')
 
@@ -335,6 +337,27 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
               </button>
             ))}
           </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="flex items-center justify-between w-full px-3 py-2 rounded-xl bg-[#13161d] border border-[#1c1f28] hover:border-[#2a2d3a] transition-colors"
+          >
+            <span className="text-[11px] text-[#525669] font-medium">
+              {lang === 'ar'
+                ? (theme === 'light' ? '☀️ النهار' : '🌙 الليل')
+                : (theme === 'light' ? '☀️ Light' : '🌙 Dark')}
+            </span>
+            <div
+              className="w-8 h-[18px] rounded-full relative transition-colors duration-200"
+              style={{ backgroundColor: theme === 'light' ? '#fbbf24' : '#2a2d35' }}
+            >
+              <div
+                className="absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-all duration-200"
+                style={{ left: theme === 'dark' ? '2px' : 'calc(100% - 16px)' }}
+              />
+            </div>
+          </button>
 
           {/* User row */}
           <div className="flex items-center gap-2 px-1 group/user">

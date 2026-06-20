@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from '@/lib/i18n/LanguageContext'
 import SessionActivityProvider from '@/components/auth/SessionActivityProvider'
+import { ThemeProvider } from '@/lib/ThemeContext'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,7 +38,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col overflow-x-hidden">
         <LanguageProvider>
-          <SessionActivityProvider>{children}</SessionActivityProvider>
+          <SessionActivityProvider>
+            <ThemeProvider>{children}</ThemeProvider>
+          </SessionActivityProvider>
         </LanguageProvider>
       </body>
     </html>

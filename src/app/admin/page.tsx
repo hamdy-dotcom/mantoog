@@ -75,13 +75,11 @@ export default function AdminPage() {
       .from('orders')
       .select('*, stores(name, currency, merchant_id), products(title)')
       .order('created_at', { ascending: false })
-      .limit(500)
 
     const { data: productsData } = await supabase
       .from('products')
       .select('*, stores(name, slug, merchant_id)')
       .order('created_at', { ascending: false })
-      .limit(500)
 
     const { data: allLandingPages } = await supabase
       .from('landing_pages')

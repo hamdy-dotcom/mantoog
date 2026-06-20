@@ -252,7 +252,7 @@ export default function ProductsPage() {
                 <span>{ar?'السعر':'Price'}</span>
                 <span>{ar?'المصدر':'Source'}</span>
                 <span>{ar?'الحالة':'Status'}</span>
-                <span>{ar?'صفحة الهبوط':'Landing page'}</span>
+                <span/>
                 <span/>
               </div>
 
@@ -374,7 +374,7 @@ export default function ProductsPage() {
                           title={ar?'فتح صفحة الهبوط':'Open landing page'}
                           className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#60a5fa] hover:text-white bg-[#1a2744]/60 hover:bg-[#3b82f6] border border-[#3b82f6]/20 hover:border-transparent transition-all whitespace-nowrap">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3 shrink-0"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-                          {ar?'صفحة الهبوط':'Landing page'}
+                          {ar?'شاهد صفحة المنتج':'View product page'}
                         </button>
                       ) : (
                         <button

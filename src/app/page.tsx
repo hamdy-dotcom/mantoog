@@ -334,7 +334,7 @@ const COPY = {
     ],
     statsTitle: 'أرقام تتكلم',
     stats: [
-      { v: 12000, suffix: '+', label: 'طلب تم تجهيزه' },
+      { v: 0, suffix: '٪', label: 'عمولة على مبيعاتك' },
       { v: 60, suffix: 'ث', label: 'لبناء صفحة' },
       { v: 10, suffix: '+', label: 'سوق مدعوم' },
       { v: 99, suffix: '%', label: 'جاهزية النظام' },
@@ -440,7 +440,7 @@ const COPY = {
     ],
     statsTitle: 'Numbers that talk',
     stats: [
-      { v: 12000, suffix: '+', label: 'Orders processed' },
+      { v: 0, suffix: '%', label: 'Commission on sales' },
       { v: 60, suffix: 's', label: 'To build a page' },
       { v: 10, suffix: '+', label: 'Markets supported' },
       { v: 99, suffix: '%', label: 'Uptime' },

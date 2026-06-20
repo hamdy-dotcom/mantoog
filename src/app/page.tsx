@@ -281,7 +281,7 @@ const COPY = {
     mockOld: '١٢٠٠ ج.م',
     mockCod: 'اطلب الآن — الدفع عند الاستلام',
     marqueeLabel: 'يستورد من',
-    marquee: ['AliExpress', 'Amazon', 'EasyOrders', 'TikTok Shop', 'أي رابط منتج', 'Shopify'],
+    marquee: ['AliExpress', 'Amazon', 'Shopify', 'TikTok Shop', 'أي رابط منتج', 'WooCommerce'],
     spotsTitle: 'كل أداة تحتاجها — في مكان واحد',
     spotsSub: 'من إنشاء المتجر إلى إطلاق الإعلانات — بدون أدوات خارجية.',
     spots: [
@@ -295,7 +295,7 @@ const COPY = {
         tag: 'هجرة المتجر', icon: 'Refresh', accent: '#7c5cff',
         title: 'انقل كل منتجاتك وتاريخ طلباتك بنقرة واحدة',
         desc: 'هجرة من أي منصة عبر رابط URL أو API Key أو تحميل JSON — الصور والأسعار والطلبات تنتقل كاملة.',
-        bullets: ['استيراد من EasyOrders وأي متجر عبر URL', 'كل تاريخ الطلبات يُحفظ تلقائياً', 'معاينة المنتجات قبل الاستيراد النهائي'],
+        bullets: ['الصق رابط متجرك ونجلب كل منتجاتك تلقائياً', 'كل تاريخ الطلبات يُحفظ تلقائياً', 'معاينة المنتجات قبل الاستيراد النهائي'],
       },
       {
         tag: 'إعلانات تيك توك', icon: 'Megaphone', accent: '#06b6d4',
@@ -387,7 +387,7 @@ const COPY = {
     mockOld: 'EGP 1200',
     mockCod: 'Order now — Cash on delivery',
     marqueeLabel: 'Imports from',
-    marquee: ['AliExpress', 'Amazon', 'EasyOrders', 'TikTok Shop', 'Any product URL', 'Shopify'],
+    marquee: ['AliExpress', 'Amazon', 'Shopify', 'TikTok Shop', 'Any product URL', 'WooCommerce'],
     spotsTitle: 'Every tool you need — in one place',
     spotsSub: 'From store creation to ad launch — no external tools.',
     spots: [
@@ -401,7 +401,7 @@ const COPY = {
         tag: 'Store migration', icon: 'Refresh', accent: '#7c5cff',
         title: 'Move all your products and order history in one click',
         desc: 'Migrate from any platform via URL, API Key, or JSON upload — images, prices, and orders transfer completely.',
-        bullets: ['Import from EasyOrders and any store via URL', 'Full order history preserved automatically', 'Preview products before final import'],
+        bullets: ['Paste your store URL and we fetch all your products automatically', 'Full order history preserved automatically', 'Preview products before final import'],
       },
       {
         tag: 'TikTok Ads', icon: 'Megaphone', accent: '#06b6d4',

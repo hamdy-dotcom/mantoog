@@ -244,7 +244,7 @@ export default function ProductsPage() {
 
               {/* Header */}
               <div className="grid items-center gap-3 px-4 py-2.5 border-b border-[#1c1f28] text-[10px] font-semibold text-[#525669] uppercase tracking-widest select-none"
-                style={{ gridTemplateColumns:'1.5rem 2.5rem 1fr 8rem 5rem 5.5rem 6rem 5.5rem 8rem' }}>
+                style={{ gridTemplateColumns:'1.5rem 2.5rem 1fr 8rem 5rem 5.5rem 6rem 8rem' }}>
                 <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-3.5 h-3.5 rounded border-[#2a2d3a] bg-[#0d0f14] accent-[#3b82f6] cursor-pointer"/>
                 <span/>
                 <span>{ar?'المنتج':'Product'}</span>
@@ -252,7 +252,6 @@ export default function ProductsPage() {
                 <span>{ar?'السعر':'Price'}</span>
                 <span>{ar?'المصدر':'Source'}</span>
                 <span>{ar?'الحالة':'Status'}</span>
-                <span/>
                 <span/>
               </div>
 
@@ -267,7 +266,7 @@ export default function ProductsPage() {
                 return (
                   <div key={p.id}
                     className={`group grid items-center gap-3 px-4 py-3 transition-colors ${idx<rows.length-1?'border-b border-[#1c1f28]':''} ${sel?'bg-[#1a2744]/30':'hover:bg-[#16192a]'}`}
-                    style={{ gridTemplateColumns:'1.5rem 2.5rem 1fr 8rem 5rem 5.5rem 6rem 5.5rem 8rem' }}>
+                    style={{ gridTemplateColumns:'1.5rem 2.5rem 1fr 8rem 5rem 5.5rem 6rem 8rem' }}>
 
                     {/* Checkbox */}
                     <input type="checkbox" checked={sel} onChange={() => toggleSelect(p.id)}
@@ -338,26 +337,6 @@ export default function ProductsPage() {
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${st==='active'?'bg-[#4ade80]':'bg-[#525669]'}`}/>
                       {st==='active' ? (ar?'نشط':'Active') : (ar?'مسودة':'Draft')}
                     </button>
-
-                    {/* Landing page */}
-                    <div>
-                      {pg==='live' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-[#1a2744]/60 text-[#60a5fa] border border-[#3b82f6]/20 px-2 py-1 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#60a5fa] animate-pulse shrink-0"/>
-                          {ar?'مباشر':'Live'}
-                        </span>
-                      ) : pg==='draft' ? (
-                        <span className="text-[11px] font-medium text-[#f59e0b] bg-[#3a2800]/50 border border-[#f59e0b]/20 px-2 py-1 rounded-full">
-                          {ar?'مسودة':'Draft'}
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => router.push(`/dashboard/products/${p.id}`)}
-                          className="text-[11px] font-semibold text-[#525669] hover:text-[#3b82f6] border border-dashed border-[#2a2d3a] hover:border-[#3b82f6]/50 px-2 py-1 rounded-full transition-colors whitespace-nowrap">
-                          + {ar?'أنشئ صفحة':'Create page'}
-                        </button>
-                      )}
-                    </div>
 
                     {/* Hover actions */}
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

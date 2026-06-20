@@ -51,6 +51,21 @@ export default function AdminPage() {
   const loadData = async () => {
     const ADMIN_EMAILS = ['admin@mantoog.com']
 
+    // Supabase caps every query at 1000 rows by default — page until exhausted
+    const fetchAll = async (query: any) => {
+      const PAGE = 1000
+      let rows: any[] = []
+      let from = 0
+      while (true) {
+        const { data, error } = await query.range(from, from + PAGE - 1)
+        if (error || !data || data.length === 0) break
+        rows = rows.concat(data)
+        if (data.length < PAGE) break
+        from += PAGE
+      }
+      return rows
+    }
+
     const { data: storesData } = await supabase
       .from('stores')
       .select('*')
@@ -71,27 +86,31 @@ export default function AdminPage() {
       .from('order_credits')
       .select('*')
 
-    const { data: ordersData } = await supabase
-      .from('orders')
-      .select('*, stores(name, currency, merchant_id), products(title)')
-      .order('created_at', { ascending: false })
+    const ordersData = await fetchAll(
+      supabase
+        .from('orders')
+        .select('*, stores(name, currency, merchant_id), products(title)')
+        .order('created_at', { ascending: false })
+    )
 
-    const { data: productsData } = await supabase
-      .from('products')
-      .select('*, stores(name, slug, merchant_id)')
-      .order('created_at', { ascending: false })
+    const productsData = await fetchAll(
+      supabase
+        .from('products')
+        .select('*, stores(name, slug, merchant_id)')
+        .order('created_at', { ascending: false })
+    )
 
     const { data: allLandingPages } = await supabase
       .from('landing_pages')
       .select('product_id, visits')
 
-    const enrichedAllProducts = (productsData || []).map((p: any) => ({
+    const enrichedAllProducts = productsData.map((p: any) => ({
       ...p,
       landing_pages: allLandingPages?.filter((lp: any) => lp.product_id === p.id) || [],
     }))
     setAllProducts(enrichedAllProducts)
 
-    const o = ordersData || []
+    const o = ordersData
     const allStores = storesData || []
     const allCredits = creditsData || []
     const allMerchants = (merchantsData || [])

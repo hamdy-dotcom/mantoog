@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/tiktok/server'
 
-const FAL_BASE = 'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video'
+const FAL_QUEUE = 'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video'
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
@@ -13,6 +13,8 @@ export async function GET(req: NextRequest) {
   const requestId = searchParams.get('requestId')
   const productId = searchParams.get('productId')
   const storeId = searchParams.get('storeId') || null
+  // response_url is provided by fal.ai in the submit response — use it directly
+  const responseUrl = searchParams.get('responseUrl') || null
 
   if (!requestId || !productId) {
     return NextResponse.json({ error: 'requestId and productId required' }, { status: 400 })
@@ -21,20 +23,23 @@ export async function GET(req: NextRequest) {
   const falKey = process.env.FAL_KEY
   if (!falKey) return NextResponse.json({ error: 'FAL_KEY not configured' }, { status: 500 })
 
-  // Check fal.ai job status
+  // Poll fal.ai status
   let falStatus: string
+  let completedResponseUrl: string | null = null
   try {
-    const statusRes = await fetch(`${FAL_BASE}/requests/${requestId}/status`, {
+    const statusRes = await fetch(`${FAL_QUEUE}/requests/${requestId}/status`, {
       headers: { 'Authorization': `Key ${falKey}` },
       signal: AbortSignal.timeout(8000),
     })
     if (!statusRes.ok) {
-      return NextResponse.json({ status: 'pending', debug: `status check ${statusRes.status}` })
+      return NextResponse.json({ status: 'pending' })
     }
     const body = await statusRes.json()
     falStatus = body?.status ?? 'UNKNOWN'
+    // fal.ai includes response_url in the COMPLETED status body
+    completedResponseUrl = body?.response_url ?? null
   } catch (e: any) {
-    return NextResponse.json({ status: 'pending', debug: e?.message })
+    return NextResponse.json({ status: 'pending' })
   }
 
   if (falStatus === 'FAILED' || falStatus === 'ERROR') {
@@ -45,26 +50,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ status: 'pending', falStatus })
   }
 
-  // Fetch the result
+  // Fetch the video result — prefer response_url from fal.ai, fall back to manual URL
+  const fetchUrl = completedResponseUrl || responseUrl || `${FAL_QUEUE}/requests/${requestId}`
+
   let videoUrl: string | null = null
   try {
-    const resultRes = await fetch(`${FAL_BASE}/requests/${requestId}`, {
+    const resultRes = await fetch(fetchUrl, {
       headers: { 'Authorization': `Key ${falKey}` },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10000),
     })
     if (!resultRes.ok) {
-      return NextResponse.json({ status: 'failed', error: `result fetch failed: ${resultRes.status}` })
+      return NextResponse.json({ status: 'failed', error: `result fetch ${resultRes.status}` })
     }
     const result = await resultRes.json()
-    videoUrl = result?.video?.url ?? result?.videos?.[0]?.url ?? null
+    videoUrl = result?.video?.url
+      ?? result?.videos?.[0]?.url
+      ?? result?.output?.video?.url
+      ?? null
     if (!videoUrl) {
-      return NextResponse.json({ status: 'failed', error: `no video url in result: ${JSON.stringify(result).slice(0, 200)}` })
+      return NextResponse.json({ status: 'failed', error: `no video url. keys: ${Object.keys(result).join(',')}` })
     }
   } catch (e: any) {
     return NextResponse.json({ status: 'failed', error: `result fetch error: ${e?.message}` })
   }
 
-  // Register video in product_creatives
+  // Save to product_creatives
   const { data: row, error: insertErr } = await supabaseAdmin
     .from('product_creatives')
     .insert({

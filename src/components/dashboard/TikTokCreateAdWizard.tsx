@@ -329,21 +329,58 @@ export default function TikTokCreateAdWizard({
     if (!selectedProduct || !aiPrompt.trim() || aiGenerating) return
     setAiGenerating(true)
     setAiError(null)
-    setAiStatus(lang === 'ar' ? 'جارٍ التوليد (~60 ثانية)...' : 'Generating (~60s)...')
+    setAiStatus(lang === 'ar' ? 'جارٍ إرسال الطلب...' : 'Submitting request...')
     try {
-      const res = await fetch('/api/ai-creatives/generate', {
+      // Step 1: submit to fal.ai queue
+      const submitRes = await fetch('/api/ai-creatives/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId: selectedProduct.id, prompt: aiPrompt.trim() }),
       })
-      const data = await res.json()
-      if (!res.ok || !data.item) {
-        setAiError(data.error || (lang === 'ar' ? 'فشل التوليد، حاول مجدداً' : 'Generation failed, please retry'))
+      const submitData = await submitRes.json()
+      if (!submitRes.ok || !submitData.requestId) {
+        setAiError(submitData.error || (lang === 'ar' ? 'فشل إرسال الطلب' : 'Submit failed'))
         return
       }
-      const item = { ...data.item, virtual: false }
-      setSelectedCreativeIds([item.id])
-      setSelectedCreativeItems([item])
+
+      const { requestId, responseUrl, productId, storeId } = submitData
+      setAiStatus(lang === 'ar' ? 'جارٍ التوليد (~60 ثانية)...' : 'Generating (~60s)...')
+
+      // Step 2: poll status until completed or failed (max ~3 minutes)
+      const params = new URLSearchParams({ requestId, productId })
+      if (storeId) params.set('storeId', storeId)
+      if (responseUrl) params.set('responseUrl', responseUrl)
+
+      const INTERVAL = 5000
+      const MAX_POLLS = 36 // 3 minutes
+      let polls = 0
+
+      while (polls < MAX_POLLS) {
+        await new Promise(r => setTimeout(r, INTERVAL))
+        polls++
+        setAiStatus(lang === 'ar' ? `جارٍ التوليد... (${polls * 5}s)` : `Generating... (${polls * 5}s)`)
+
+        let pollData: any
+        try {
+          const pollRes = await fetch(`/api/ai-creatives/status?${params}`)
+          pollData = await pollRes.json()
+        } catch {
+          continue
+        }
+
+        if (pollData.status === 'completed' && pollData.item) {
+          const item = { ...pollData.item, virtual: false }
+          setSelectedCreativeIds([item.id])
+          setSelectedCreativeItems([item])
+          return
+        }
+        if (pollData.status === 'failed') {
+          setAiError(pollData.error || (lang === 'ar' ? 'فشل التوليد، حاول مجدداً' : 'Generation failed, please retry'))
+          return
+        }
+      }
+
+      setAiError(lang === 'ar' ? 'انتهت المهلة — الفيديو قد يكون جاهزاً، حاول مجدداً' : 'Timed out — video may be ready, please retry')
     } catch (e: any) {
       setAiError(e?.message || (lang === 'ar' ? 'خطأ في الشبكة' : 'Network error'))
     } finally {

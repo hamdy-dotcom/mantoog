@@ -484,6 +484,11 @@ export default function OrdersPage() {
                   {/* Qty */}
                   <div className="col-span-1">
                     <span className="text-sm text-[#8b8fa8]">×{order.quantity}</span>
+                    {order.applied_offer && (
+                      <div className="text-[10px] text-[#fbbf24] font-medium mt-0.5 bg-[#fbbf24]/10 px-1.5 py-0.5 rounded w-fit">
+                        {lang === 'ar' ? `عرض ×${order.applied_offer.quantity}` : `Bundle ×${order.applied_offer.quantity}`}
+                      </div>
+                    )}
                   </div>
 
                   {/* Source */}

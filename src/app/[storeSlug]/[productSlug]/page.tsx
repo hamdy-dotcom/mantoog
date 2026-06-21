@@ -201,6 +201,7 @@ export default function LandingPage() {
   const [locationLoading, setLocationLoading] = useState(false)
   const [note, setNote] = useState('')
   const [qty, setQty] = useState(1)
+  const [selectedOffer, setSelectedOffer] = useState<any>(null)
   const [showAllReviews, setShowAllReviews] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
   const allReviewsRef = useRef<HTMLDivElement>(null)
@@ -287,9 +288,14 @@ export default function LandingPage() {
       : (product.shipping_cost || 0))
     : 0
   const isMapAddress = store?.address_mode === 'map' || (!store?.address_mode && store?.enable_location)
-  const total = store?.show_quantity
-    ? (parseFloat(product?.price || 0) * qty + parseFloat(shippingCost || 0)).toFixed(0)
-    : (parseFloat(product?.price || 0) + parseFloat(shippingCost || 0)).toFixed(0)
+  const activeOffers = product
+    ? ((product.offers || []) as any[]).filter((o: any) => o.active !== false).sort((a: any, b: any) => a.quantity - b.quantity)
+    : []
+  const total = selectedOffer
+    ? (selectedOffer.price + shippingCost).toFixed(0)
+    : store?.show_quantity
+      ? (parseFloat(product?.price || 0) * qty + shippingCost).toFixed(0)
+      : (parseFloat(product?.price || 0) + shippingCost).toFixed(0)
   const t = formatTimer(timer)
   const primaryColor = store?.primary_color || '#2563eb'
 
@@ -390,8 +396,8 @@ export default function LandingPage() {
     }
     setFormError('')
     setSubmitting(true)
-    const orderQty = store?.show_quantity ? submitQty : 1
-    const orderTotal = product.price * orderQty + shippingCost
+    const orderQty = selectedOffer ? selectedOffer.quantity : (store?.show_quantity ? submitQty : 1)
+    const orderTotal = selectedOffer ? selectedOffer.price + shippingCost : (product.price * orderQty + shippingCost)
     let orderOk = false
     try {
       const response = await fetch('/api/orders/create', {
@@ -419,6 +425,7 @@ export default function LandingPage() {
           map_link: pickedLocation ? `https://maps.google.com/?q=${pickedLocation.lat},${pickedLocation.lng}` : null,
           location_address: pickedLocation?.address || null,
           attribution: getOrderAttributionPayload(),
+          applied_offer: selectedOffer ? { id: selectedOffer.id, quantity: selectedOffer.quantity, price: selectedOffer.price } : null,
         }),
       })
       const result = await response.json()
@@ -1237,7 +1244,109 @@ export default function LandingPage() {
               </div>
             )}
 
-            {store?.show_quantity && (
+            {activeOffers.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* Section header */}
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 2 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: th.text }}>
+                    {m.dir === 'rtl' ? 'اختر عرضك' : 'Choose your deal'}
+                  </span>
+                  <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>
+                    {m.dir === 'rtl' ? 'كلما زاد طلبك وفرت أكثر ↓' : 'More items = more savings ↓'}
+                  </span>
+                </div>
+
+                {/* 1-piece base option */}
+                <div
+                  onClick={() => setSelectedOffer(null)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: !selectedOffer ? `${th.accent}12` : th.cardBg,
+                    border: `2px solid ${!selectedOffer ? th.accent : th.cardBorder}`,
+                    borderRadius: 12, padding: '11px 14px', cursor: 'pointer', transition: 'all 0.15s',
+                    direction: m.dir as any,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${!selectedOffer ? th.accent : '#9ca3af'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {!selectedOffer && <div style={{ width: 9, height: 9, borderRadius: '50%', background: th.accent }} />}
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: th.text }}>
+                        {m.dir === 'rtl' ? 'قطعة واحدة' : '1 item'}
+                      </span>
+                      <span style={{ fontSize: 11, color: th.subtext, marginInlineStart: 6 }}>
+                        {m.dir === 'rtl' ? '(السعر العادي)' : '(regular price)'}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: !selectedOffer ? th.accent : th.text }}>
+                    {product.price} {store?.currency}
+                  </span>
+                </div>
+
+                {/* Bundle offers */}
+                {activeOffers.map((offer: any, idx: number) => {
+                  const isSelected = selectedOffer?.id === offer.id
+                  const savings = Math.round(parseFloat(product.price) * offer.quantity - offer.price)
+                  const savingsPct = Math.round(savings / (parseFloat(product.price) * offer.quantity) * 100)
+                  const isBestValue = idx === activeOffers.length - 1 && activeOffers.length > 1
+                  const isMostPopular = idx === 0 && activeOffers.length > 1
+                  const badge = isBestValue
+                    ? { label: m.dir === 'rtl' ? '💎 الأوفر' : '💎 Best Value', color: '#16a34a' }
+                    : isMostPopular
+                      ? { label: m.dir === 'rtl' ? '🔥 الأكثر طلباً' : '🔥 Most Popular', color: '#f59e0b' }
+                      : null
+                  return (
+                    <div
+                      key={offer.id}
+                      onClick={() => setSelectedOffer(offer)}
+                      style={{
+                        background: isSelected ? `${th.accent}12` : th.cardBg,
+                        border: `2px solid ${isSelected ? th.accent : th.cardBorder}`,
+                        borderRadius: 12, padding: '11px 14px', cursor: 'pointer', transition: 'all 0.15s',
+                        direction: m.dir as any,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${isSelected ? th.accent : '#9ca3af'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {isSelected && <div style={{ width: 9, height: 9, borderRadius: '50%', background: th.accent }} />}
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: th.text }}>
+                                {offer.quantity} {m.dir === 'rtl' ? 'قطع' : 'items'}
+                              </span>
+                              {badge && (
+                                <span style={{ fontSize: 10, fontWeight: 700, background: badge.color, color: '#fff', padding: '2px 7px', borderRadius: 20 }}>
+                                  {badge.label}
+                                </span>
+                              )}
+                            </div>
+                            {savings > 0 && (
+                              <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, marginTop: 2 }}>
+                                {m.dir === 'rtl' ? `✓ وفر ${savings} ${store?.currency} (${savingsPct}%)` : `✓ Save ${savings} ${store?.currency} (${savingsPct}%)`}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'end' }}>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: isSelected ? th.accent : th.text }}>
+                            {offer.price} {store?.currency}
+                          </div>
+                          {savings > 0 && (
+                            <div style={{ fontSize: 11, color: '#9ca3af', textDecoration: 'line-through' }}>
+                              {(parseFloat(product.price) * offer.quantity).toFixed(0)} {store?.currency}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : store?.show_quantity && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: th.cardBg, border: `1px solid ${th.cardBorder}`, borderRadius: 8, padding: '10px 14px' }}>
                 <span style={{ fontSize: 14, color: th.subtext }}>{m.qtyLabel}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -1275,10 +1384,10 @@ export default function LandingPage() {
             )}
             <button
               onClick={() => {
-                const totalPrice = store?.show_quantity
-                  ? parseFloat(product?.price || 0) * qty
-                  : parseFloat(product?.price || 0)
-                const checkoutQty = store?.show_quantity ? qty : 1
+                const totalPrice = selectedOffer
+                  ? selectedOffer.price
+                  : (store?.show_quantity ? parseFloat(product?.price || 0) * qty : parseFloat(product?.price || 0))
+                const checkoutQty = selectedOffer ? selectedOffer.quantity : (store?.show_quantity ? qty : 1)
                 if (typeof window !== 'undefined') {
                   if ((window as any).fbq) {
                     (window as any).fbq('track', 'InitiateCheckout', { currency: store.currency, value: totalPrice })

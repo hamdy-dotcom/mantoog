@@ -570,7 +570,7 @@ export default function AdminPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#2a2d35]">
-                      {['Store', 'Product', 'Customer', 'Phone', 'Address', 'Merchant', 'Amount', 'Status', 'Date', '📍', ...ORDER_ATTRIBUTION_FIELDS.map(f => ORDER_ATTRIBUTION_LABELS[f])].map(h => (
+                      {['Store', 'Product', 'Customer', 'Phone', 'Address', 'Merchant', 'Amount', 'Qty', 'Status', 'Date', '📍', ...ORDER_ATTRIBUTION_FIELDS.map(f => ORDER_ATTRIBUTION_LABELS[f])].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -590,6 +590,14 @@ export default function AdminPage() {
                         </td>
                         <td className="px-4 py-3 text-sm font-bold text-[#4ade80] whitespace-nowrap">
                           {order.total_price} {order.stores?.currency || ''}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-[#8b8fa8]">×{order.quantity || 1}</span>
+                          {order.applied_offer && (
+                            <div className="text-[10px] text-[#fbbf24] font-medium mt-0.5 bg-[#fbbf24]/10 px-1.5 py-0.5 rounded w-fit whitespace-nowrap">
+                              Bundle ×{order.applied_offer.quantity}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${statusColor(order.status)}`}>

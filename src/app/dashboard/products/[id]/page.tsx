@@ -52,6 +52,9 @@ export default function EditProductPage() {
   const [showColorPanel, setShowColorPanel] = useState(false)
   const [newColorName, setNewColorName] = useState('')
   const [newColorHex, setNewColorHex] = useState('#000000')
+  const [offers, setOffers] = useState<{ id: string; quantity: number; price: number }[]>([])
+  const [newOfferQty, setNewOfferQty] = useState('')
+  const [newOfferPrice, setNewOfferPrice] = useState('')
 
   const router = useRouter()
   const params = useParams()
@@ -81,6 +84,7 @@ export default function EditProductPage() {
       setImages(productData.images || [])
       setProductSizes(productData.sizes || [])
       setProductColors(productData.colors || [])
+      setOffers(productData.offers || [])
 
       // Get landing page
       const { data: lpData } = await supabase
@@ -160,6 +164,7 @@ export default function EditProductPage() {
         images: allImages,
         sizes: productSizes.length > 0 ? productSizes : null,
         colors: productColors.length > 0 ? productColors : null,
+        offers: offers,
         updated_at: new Date().toISOString(),
       })
       .eq('id', params.id)
@@ -435,6 +440,73 @@ export default function EditProductPage() {
                   </label>
                 </div>
               </div>
+            </Section>
+
+            <Section title={lang === 'ar' ? 'العروض الترويجية' : 'Bundle Offers'}>
+              {offers.length > 0 && (
+                <div className="space-y-2 mb-2">
+                  {offers.map(offer => {
+                    const savings = parseFloat(price) * offer.quantity - offer.price
+                    return (
+                      <div key={offer.id} className="flex items-center justify-between bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-white font-medium">{offer.quantity} {lang === 'ar' ? 'قطع' : 'items'}</span>
+                          <span className="text-[#4a4e60]">→</span>
+                          <span className="text-sm text-[#4ade80] font-semibold">{offer.price} {store?.currency}</span>
+                          {savings > 0 && (
+                            <span className="text-xs text-[#fbbf24]">
+                              ({lang === 'ar' ? `وفر ${savings.toFixed(0)}` : `save ${savings.toFixed(0)}`})
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setOffers(prev => prev.filter(o => o.id !== offer.id))}
+                          className="text-[#f87171] hover:text-white text-sm transition-colors ms-2"
+                        >✕</button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="text-xs text-[#4a4e60] mb-1 block">{lang === 'ar' ? 'عدد القطع' : 'Quantity'}</label>
+                  <input
+                    type="number"
+                    value={newOfferQty}
+                    onChange={e => setNewOfferQty(e.target.value)}
+                    placeholder="2"
+                    min="2"
+                    className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6] transition-colors"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-[#4a4e60] mb-1 block">{lang === 'ar' ? `السعر (${store?.currency})` : `Price (${store?.currency})`}</label>
+                  <input
+                    type="number"
+                    value={newOfferPrice}
+                    onChange={e => setNewOfferPrice(e.target.value)}
+                    placeholder="170"
+                    className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6] transition-colors"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    const q = parseInt(newOfferQty)
+                    const p = parseFloat(newOfferPrice)
+                    if (!q || q < 2 || !p || p <= 0) return
+                    setOffers(prev => [...prev, { id: Date.now().toString(), quantity: q, price: p }])
+                    setNewOfferQty('')
+                    setNewOfferPrice('')
+                  }}
+                  className="bg-[#3b82f6] hover:bg-[#2563eb] text-white text-sm px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  + {lang === 'ar' ? 'إضافة' : 'Add'}
+                </button>
+              </div>
+              <p className="text-xs text-[#4a4e60]">
+                {lang === 'ar' ? 'مثال: قطعتان بـ 170 ريال بدلاً من 200 ريال' : 'Example: 2 items for 170 SAR instead of 200 SAR'}
+              </p>
             </Section>
 
             <Section title={lang === 'ar' ? 'إبداعات الإعلان' : 'Ad creatives'}>

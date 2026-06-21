@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       lng: orderFields.lng ?? null,
       map_link: orderFields.map_link ?? null,
       location_address: orderFields.location_address ?? null,
+      applied_offer: orderFields.applied_offer ?? null,
       ...attribution,
       ip_address: getClientIp(request),
       ip_country: getIpCountry(request),

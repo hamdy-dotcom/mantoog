@@ -300,8 +300,9 @@ export default function TikTokCreateAdWizard({
   useEffect(() => {
     if (creativeSource === 'ai_ugc' && selectedProduct && aiPromptInitRef.current !== selectedProduct.id) {
       aiPromptInitRef.current = selectedProduct.id
-      const desc = selectedProduct.description?.trim() ? ` ${selectedProduct.description.slice(0, 150)}` : ''
-      setAiPrompt(`Create a vertical TikTok video ad for: ${selectedProduct.title}.${desc} Show the product clearly, highlight its benefits, modern dynamic style.`)
+      const features = selectedProduct.description?.trim() ? ` Key features: ${selectedProduct.description.slice(0, 120)}.` : ''
+      // UGC-style scene description — sent to fal.ai for video generation
+      setAiPrompt(`UGC TikTok review for Saudi market. Hands pick up ${selectedProduct.title}, rotate it to show every angle, bring it close to the lens. Authentic excited reaction. Real home background, natural lighting, phone-camera quality. No studio, no text overlays.${features}`)
     }
   }, [creativeSource, selectedProduct])
 
@@ -316,8 +317,11 @@ export default function TikTokCreateAdWizard({
     setSelectedProduct(p)
     setSelectedCreativeIds([])
     setSelectedCreativeItems([])
-    const desc = p.description ? ` — ${p.description.slice(0, 120)}` : ''
-    setCaption(`${p.title}${desc}`)
+    // UGC-style caption hook for Saudi TikTok audience
+    const ugcCaption = lang === 'ar'
+      ? `جربت ${p.title} وكانت أفضل من توقعاتي! ✨\nلازم تجرب هذا المنتج 🔥 توصيل سريع لكل السعودية 🇸🇦\nاطلب الآن 👇`
+      : `I tried ${p.title} and it exceeded my expectations! ✨\nYou NEED to try this 🔥 Fast delivery across Saudi Arabia 🇸🇦\nOrder now 👇`
+    setCaption(ugcCaption)
   }
 
   const handleCreativeSelection = (ids: string[], items: ProductCreativeItem[]) => {

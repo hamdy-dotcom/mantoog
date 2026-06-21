@@ -300,9 +300,9 @@ export default function TikTokCreateAdWizard({
   useEffect(() => {
     if (creativeSource === 'ai_ugc' && selectedProduct && aiPromptInitRef.current !== selectedProduct.id) {
       aiPromptInitRef.current = selectedProduct.id
-      const features = selectedProduct.description?.trim() ? ` Key features: ${selectedProduct.description.slice(0, 120)}.` : ''
-      // UGC-style scene description — sent to fal.ai for video generation
-      setAiPrompt(`UGC TikTok review for Saudi market. Hands pick up ${selectedProduct.title}, rotate it to show every angle, bring it close to the lens. Authentic excited reaction. Real home background, natural lighting, phone-camera quality. No studio, no text overlays.${features}`)
+      const features = selectedProduct.description?.trim() ? ` انظروا: ${selectedProduct.description.slice(0, 100)}` : ''
+      // Veo3 prompt — include Arabic dialogue so the model generates actual spoken audio
+      setAiPrompt(`Vertical 9:16 TikTok UGC review video. A young Saudi woman in casual hijab sits in her living room and holds up "${selectedProduct.title}" close to the camera. She speaks in Arabic with genuine excitement: "صدقوني هذا المنتج غيّر حياتي!${features} لازم تجربونه!" She demonstrates the product, rotates it, uses it naturally. Authentic enthusiastic reaction. Soft daylight, real home background, phone-camera quality. No studio, no logos, no text overlays.`)
     }
   }, [creativeSource, selectedProduct])
 
@@ -780,7 +780,7 @@ export default function TikTokCreateAdWizard({
                         )}
 
                         <p className="text-[10px] text-[#4a4e60]">
-                          {lang === 'ar' ? 'جودة قياسية · 5 ثوانٍ · 9:16 · ~$0.28 لكل فيديو' : 'Standard quality · 5s · 9:16 · ~$0.28 per video'}
+                          {lang === 'ar' ? 'Google Veo3 · صوت عربي · 8 ثوانٍ · 9:16 · ~$3 لكل فيديو' : 'Google Veo3 · Arabic audio · 8s · 9:16 · ~$3 per video'}
                         </p>
                       </div>
                     )}

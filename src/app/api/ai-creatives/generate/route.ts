@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/tiktok/server'
 
-export const maxDuration = 60
-
 const FAL_BASE = 'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video'
 
 function buildPrompt(title: string, description: string | null): string {
@@ -32,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   const prompt = (typeof userPrompt === 'string' && userPrompt.trim()) ? userPrompt.trim() : buildPrompt(product.title, product.description)
 
-  // Submit to fal.ai queue
+  // Submit job to fal.ai queue — returns immediately with request_id
   const submitRes = await fetch(FAL_BASE, {
     method: 'POST',
     headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
@@ -45,49 +43,5 @@ export async function POST(req: NextRequest) {
   const { request_id } = await submitRes.json()
   if (!request_id) return NextResponse.json({ error: 'fal.ai did not return a request_id' }, { status: 502 })
 
-  // Poll for completion (max 55s, check every 4s)
-  const statusUrl = `${FAL_BASE}/requests/${request_id}/status`
-  const resultUrl = `${FAL_BASE}/requests/${request_id}`
-  const deadline = Date.now() + 55_000
-  let videoUrl: string | null = null
-
-  while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 4000))
-    const statusRes = await fetch(statusUrl, { headers: { 'Authorization': `Key ${falKey}` } })
-    if (!statusRes.ok) continue
-    const { status } = await statusRes.json()
-    if (status === 'COMPLETED') {
-      const resultRes = await fetch(resultUrl, { headers: { 'Authorization': `Key ${falKey}` } })
-      if (resultRes.ok) {
-        const result = await resultRes.json()
-        videoUrl = result.video?.url ?? null
-      }
-      break
-    }
-    if (status === 'FAILED' || status === 'ERROR') {
-      return NextResponse.json({ error: 'fal.ai generation failed' }, { status: 500 })
-    }
-  }
-
-  if (!videoUrl) {
-    return NextResponse.json({ error: 'Generation timed out — please retry' }, { status: 504 })
-  }
-
-  const { data: row, error: insertErr } = await supabaseAdmin
-    .from('product_creatives')
-    .insert({
-      product_id: productId,
-      store_id: product.store_id,
-      type: 'video',
-      url: videoUrl,
-      thumbnail_url: null,
-      name: 'AI Generated',
-      source: 'ai_ugc',
-    })
-    .select('*')
-    .single()
-
-  if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
-
-  return NextResponse.json({ item: { ...row, virtual: false } })
+  return NextResponse.json({ requestId: request_id, productId, storeId: product.store_id, status: 'pending' })
 }

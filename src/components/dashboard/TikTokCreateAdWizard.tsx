@@ -329,19 +329,40 @@ export default function TikTokCreateAdWizard({
     setAiGenerating(true)
     setAiError(null)
     try {
-      const res = await fetch('/api/ai-creatives/generate', {
+      // Step 1: Submit job — returns immediately with requestId
+      const submitRes = await fetch('/api/ai-creatives/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId: selectedProduct.id, prompt: aiPrompt.trim() }),
       })
-      const data = await res.json()
-      if (!res.ok || !data.item) {
-        setAiError(data.error || (lang === 'ar' ? 'فشل التوليد، حاول مجدداً' : 'Generation failed, please retry'))
+      const submitData = await submitRes.json()
+      if (!submitRes.ok || !submitData.requestId) {
+        setAiError(submitData.error || (lang === 'ar' ? 'فشل الإرسال، حاول مجدداً' : 'Submit failed, please retry'))
         return
       }
-      const item = { ...data.item, virtual: false }
-      setSelectedCreativeIds([item.id])
-      setSelectedCreativeItems([item])
+
+      // Step 2: Poll status every 6s until completed (max ~3 min)
+      const { requestId, storeId } = submitData
+      const deadline = Date.now() + 180_000
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 6000))
+        const statusRes = await fetch(
+          `/api/ai-creatives/status?requestId=${requestId}&productId=${selectedProduct.id}&storeId=${storeId || ''}`
+        )
+        const statusData = await statusRes.json()
+        if (statusData.status === 'completed' && statusData.item) {
+          const item = { ...statusData.item, virtual: false }
+          setSelectedCreativeIds([item.id])
+          setSelectedCreativeItems([item])
+          return
+        }
+        if (statusData.status === 'failed') {
+          setAiError(statusData.error || (lang === 'ar' ? 'فشل التوليد، حاول مجدداً' : 'Generation failed, please retry'))
+          return
+        }
+        // status === 'pending' → keep polling
+      }
+      setAiError(lang === 'ar' ? 'انتهت المهلة — حاول مجدداً' : 'Timed out — please retry')
     } catch {
       setAiError(lang === 'ar' ? 'خطأ في الشبكة' : 'Network error')
     } finally {

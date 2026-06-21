@@ -345,68 +345,44 @@ export default function TikTokCreateAdWizard({
     setAiError(null)
     setAiStatus(lang === 'ar' ? 'جارٍ إرسال الطلب...' : 'Submitting...')
     try {
-      // Step 1: submit job to fal.ai queue (fast, < 2s)
       const submitRes = await fetch('/api/ai-creatives/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId: selectedProduct.id, prompt: aiPrompt.trim() }),
       })
       const submitData = await submitRes.json()
-      if (!submitRes.ok || !submitData.clips) {
+      if (!submitRes.ok || !submitData.clip) {
         setAiError(submitData.error || (lang === 'ar' ? 'فشل إرسال الطلب' : 'Submit failed'))
         return
       }
 
-      // Poll both clips in parallel — 2 × 8s = 16s total at ~$0.80
-      const { clips, productId: pid, storeId: sid } = submitData
-      const makeParams = (clip: any) => {
-        const p = new URLSearchParams({ requestId: clip.requestId, productId: pid })
-        if (sid) p.set('storeId', sid)
-        if (clip.responseUrl) p.set('responseUrl', clip.responseUrl)
-        if (clip.statusUrl) p.set('statusUrl', clip.statusUrl)
-        return p
-      }
-
-      const done = [false, false]
-      const items: any[] = [null, null]
+      const { clip, productId: pid, storeId: sid } = submitData
+      const params = new URLSearchParams({ requestId: clip.requestId, productId: pid })
+      if (sid) params.set('storeId', sid)
+      if (clip.responseUrl) params.set('responseUrl', clip.responseUrl)
+      if (clip.statusUrl) params.set('statusUrl', clip.statusUrl)
 
       for (let i = 0; i < 37; i++) {
         await new Promise(r => setTimeout(r, 8000))
         const elapsed = (i + 1) * 8
         setAiStatus(lang === 'ar' ? `جارٍ التوليد... ${elapsed}s` : `Generating... ${elapsed}s`)
-
-        await Promise.all(clips.map(async (clip: any, idx: number) => {
-          if (done[idx]) return
-          try {
-            const res = await fetch(`/api/ai-creatives/status?${makeParams(clip)}`)
-            const d = await res.json()
-            console.log(`[fal.ai clip${idx + 1}]`, d.falStatus ?? d.status, d.error ?? '')
-            if (d.status === 'completed' && d.item) { done[idx] = true; items[idx] = d.item }
-            if (d.status === 'failed') { done[idx] = true }
-          } catch { /* retry next tick */ }
-        }))
-
-        // Show clip 1 as soon as it's ready, even if clip 2 is still generating
-        if (done[0] && items[0] && !selectedCreativeItems.length) {
-          setSelectedCreativeIds([items[0].id])
-          setSelectedCreativeItems([items[0]])
-          setAiStatus(lang === 'ar' ? 'المقطع 1 جاهز، جارٍ توليد المقطع 2...' : 'Clip 1 ready, generating clip 2...')
-        }
-
-        if (done[0] && done[1]) {
-          // Both clips done — use both (clip 1 primary for TikTok ad)
-          const readyItems = items.filter(Boolean)
-          if (readyItems.length > 0) {
-            setSelectedCreativeIds(readyItems.map((it: any) => it.id))
-            setSelectedCreativeItems(readyItems)
+        try {
+          const res = await fetch(`/api/ai-creatives/status?${params}`)
+          const d = await res.json()
+          console.log('[fal.ai]', d.falStatus ?? d.status, d.error ?? '')
+          if (d.status === 'completed' && d.item) {
+            setSelectedCreativeIds([d.item.id])
+            setSelectedCreativeItems([d.item])
+            return
           }
-          return
-        }
+          if (d.status === 'failed') {
+            setAiError(d.error || (lang === 'ar' ? 'فشل التوليد' : 'Generation failed'))
+            return
+          }
+        } catch { /* retry next tick */ }
       }
 
-      if (!items[0] && !items[1]) {
-        setAiError(lang === 'ar' ? 'استغرق وقتاً أطول من المتوقع' : 'Timed out — check fal.ai dashboard')
-      }
+      setAiError(lang === 'ar' ? 'استغرق وقتاً أطول من المتوقع' : 'Timed out — check fal.ai dashboard')
     } catch (e: any) {
       setAiError(e?.message || (lang === 'ar' ? 'خطأ في الشبكة' : 'Network error'))
     } finally {
@@ -787,19 +763,11 @@ export default function TikTokCreateAdWizard({
 
                         {selectedCreativeItems.some(i => i.type === 'video') ? (
                           <div className="space-y-3">
-                            {/* Show both clips side by side when available */}
-                            <div className="flex gap-2">
-                              {selectedCreativeItems.filter(i => i.type === 'video').map((item, idx) => (
-                                <div key={item.id} className="flex flex-col gap-1">
-                                  {selectedCreativeItems.filter(i => i.type === 'video').length > 1 && (
-                                    <span className="text-[10px] text-[#8b8fa8] text-center">{lang === 'ar' ? `مقطع ${idx + 1}` : `Clip ${idx + 1}`}</span>
-                                  )}
-                                  <div className="relative rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '9/16', maxWidth: '120px' }}>
-                                    <video src={item.url} className="w-full h-full object-cover" controls playsInline />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                            {selectedCreativeItems.filter(i => i.type === 'video').slice(0, 1).map(item => (
+                              <div key={item.id} className="relative rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '9/16', maxWidth: '160px' }}>
+                                <video src={item.url} className="w-full h-full object-cover" controls playsInline />
+                              </div>
+                            ))}
                             <button
                               type="button"
                               onClick={() => { setSelectedCreativeIds([]); setSelectedCreativeItems([]); setAiError(null) }}
@@ -831,7 +799,7 @@ export default function TikTokCreateAdWizard({
                         )}
 
                         <p className="text-[10px] text-[#4a4e60]">
-                          {lang === 'ar' ? 'Veo3.1 Lite · صوت عربي · مقطعان 8s = 16s · 9:16 · ~$0.80 لكل فيديو' : 'Veo3.1 Lite · Arabic audio · 2 clips × 8s = 16s · 9:16 · ~$0.80'}
+                          {lang === 'ar' ? 'Veo3.1 Lite · مقدِّم حقيقي · صوت عربي · 8s · 9:16 · ~$0.40 للفيديو' : 'Veo3.1 Lite · real person · Arabic audio · 8s · 9:16 · ~$0.40'}
                         </p>
                       </div>
                     )}

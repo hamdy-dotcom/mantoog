@@ -159,6 +159,7 @@ export default function TikTokCreateAdWizard({
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiGenerating, setAiGenerating] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
+  const [aiStatus, setAiStatus] = useState<string>('')
   const aiPromptInitRef = useRef<string | null>(null)
 
   const [launching, setLaunching] = useState(false)
@@ -328,45 +329,26 @@ export default function TikTokCreateAdWizard({
     if (!selectedProduct || !aiPrompt.trim() || aiGenerating) return
     setAiGenerating(true)
     setAiError(null)
+    setAiStatus(lang === 'ar' ? 'جارٍ التوليد (~60 ثانية)...' : 'Generating (~60s)...')
     try {
-      // Step 1: Submit job — returns immediately with requestId
-      const submitRes = await fetch('/api/ai-creatives/generate', {
+      const res = await fetch('/api/ai-creatives/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId: selectedProduct.id, prompt: aiPrompt.trim() }),
       })
-      const submitData = await submitRes.json()
-      if (!submitRes.ok || !submitData.requestId) {
-        setAiError(submitData.error || (lang === 'ar' ? 'فشل الإرسال، حاول مجدداً' : 'Submit failed, please retry'))
+      const data = await res.json()
+      if (!res.ok || !data.item) {
+        setAiError(data.error || (lang === 'ar' ? 'فشل التوليد، حاول مجدداً' : 'Generation failed, please retry'))
         return
       }
-
-      // Step 2: Poll status every 6s until completed (max ~3 min)
-      const { requestId, storeId } = submitData
-      const deadline = Date.now() + 180_000
-      while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, 6000))
-        const statusRes = await fetch(
-          `/api/ai-creatives/status?requestId=${requestId}&productId=${selectedProduct.id}&storeId=${storeId || ''}`
-        )
-        const statusData = await statusRes.json()
-        if (statusData.status === 'completed' && statusData.item) {
-          const item = { ...statusData.item, virtual: false }
-          setSelectedCreativeIds([item.id])
-          setSelectedCreativeItems([item])
-          return
-        }
-        if (statusData.status === 'failed') {
-          setAiError(statusData.error || (lang === 'ar' ? 'فشل التوليد، حاول مجدداً' : 'Generation failed, please retry'))
-          return
-        }
-        // status === 'pending' → keep polling
-      }
-      setAiError(lang === 'ar' ? 'انتهت المهلة — حاول مجدداً' : 'Timed out — please retry')
-    } catch {
-      setAiError(lang === 'ar' ? 'خطأ في الشبكة' : 'Network error')
+      const item = { ...data.item, virtual: false }
+      setSelectedCreativeIds([item.id])
+      setSelectedCreativeItems([item])
+    } catch (e: any) {
+      setAiError(e?.message || (lang === 'ar' ? 'خطأ في الشبكة' : 'Network error'))
     } finally {
       setAiGenerating(false)
+      setAiStatus('')
     }
   }
 
@@ -747,8 +729,7 @@ export default function TikTokCreateAdWizard({
                             {aiGenerating ? (
                               <>
                                 <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-                                <span>{lang === 'ar' ? 'جاري التوليد...' : 'Generating...'}</span>
-                                <span className="text-[10px] text-[#c4b5fd] bg-white/10 px-1.5 py-0.5 rounded-full">~30s</span>
+                                <span>{aiStatus || (lang === 'ar' ? 'جاري التوليد...' : 'Generating...')}</span>
                               </>
                             ) : (
                               <>

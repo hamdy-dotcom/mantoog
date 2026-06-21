@@ -54,15 +54,17 @@ export async function POST(req: NextRequest) {
     if (!requestId) {
       return NextResponse.json({ error: `no request_id. body: ${txt.slice(0, 200)}` }, { status: 502 })
     }
+    // fal.ai also returns status_url and cancel_url — use them directly
+    const statusUrl: string | null = body.status_url ?? null
+    return NextResponse.json({
+      requestId,
+      responseUrl,
+      statusUrl,
+      productId,
+      storeId: product.store_id,
+      status: 'pending',
+    })
   } catch (e: any) {
     return NextResponse.json({ error: `submit failed: ${e?.message}` }, { status: 502 })
   }
-
-  return NextResponse.json({
-    requestId,
-    responseUrl,
-    productId,
-    storeId: product.store_id,
-    status: 'pending',
-  })
 }

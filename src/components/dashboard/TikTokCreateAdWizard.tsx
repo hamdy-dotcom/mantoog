@@ -329,9 +329,9 @@ export default function TikTokCreateAdWizard({
     if (!selectedProduct || !aiPrompt.trim() || aiGenerating) return
     setAiGenerating(true)
     setAiError(null)
-    setAiStatus(lang === 'ar' ? 'جارٍ إرسال الطلب...' : 'Submitting request...')
+    setAiStatus(lang === 'ar' ? 'جارٍ إرسال الطلب...' : 'Submitting...')
     try {
-      // Step 1: submit to fal.ai queue
+      // Step 1: submit job to fal.ai queue (fast, < 2s)
       const submitRes = await fetch('/api/ai-creatives/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -343,44 +343,42 @@ export default function TikTokCreateAdWizard({
         return
       }
 
-      const { requestId, responseUrl, productId, storeId } = submitData
-      setAiStatus(lang === 'ar' ? 'جارٍ التوليد (~60 ثانية)...' : 'Generating (~60s)...')
+      // Step 2: poll our status route every 8s — it proxies to fal.ai
+      // 5 min max (37 × 8s ≈ 300s). Kling 1.6 typically takes 2-4 min.
+      const params = new URLSearchParams({ requestId: submitData.requestId, productId: submitData.productId })
+      if (submitData.storeId) params.set('storeId', submitData.storeId)
+      if (submitData.responseUrl) params.set('responseUrl', submitData.responseUrl)
+      if (submitData.statusUrl) params.set('statusUrl', submitData.statusUrl)
 
-      // Step 2: poll status until completed or failed (max ~3 minutes)
-      const params = new URLSearchParams({ requestId, productId })
-      if (storeId) params.set('storeId', storeId)
-      if (responseUrl) params.set('responseUrl', responseUrl)
-
-      const INTERVAL = 5000
-      const MAX_POLLS = 36 // 3 minutes
-      let polls = 0
-
-      while (polls < MAX_POLLS) {
-        await new Promise(r => setTimeout(r, INTERVAL))
-        polls++
-        setAiStatus(lang === 'ar' ? `جارٍ التوليد... (${polls * 5}s)` : `Generating... (${polls * 5}s)`)
+      for (let i = 0; i < 37; i++) {
+        await new Promise(r => setTimeout(r, 8000))
+        const elapsed = (i + 1) * 8
+        setAiStatus(lang === 'ar' ? `جارٍ التوليد... ${elapsed}s` : `Generating... ${elapsed}s`)
 
         let pollData: any
         try {
           const pollRes = await fetch(`/api/ai-creatives/status?${params}`)
           pollData = await pollRes.json()
-        } catch {
+          console.log('[fal.ai status]', pollData.falStatus ?? pollData.status, pollData.error ?? '')
+        } catch (e) {
           continue
         }
 
         if (pollData.status === 'completed' && pollData.item) {
-          const item = { ...pollData.item, virtual: false }
-          setSelectedCreativeIds([item.id])
-          setSelectedCreativeItems([item])
+          setSelectedCreativeIds([pollData.item.id])
+          setSelectedCreativeItems([pollData.item])
           return
         }
         if (pollData.status === 'failed') {
-          setAiError(pollData.error || (lang === 'ar' ? 'فشل التوليد، حاول مجدداً' : 'Generation failed, please retry'))
+          setAiError(pollData.error || (lang === 'ar' ? 'فشل التوليد' : 'Generation failed'))
           return
         }
       }
 
-      setAiError(lang === 'ar' ? 'انتهت المهلة — الفيديو قد يكون جاهزاً، حاول مجدداً' : 'Timed out — video may be ready, please retry')
+      // Reached 5 min — this means fal.ai itself is taking too long or something is wrong
+      setAiError(lang === 'ar'
+        ? 'استغرق وقتاً أطول من المتوقع — تحقق من حساب fal.ai للتأكد من نجاح العملية'
+        : 'Took longer than expected — check fal.ai dashboard to confirm job status')
     } catch (e: any) {
       setAiError(e?.message || (lang === 'ar' ? 'خطأ في الشبكة' : 'Network error'))
     } finally {

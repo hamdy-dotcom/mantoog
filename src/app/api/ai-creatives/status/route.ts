@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/tiktok/server'
 
-const FAL_QUEUE = 'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video'
-
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -13,8 +11,10 @@ export async function GET(req: NextRequest) {
   const requestId = searchParams.get('requestId')
   const productId = searchParams.get('productId')
   const storeId = searchParams.get('storeId') || null
-  // response_url is provided by fal.ai in the submit response — use it directly
   const responseUrl = searchParams.get('responseUrl') || null
+  // Use the status_url fal.ai gave us on submit — most reliable
+  const statusUrl = searchParams.get('statusUrl')
+    || `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video/requests/${requestId}/status`
 
   if (!requestId || !productId) {
     return NextResponse.json({ error: 'requestId and productId required' }, { status: 400 })
@@ -23,52 +23,65 @@ export async function GET(req: NextRequest) {
   const falKey = process.env.FAL_KEY
   if (!falKey) return NextResponse.json({ error: 'FAL_KEY not configured' }, { status: 500 })
 
-  // Poll fal.ai status
-  let falStatus: string
-  let completedResponseUrl: string | null = null
+  // Check fal.ai status
+  let statusBody: any
   try {
-    const statusRes = await fetch(`${FAL_QUEUE}/requests/${requestId}/status`, {
+    const statusRes = await fetch(statusUrl, {
       headers: { 'Authorization': `Key ${falKey}` },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10000),
     })
+    const text = await statusRes.text()
     if (!statusRes.ok) {
-      return NextResponse.json({ status: 'pending' })
+      // Expose the actual fal.ai error — do NOT swallow it as "pending"
+      return NextResponse.json({
+        status: 'failed',
+        error: `fal.ai status ${statusRes.status}: ${text.slice(0, 300)}`,
+      })
     }
-    const body = await statusRes.json()
-    falStatus = body?.status ?? 'UNKNOWN'
-    // fal.ai includes response_url in the COMPLETED status body
-    completedResponseUrl = body?.response_url ?? null
+    statusBody = JSON.parse(text)
   } catch (e: any) {
-    return NextResponse.json({ status: 'pending' })
+    return NextResponse.json({ status: 'pending', debug: `status fetch error: ${e?.message}` })
   }
 
+  const falStatus: string = statusBody?.status ?? 'UNKNOWN'
+
   if (falStatus === 'FAILED' || falStatus === 'ERROR') {
-    return NextResponse.json({ status: 'failed', error: `fal.ai job ${falStatus}` })
+    return NextResponse.json({ status: 'failed', error: `fal.ai: ${falStatus}`, debug: statusBody })
   }
 
   if (falStatus !== 'COMPLETED') {
     return NextResponse.json({ status: 'pending', falStatus })
   }
 
-  // Fetch the video result — prefer response_url from fal.ai, fall back to manual URL
-  const fetchUrl = completedResponseUrl || responseUrl || `${FAL_QUEUE}/requests/${requestId}`
+  // Job is COMPLETED — fetch the video result
+  // fal.ai includes response_url in the status body when COMPLETED
+  const resultUrl = statusBody?.response_url
+    || responseUrl
+    || `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video/requests/${requestId}`
 
   let videoUrl: string | null = null
   try {
-    const resultRes = await fetch(fetchUrl, {
+    const resultRes = await fetch(resultUrl, {
       headers: { 'Authorization': `Key ${falKey}` },
       signal: AbortSignal.timeout(10000),
     })
+    const text = await resultRes.text()
     if (!resultRes.ok) {
-      return NextResponse.json({ status: 'failed', error: `result fetch ${resultRes.status}` })
+      return NextResponse.json({
+        status: 'failed',
+        error: `fal.ai result ${resultRes.status}: ${text.slice(0, 300)}`,
+      })
     }
-    const result = await resultRes.json()
+    const result = JSON.parse(text)
     videoUrl = result?.video?.url
       ?? result?.videos?.[0]?.url
       ?? result?.output?.video?.url
       ?? null
     if (!videoUrl) {
-      return NextResponse.json({ status: 'failed', error: `no video url. keys: ${Object.keys(result).join(',')}` })
+      return NextResponse.json({
+        status: 'failed',
+        error: `video url not found. result keys: ${Object.keys(result).join(', ')}`,
+      })
     }
   } catch (e: any) {
     return NextResponse.json({ status: 'failed', error: `result fetch error: ${e?.message}` })
@@ -91,5 +104,5 @@ export async function GET(req: NextRequest) {
 
   if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
 
-  return NextResponse.json({ status: 'completed', item: { ...row, virtual: false } })
+  return NextResponse.json({ status: 'completed', item: row })
 }

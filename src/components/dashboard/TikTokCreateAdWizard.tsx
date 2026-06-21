@@ -156,6 +156,11 @@ export default function TikTokCreateAdWizard({
   )
   const [campaignNameSuffix, setCampaignNameSuffix] = useState(() => previewNameSuffix())
 
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const aiPromptInitRef = useRef<string | null>(null)
+
   const [launching, setLaunching] = useState(false)
   const [launchError, setLaunchError] = useState<LaunchErrorDetail | null>(null)
   const [launchSuccess, setLaunchSuccess] = useState<{
@@ -291,6 +296,14 @@ export default function TikTokCreateAdWizard({
     fetchLeadForms()
   }, [goal, fetchLeadForms])
 
+  useEffect(() => {
+    if (creativeSource === 'ai_ugc' && selectedProduct && aiPromptInitRef.current !== selectedProduct.id) {
+      aiPromptInitRef.current = selectedProduct.id
+      const desc = selectedProduct.description?.trim() ? ` ${selectedProduct.description.slice(0, 150)}` : ''
+      setAiPrompt(`Create a vertical TikTok video ad for: ${selectedProduct.title}.${desc} Show the product clearly, highlight its benefits, modern dynamic style.`)
+    }
+  }, [creativeSource, selectedProduct])
+
   const leadFormSelection = useMemo(() => {
     if (goal !== 'leads' || !leadFormChoice) return null
     const form = leadForms.find(f => f.page_id === leadFormChoice)
@@ -309,6 +322,31 @@ export default function TikTokCreateAdWizard({
   const handleCreativeSelection = (ids: string[], items: ProductCreativeItem[]) => {
     setSelectedCreativeIds(ids)
     setSelectedCreativeItems(items)
+  }
+
+  const handleAiGenerate = async () => {
+    if (!selectedProduct || !aiPrompt.trim() || aiGenerating) return
+    setAiGenerating(true)
+    setAiError(null)
+    try {
+      const res = await fetch('/api/ai-creatives/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: selectedProduct.id, prompt: aiPrompt.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.item) {
+        setAiError(data.error || (lang === 'ar' ? 'فشل التوليد، حاول مجدداً' : 'Generation failed, please retry'))
+        return
+      }
+      const item = { ...data.item, virtual: false }
+      setSelectedCreativeIds([item.id])
+      setSelectedCreativeItems([item])
+    } catch {
+      setAiError(lang === 'ar' ? 'خطأ في الشبكة' : 'Network error')
+    } finally {
+      setAiGenerating(false)
+    }
   }
 
   const toggleAge = (id: string) => {
@@ -372,6 +410,7 @@ export default function TikTokCreateAdWizard({
         return videos.length > 0 && videos.length <= 5 && selectedCreativeIds.length === videos.length
       }
       if (creativeSource === 'carousel') return selectedCreativeIds.length > 0
+      if (creativeSource === 'ai_ugc') return selectedCreativeItems.some(i => i.type === 'video')
       return true
     }
     if (step === 3) {
@@ -632,15 +671,76 @@ export default function TikTokCreateAdWizard({
                       </div>
                     )}
                     {creativeSource === 'ai_ugc' && (
-                      <div className="space-y-3 opacity-60 pointer-events-none">
-                        <p className="text-xs text-[#fbbf24]">
-                          {lang === 'ar' ? 'قريباً — مولّد UGC بالذكاء الاصطناعي' : 'Coming soon — AI UGC generator'}
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <input disabled className={inputClass(true)} placeholder={lang === 'ar' ? 'السكريبت' : 'Script'} />
-                          <input disabled className={inputClass(true)} placeholder={lang === 'ar' ? 'الممثل' : 'Actor'} />
-                          <input disabled className={inputClass(true)} placeholder="9:16" />
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[#a855f7]" />
+                          <span className="text-xs font-semibold text-[#a855f7]">
+                            {lang === 'ar' ? 'مولّد الفيديو بالذكاء الاصطناعي' : 'AI Video Generator'}
+                          </span>
+                          <span className="text-[10px] text-[#4a4e60] bg-[#1a1d24] px-2 py-0.5 rounded-full border border-[#2a2d35]">Kling 1.6</span>
                         </div>
+
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-xs text-[#8b8fa8]">{lang === 'ar' ? 'وصف المشهد' : 'Scene description'}</span>
+                          <textarea
+                            value={aiPrompt}
+                            onChange={e => setAiPrompt(e.target.value)}
+                            rows={3}
+                            placeholder={lang === 'ar' ? 'صف كيف تريد أن يبدو الفيديو...' : 'Describe how you want the video to look...'}
+                            disabled={aiGenerating}
+                            className={`${inputClass(aiGenerating)} resize-none`}
+                          />
+                        </label>
+
+                        {aiError && (
+                          <p className="text-xs text-[#f87171]">{aiError}</p>
+                        )}
+
+                        {selectedCreativeItems.some(i => i.type === 'video') ? (
+                          <div className="space-y-3">
+                            <div className="relative rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '9/16', maxWidth: '140px' }}>
+                              <video
+                                src={selectedCreativeItems.find(i => i.type === 'video')!.url}
+                                className="w-full h-full object-cover"
+                                controls
+                                playsInline
+                                muted
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedCreativeIds([]); setSelectedCreativeItems([]); setAiError(null) }}
+                              className="text-xs text-[#8b8fa8] hover:text-white transition-colors"
+                            >
+                              {lang === 'ar' ? '↺ إعادة التوليد' : '↺ Regenerate'}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleAiGenerate}
+                            disabled={aiGenerating || !aiPrompt.trim()}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-40 transition-all"
+                            style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', boxShadow: aiGenerating ? 'none' : '0 0 16px rgba(124,58,237,0.3)' }}
+                          >
+                            {aiGenerating ? (
+                              <>
+                                <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                <span>{lang === 'ar' ? 'جاري التوليد...' : 'Generating...'}</span>
+                                <span className="text-[10px] text-[#c4b5fd] bg-white/10 px-1.5 py-0.5 rounded-full">~30s</span>
+                              </>
+                            ) : (
+                              <>
+                                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 shrink-0"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                                {lang === 'ar' ? 'توليد فيديو' : 'Generate video'}
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        <p className="text-[10px] text-[#4a4e60]">
+                          {lang === 'ar' ? 'جودة قياسية · 5 ثوانٍ · 9:16 · ~$0.28 لكل فيديو' : 'Standard quality · 5s · 9:16 · ~$0.28 per video'}
+                        </p>
                       </div>
                     )}
 

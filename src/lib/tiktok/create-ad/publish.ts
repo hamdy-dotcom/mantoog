@@ -939,7 +939,7 @@ export async function uploadCreativeToTikTok(opts: {
   const src = payload.creative.source
   const resolved = await resolveMediaForPayload(payload)
 
-  if (src === 'product_video' || src === 'upload') {
+  if (src === 'product_video' || src === 'upload' || src === 'ai_ugc') {
     const videoItem = resolved.items.find(i => i.type === 'video')
     if (!videoItem) {
       return {
@@ -1051,11 +1051,10 @@ export async function uploadCreativeToTikTok(opts: {
     }
   }
 
-  // ai_ugc is not implemented yet
   return {
     error: 'validation_error',
     step: 'validation',
-    message: 'AI UGC creative source is not supported yet.',
+    message: 'Unknown creative source.',
     category: 'unknown',
   }
 }

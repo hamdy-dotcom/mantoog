@@ -63,79 +63,71 @@ export default function NewProductPage() {
     return (selling / (1 - discount / 100)).toFixed(2)
   }
 
+  const applyDefaultVariants = () => {
+    setProductSizes(['S', 'M', 'L', 'XL', 'XXL'])
+    setProductColors([
+      { name: 'أسود', hex: '#000000' },
+      { name: 'أبيض', hex: '#ffffff' },
+      { name: 'رمادي', hex: '#9ca3af' },
+    ])
+  }
+
   const handleScrapeUrl = async () => {
     if (!url.trim()) return
     setScraping(true)
     setScrapeError('')
+    setScrapedImages([])
 
     try {
-      // Try client-side fetch first (browser IP not blocked)
-      const corsProxy = `https://corsproxy.io/?${encodeURIComponent(url)}`
-      const browserRes = await fetch(corsProxy)
-
-      if (browserRes.ok) {
-        const html = await browserRes.text()
-
-        // Extract title
-        const titleMatch =
-          html.match(/<span[^>]*id="productTitle"[^>]*>\s*([^<]+)\s*<\/span>/) ||
-          html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/) ||
-          html.match(/<title>([^<]+)<\/title>/)
-
-        if (titleMatch) {
-          const cleanTitle = titleMatch[1].trim().replace(/\s+/g, ' ').slice(0, 100)
-          if (cleanTitle.length > 3) setProductName(cleanTitle)
-        }
-
-        // Extract images
-        const amazonImgs = html.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9+._%-]+\.jpg/g) || []
-        const ogImg = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/)
-        const noonImgs = html.match(/https:\/\/f\.nooncdn\.com\/p\/[A-Za-z0-9/_.-]+\.jpg/g) || []
-
-        const allImgs = [
-          ...(ogImg ? [ogImg[1]] : []),
-          ...amazonImgs,
-          ...noonImgs,
-        ].filter(img => !img.includes('sprite') && !img.includes('icon') && !img.includes('logo'))
-
-        const uniqueImgs = [...new Set(allImgs)].slice(0, 8)
-        if (uniqueImgs.length > 0) setScrapedImages(uniqueImgs)
-
-        // If we got something useful, stop here
-        if (titleMatch || uniqueImgs.length > 0) {
-          setProductSizes(['S', 'M', 'L', 'XL', 'XXL'])
-          setProductColors([
-            { name: 'أسود', hex: '#000000' },
-            { name: 'أبيض', hex: '#ffffff' },
-            { name: 'رمادي', hex: '#9ca3af' },
-          ])
-          setScraping(false)
-          return
-        }
-      }
-    } catch {}
-
-    // Fallback to server scraper
-    try {
-      const res = await fetch('/api/scrape-product', {
+      const res = await fetch('/api/products/fetch-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url: url.trim() }),
       })
       const data = await res.json()
-      if (data.success && data.title && data.title.length > 3) {
-        setProductName(data.title)
-        if (data.images?.length > 0) setScrapedImages(data.images)
-        setProductSizes(['S', 'M', 'L', 'XL', 'XXL'])
-        setProductColors([
-          { name: 'أسود', hex: '#000000' },
-          { name: 'أبيض', hex: '#ffffff' },
-          { name: 'رمادي', hex: '#9ca3af' },
-        ])
-      }
-    } catch {}
 
-    setScraping(false)
+      if (!res.ok || !data.success) {
+        setScrapeError(
+          data.error ||
+            'Could not fetch this product URL. Check the link or enter details manually.'
+        )
+        return
+      }
+
+      if (data.platform === 'aliexpress' || data.blocked) {
+        if (data.platform !== 'aliexpress') {
+          setScrapeError(
+            data.message ||
+              data.error ||
+              'This store blocked automated fetching. Enter the product name and upload images manually.'
+          )
+        }
+        return
+      }
+
+      let foundContent = false
+      if (data.title && data.title.length > 3) {
+        setProductName(data.title)
+        foundContent = true
+      }
+      if (data.images?.length > 0) {
+        setScrapedImages(data.images)
+        foundContent = true
+      }
+
+      if (!foundContent) {
+        setScrapeError(
+          'Could not read product details from this page. Enter the name and upload images manually.'
+        )
+        return
+      }
+
+      applyDefaultVariants()
+    } catch {
+      setScrapeError('Network error while fetching the product page. Try again.')
+    } finally {
+      setScraping(false)
+    }
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {

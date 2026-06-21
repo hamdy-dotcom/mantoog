@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   // Use the status_url fal.ai gave us on submit — most reliable
   // Always use the status_url fal.ai returned on submit — works for any model
   const statusUrl = searchParams.get('statusUrl')
-    || `https://queue.fal.run/fal-ai/veo3.1/lite/requests/${requestId}/status`
+    || `https://queue.fal.run/fal-ai/veo3/requests/${requestId}/status`
 
   if (!requestId || !productId) {
     return NextResponse.json({ error: 'requestId and productId required' }, { status: 400 })

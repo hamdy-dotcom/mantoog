@@ -4,8 +4,8 @@ import { supabaseAdmin } from '@/lib/tiktok/server'
 
 export const maxDuration = 30
 
-// Veo3.1 Lite text-to-video: $0.05/sec WITH audio, 9:16, generates person + product scenes
-const FAL_VEO3_LITE = 'https://queue.fal.run/fal-ai/veo3.1/lite'
+// Full Veo3 text-to-video: same model Gemini uses, generates person + product scenes with audio
+const FAL_VEO3 = 'https://queue.fal.run/fal-ai/veo3'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     || `A young Saudi woman in casual hijab holds up "${product.title}" and speaks directly to camera in Arabic: "صدقوني هذا المنتج غيّر حياتي! لازم تجربونه!" She demonstrates the product enthusiastically. Phone-camera quality, natural daylight, authentic home setting. Vertical 9:16 TikTok UGC style.`
 
   try {
-    const res = await fetch(FAL_VEO3_LITE, {
+    const res = await fetch(FAL_VEO3, {
       method: 'POST',
       headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({

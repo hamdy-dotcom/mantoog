@@ -719,7 +719,7 @@ export default function TikTokCreateAdWizard({
                           <span className="text-xs font-semibold text-[#a855f7]">
                             {lang === 'ar' ? 'مولّد الفيديو بالذكاء الاصطناعي' : 'AI Video Generator'}
                           </span>
-                          <span className="text-[10px] text-[#4a4e60] bg-[#1a1d24] px-2 py-0.5 rounded-full border border-[#2a2d35]">Claude → Veo3.1 Lite</span>
+                          <span className="text-[10px] text-[#4a4e60] bg-[#1a1d24] px-2 py-0.5 rounded-full border border-[#2a2d35]">Claude → Veo3</span>
                         </div>
 
                         <label className="flex flex-col gap-1.5">
@@ -799,7 +799,7 @@ export default function TikTokCreateAdWizard({
                         )}
 
                         <p className="text-[10px] text-[#4a4e60]">
-                          {lang === 'ar' ? 'Veo3.1 Lite · مقدِّم حقيقي · صوت عربي · 8s · 9:16 · ~$0.40 للفيديو' : 'Veo3.1 Lite · real person · Arabic audio · 8s · 9:16 · ~$0.40'}
+                          {lang === 'ar' ? 'Google Veo3 · مقدِّم حقيقي · صوت عربي · 8s · 9:16 · ~$3.20 للفيديو' : 'Google Veo3 · real person · Arabic audio · 8s · 9:16 · ~$3.20'}
                         </p>
                       </div>
                     )}

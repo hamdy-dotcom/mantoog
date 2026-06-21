@@ -187,24 +187,38 @@ export default function DashboardPage() {
       if (!ctx) return
       const { user, store: storeData } = ctx
 
+      const fetchAll = async (query: any) => {
+        const PAGE = 1000
+        let rows: any[] = []
+        let from = 0
+        while (true) {
+          const { data, error } = await query.range(from, from + PAGE - 1)
+          if (error || !data || data.length === 0) break
+          rows = rows.concat(data)
+          if (data.length < PAGE) break
+          from += PAGE
+        }
+        return rows
+      }
+
       const [
         { data: merchantData },
         { data: creditsData },
-        { data: ordersData },
-        { data: productsData },
+        ordersData,
+        productsData,
       ] = await Promise.all([
         supabase.from('merchants').select('*').eq('id', user.id).single(),
         supabase.from('order_credits').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false }).limit(1).single(),
-        supabase.from('orders').select('*, products(title, images)').eq('merchant_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('products').select('id, title, images, status, created_at').eq('merchant_id', user.id).order('created_at', { ascending: false }),
+        fetchAll(supabase.from('orders').select('*, products(title, images)').eq('merchant_id', user.id).order('created_at', { ascending: true })),
+        fetchAll(supabase.from('products').select('id, title, images, status, created_at').eq('merchant_id', user.id).order('created_at', { ascending: false })),
       ])
 
       setMerchant(merchantData)
       setStore(storeData)
       setCredits(creditsData)
-      setOrders(ordersData || [])
+      setOrders(ordersData)
 
-      const productList = productsData || []
+      const productList = productsData
       if (productList.length) {
         const { data: landingPagesData } = await supabase
           .from('landing_pages')

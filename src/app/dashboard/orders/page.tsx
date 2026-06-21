@@ -67,17 +67,29 @@ export default function OrdersPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  const fetchAll = async (query: any) => {
+    const PAGE = 1000
+    let rows: any[] = []
+    let from = 0
+    while (true) {
+      const { data, error } = await query.range(from, from + PAGE - 1)
+      if (error || !data || data.length === 0) break
+      rows = rows.concat(data)
+      if (data.length < PAGE) break
+      from += PAGE
+    }
+    return rows
+  }
+
   useEffect(() => {
     const init = async () => {
       const ctx = await loadMerchantStore(supabase, router, '*')
       if (!ctx) return
       setStore(ctx.store)
-      const { data: ordersData } = await supabase
-        .from('orders')
-        .select('*, products(title, images)')
-        .eq('merchant_id', ctx.user.id)
-        .order('created_at', { ascending: false })
-      setOrders(ordersData || [])
+      const ordersData = await fetchAll(
+        supabase.from('orders').select('*, products(title, images)').eq('merchant_id', ctx.user.id).order('created_at', { ascending: false })
+      )
+      setOrders(ordersData)
       setLoading(false)
     }
     init()

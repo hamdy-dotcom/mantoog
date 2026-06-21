@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const requestId = searchParams.get('requestId')
   const productId = searchParams.get('productId')
-  const storeId = searchParams.get('storeId')
+  const storeId = searchParams.get('storeId') || null
 
   if (!requestId || !productId) {
     return NextResponse.json({ error: 'requestId and productId required' }, { status: 400 })
@@ -21,37 +21,55 @@ export async function GET(req: NextRequest) {
   const falKey = process.env.FAL_KEY
   if (!falKey) return NextResponse.json({ error: 'FAL_KEY not configured' }, { status: 500 })
 
-  const statusRes = await fetch(`${FAL_BASE}/requests/${requestId}/status`, {
-    headers: { 'Authorization': `Key ${falKey}` },
-  })
-  if (!statusRes.ok) return NextResponse.json({ status: 'pending' })
-
-  const { status } = await statusRes.json()
-
-  if (status === 'FAILED' || status === 'ERROR') {
-    return NextResponse.json({ status: 'failed', error: 'Generation failed on fal.ai' })
+  // Check fal.ai job status
+  let falStatus: string
+  try {
+    const statusRes = await fetch(`${FAL_BASE}/requests/${requestId}/status`, {
+      headers: { 'Authorization': `Key ${falKey}` },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!statusRes.ok) {
+      return NextResponse.json({ status: 'pending', debug: `status check ${statusRes.status}` })
+    }
+    const body = await statusRes.json()
+    falStatus = body?.status ?? 'UNKNOWN'
+  } catch (e: any) {
+    return NextResponse.json({ status: 'pending', debug: e?.message })
   }
 
-  if (status !== 'COMPLETED') {
-    return NextResponse.json({ status: 'pending' })
+  if (falStatus === 'FAILED' || falStatus === 'ERROR') {
+    return NextResponse.json({ status: 'failed', error: `fal.ai job ${falStatus}` })
   }
 
-  // Fetch result
-  const resultRes = await fetch(`${FAL_BASE}/requests/${requestId}`, {
-    headers: { 'Authorization': `Key ${falKey}` },
-  })
-  if (!resultRes.ok) return NextResponse.json({ status: 'pending' })
+  if (falStatus !== 'COMPLETED') {
+    return NextResponse.json({ status: 'pending', falStatus })
+  }
 
-  const result = await resultRes.json()
-  const videoUrl: string | null = result.video?.url ?? null
-  if (!videoUrl) return NextResponse.json({ status: 'failed', error: 'No video URL in result' })
+  // Fetch the result
+  let videoUrl: string | null = null
+  try {
+    const resultRes = await fetch(`${FAL_BASE}/requests/${requestId}`, {
+      headers: { 'Authorization': `Key ${falKey}` },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!resultRes.ok) {
+      return NextResponse.json({ status: 'failed', error: `result fetch failed: ${resultRes.status}` })
+    }
+    const result = await resultRes.json()
+    videoUrl = result?.video?.url ?? result?.videos?.[0]?.url ?? null
+    if (!videoUrl) {
+      return NextResponse.json({ status: 'failed', error: `no video url in result: ${JSON.stringify(result).slice(0, 200)}` })
+    }
+  } catch (e: any) {
+    return NextResponse.json({ status: 'failed', error: `result fetch error: ${e?.message}` })
+  }
 
-  // Register in product_creatives
+  // Register video in product_creatives
   const { data: row, error: insertErr } = await supabaseAdmin
     .from('product_creatives')
     .insert({
       product_id: productId,
-      store_id: storeId || null,
+      store_id: storeId,
       type: 'video',
       url: videoUrl,
       thumbnail_url: null,

@@ -7,12 +7,8 @@ export const maxDuration = 30
 // Veo3.1 Lite: $0.05/sec WITH audio, 9:16 support, product image as start/end frame
 const FAL_VEO3_LITE = 'https://queue.fal.run/fal-ai/veo3.1/lite/first-last-frame-to-video'
 
-function buildPrompt(title: string, description: string | null, part: 1 | 2): string {
-  const desc = description?.trim() ? description.slice(0, 100) : ''
-  if (part === 1) {
-    return `Vertical 9:16 TikTok UGC video. A young Saudi woman in casual hijab sits in her home. She holds up "${title}" to the camera and speaks in Arabic with excitement: "صدقوني هذا المنتج غيّر حياتي! لازم تجربونه!" She rotates the product slowly to show every side.${desc ? ` ${desc}` : ''} Natural daylight, real Saudi home, phone camera quality. No studio, no logos.`
-  }
-  return `Vertical 9:16 TikTok UGC video continuation. The same Saudi woman continues reviewing "${title}". She demonstrates how the product works, points out key features with genuine enthusiasm, says in Arabic: "الجودة عالية جداً والسعر مناسب جداً — اطلبوه الحين!" Ends with a big smile and thumbs up to camera. Authentic real home setting.`
+function buildClip2Prompt(clip1Prompt: string): string {
+  return `${clip1Prompt} CONTINUATION: The presenter now demonstrates the product in use, highlighting 2-3 key benefits with genuine enthusiasm. Ends by holding the product up to camera and saying in Saudi Arabic: "اطلبه الحين — التوصيل سريع لكل السعودية! الرابط في البايو!" with a big smile.`
 }
 
 export async function POST(req: NextRequest) {
@@ -57,11 +53,13 @@ export async function POST(req: NextRequest) {
     return { requestId: b.request_id as string, responseUrl: b.response_url ?? null, statusUrl: b.status_url ?? null }
   }
 
+  const basePrompt = userPrompt?.trim() || `Vertical 9:16 TikTok UGC video. A young Saudi woman in casual hijab sits in her home holding "${product.title}" close to camera and speaking in Arabic: "صدقوني هذا المنتج غيّر حياتي! لازم تجربونه!" Phone-camera quality, natural daylight, authentic home setting.`
+
   try {
     // 2 clips in parallel: 8s each = 16s total at $0.05/s = ~$0.80
     const [clip1, clip2] = await Promise.all([
-      submit(userPrompt?.trim() || buildPrompt(product.title, product.description, 1), img0, img1),
-      submit(buildPrompt(product.title, product.description, 2), img1, img2),
+      submit(basePrompt, img0, img1),
+      submit(buildClip2Prompt(basePrompt), img1, img2),
     ])
     return NextResponse.json({
       clips: [clip1, clip2],

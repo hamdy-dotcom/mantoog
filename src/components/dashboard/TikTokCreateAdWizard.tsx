@@ -157,6 +157,7 @@ export default function TikTokCreateAdWizard({
   const [campaignNameSuffix, setCampaignNameSuffix] = useState(() => previewNameSuffix())
 
   const [aiPrompt, setAiPrompt] = useState('')
+  const [aiScriptLoading, setAiScriptLoading] = useState(false)
   const [aiGenerating, setAiGenerating] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiStatus, setAiStatus] = useState<string>('')
@@ -297,14 +298,23 @@ export default function TikTokCreateAdWizard({
     fetchLeadForms()
   }, [goal, fetchLeadForms])
 
+  const fetchAiScript = useCallback(async (product: ProductSummary) => {
+    setAiScriptLoading(true)
+    setAiPrompt('')
+    try {
+      const res = await fetch(`/api/ai-creatives/prompt?productId=${product.id}`)
+      const data = await res.json()
+      if (data.prompt) setAiPrompt(data.prompt)
+    } catch { /* non-fatal */ }
+    finally { setAiScriptLoading(false) }
+  }, [])
+
   useEffect(() => {
     if (creativeSource === 'ai_ugc' && selectedProduct && aiPromptInitRef.current !== selectedProduct.id) {
       aiPromptInitRef.current = selectedProduct.id
-      const features = selectedProduct.description?.trim() ? ` انظروا: ${selectedProduct.description.slice(0, 100)}` : ''
-      // Veo3 prompt — include Arabic dialogue so the model generates actual spoken audio
-      setAiPrompt(`Vertical 9:16 TikTok UGC review video. A young Saudi woman in casual hijab sits in her living room and holds up "${selectedProduct.title}" close to the camera. She speaks in Arabic with genuine excitement: "صدقوني هذا المنتج غيّر حياتي!${features} لازم تجربونه!" She demonstrates the product, rotates it, uses it naturally. Authentic enthusiastic reaction. Soft daylight, real home background, phone-camera quality. No studio, no logos, no text overlays.`)
+      fetchAiScript(selectedProduct)
     }
-  }, [creativeSource, selectedProduct])
+  }, [creativeSource, selectedProduct, fetchAiScript])
 
   const leadFormSelection = useMemo(() => {
     if (goal !== 'leads' || !leadFormChoice) return null
@@ -728,24 +738,47 @@ export default function TikTokCreateAdWizard({
                     )}
                     {creativeSource === 'ai_ugc' && (
                       <div className="space-y-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <div className="w-2 h-2 rounded-full bg-[#a855f7]" />
                           <span className="text-xs font-semibold text-[#a855f7]">
                             {lang === 'ar' ? 'مولّد الفيديو بالذكاء الاصطناعي' : 'AI Video Generator'}
                           </span>
-                          <span className="text-[10px] text-[#4a4e60] bg-[#1a1d24] px-2 py-0.5 rounded-full border border-[#2a2d35]">Kling 1.6</span>
+                          <span className="text-[10px] text-[#4a4e60] bg-[#1a1d24] px-2 py-0.5 rounded-full border border-[#2a2d35]">Claude → Veo3.1 Lite</span>
                         </div>
 
                         <label className="flex flex-col gap-1.5">
-                          <span className="text-xs text-[#8b8fa8]">{lang === 'ar' ? 'وصف المشهد' : 'Scene description'}</span>
-                          <textarea
-                            value={aiPrompt}
-                            onChange={e => setAiPrompt(e.target.value)}
-                            rows={3}
-                            placeholder={lang === 'ar' ? 'صف كيف تريد أن يبدو الفيديو...' : 'Describe how you want the video to look...'}
-                            disabled={aiGenerating}
-                            className={`${inputClass(aiGenerating)} resize-none`}
-                          />
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-[#8b8fa8]">
+                              {lang === 'ar' ? 'السكريبت (يكتبه الذكاء الاصطناعي تلقائياً)' : 'Script (AI-written from your product)'}
+                            </span>
+                            {!aiScriptLoading && aiPrompt && (
+                              <button
+                                type="button"
+                                onClick={() => selectedProduct && fetchAiScript(selectedProduct)}
+                                disabled={aiGenerating}
+                                className="text-[10px] text-[#60a5fa] hover:text-white disabled:opacity-40"
+                              >
+                                {lang === 'ar' ? '↺ إعادة كتابة السكريبت' : '↺ Rewrite script'}
+                              </button>
+                            )}
+                          </div>
+                          {aiScriptLoading ? (
+                            <div className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-4 flex items-center gap-2">
+                              <svg className="animate-spin w-3.5 h-3.5 text-[#a855f7] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                              <span className="text-xs text-[#8b8fa8] animate-pulse">
+                                {lang === 'ar' ? 'Claude يكتب السكريبت...' : 'Claude is writing your script...'}
+                              </span>
+                            </div>
+                          ) : (
+                            <textarea
+                              value={aiPrompt}
+                              onChange={e => setAiPrompt(e.target.value)}
+                              rows={6}
+                              placeholder={lang === 'ar' ? 'يكتب الذكاء الاصطناعي السكريبت تلقائياً...' : 'AI will write the script automatically...'}
+                              disabled={aiGenerating}
+                              className={`${inputClass(aiGenerating)} resize-none text-xs leading-relaxed`}
+                            />
+                          )}
                         </label>
 
                         {aiError && (

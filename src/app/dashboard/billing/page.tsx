@@ -90,6 +90,7 @@ export default function BillingPage() {
   const [subRows, setSubRows]               = useState<any[]>([])
   const [activeSubs, setActiveSubs]         = useState<string[]>([])
   const [loading, setLoading]               = useState(true)
+  const [paymentReqs, setPaymentReqs]       = useState<any[]>([])
   const [customAmt, setCustomAmt]           = useState(300)
   const [selected, setSelected]             = useState<SelectedItem | null>(null)
   const [method, setMethod]                 = useState<'card' | 'wallet'>('wallet')
@@ -116,13 +117,15 @@ export default function BillingPage() {
       if (!ctx) return
       setStore(ctx.store)
 
-      const [{ data: credits }, { data: subs }] = await Promise.all([
+      const [{ data: credits }, { data: subs }, { data: reqs }] = await Promise.all([
         supabase.from('order_credits').select('*').eq('merchant_id', ctx.user.id).order('created_at', { ascending: false }),
         supabase.from('subscriptions').select('*').eq('merchant_id', ctx.user.id).eq('status', 'active'),
+        supabase.from('payment_requests').select('*').eq('merchant_id', ctx.user.id).order('created_at', { ascending: false }),
       ])
       setCreditRows(credits || [])
       setSubRows(subs || [])
       setActiveSubs((subs || []).map((s: any) => s.plan))
+      setPaymentReqs(reqs || [])
       setLoading(false)
     }
     init()
@@ -539,6 +542,65 @@ export default function BillingPage() {
             </div>
           )}
         </div>
+
+        {/* ── Payment requests status ── */}
+        {paymentReqs.length > 0 && (
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden mt-6">
+            <div className="px-5 py-4 border-b border-[#2a2d35] flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-medium text-sm">{ar ? 'طلبات الدفع' : 'Payment requests'}</h2>
+                <p className="text-xs text-[#4a4e60] mt-0.5">{ar ? 'حالة طلباتك المرسلة' : 'Status of your submitted requests'}</p>
+              </div>
+              {paymentReqs.filter(r => r.status === 'pending').length > 0 && (
+                <span className="text-[10px] font-bold bg-[#f59e0b]/20 text-[#f59e0b] px-2.5 py-1 rounded-full">
+                  {paymentReqs.filter(r => r.status === 'pending').length} {ar ? 'قيد المراجعة' : 'pending'}
+                </span>
+              )}
+            </div>
+            <div>
+              {paymentReqs.map(req => {
+                const isPending  = req.status === 'pending'
+                const isApproved = req.status === 'approved'
+                const statusConfig = isPending
+                  ? { label: ar ? 'قيد المراجعة' : 'Pending',  color: '#f59e0b', bg: '#f59e0b20' }
+                  : isApproved
+                  ? { label: ar ? 'تمت الموافقة' : 'Approved', color: '#4ade80', bg: '#4ade8020' }
+                  : { label: ar ? 'مرفوض' : 'Rejected',        color: '#f87171', bg: '#f8717120' }
+
+                return (
+                  <div key={req.id} className="flex items-center gap-4 px-5 py-4 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: statusConfig.color }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-white font-medium">
+                        {req.item_type === 'credits'
+                          ? `${(req.credits_amount ?? 0).toLocaleString()} ${ar ? 'طلب' : 'orders'}`
+                          : `${ar ? 'اشتراك' : 'Subscription'} · ${req.sub_plan}`}
+                      </div>
+                      <div className="text-xs text-[#4a4e60] mt-0.5 flex items-center gap-2">
+                        <span className="capitalize">{req.payment_method}</span>
+                        <span>·</span>
+                        <span>{new Date(req.created_at).toLocaleDateString(ar ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        {req.admin_notes && (
+                          <>
+                            <span>·</span>
+                            <span className="text-[#f87171]">{req.admin_notes}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-sm font-bold text-white tabular-nums">{req.amount_egp} EGP</div>
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap"
+                        style={{ background: statusConfig.bg, color: statusConfig.color }}>
+                        {statusConfig.label}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* ── Payment modal ── */}

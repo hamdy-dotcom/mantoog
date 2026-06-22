@@ -30,6 +30,8 @@ export default function AdminPage() {
   const [allProducts, setAllProducts] = useState<any[]>([])
   const [productSearch, setProductSearch] = useState('')
   const [merchantsMap, setMerchantsMap] = useState<Record<string, any>>({})
+  const [allCreditRows, setAllCreditRows] = useState<any[]>([])
+  const [creditSearch, setCreditSearch] = useState('')
   const [paymentRequests, setPaymentRequests] = useState<any[]>([])
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending')
   const [processingPayment, setProcessingPayment] = useState<string | null>(null)
@@ -93,6 +95,8 @@ export default function AdminPage() {
     const { data: creditsData } = await supabase
       .from('order_credits')
       .select('*')
+      .order('created_at', { ascending: false })
+    setAllCreditRows(creditsData || [])
 
     const ordersData = await fetchAll(
       supabase
@@ -717,99 +721,156 @@ export default function AdminPage() {
         )}
 
         {/* CREDITS */}
-        {activeTab === 'credits' && (
-          <div className="max-w-xl space-y-5">
-            {creditSuccess && (
-              <div className="bg-[#14321f] border border-[#4ade80]/20 rounded-xl p-4 text-[#4ade80] text-sm font-medium">
-                ✅ Credits added successfully!
-              </div>
-            )}
+        {activeTab === 'credits' && (() => {
+          const enrichedRows = allCreditRows.map(c => ({
+            ...c,
+            email: merchantsMap[c.merchant_id]?.email ?? '—',
+            storeName: merchants.find(m => m.id === c.merchant_id)?.stores?.[0]?.name ?? '—',
+          }))
+          const filtered = enrichedRows.filter(c =>
+            !creditSearch ||
+            c.email.toLowerCase().includes(creditSearch.toLowerCase()) ||
+            c.storeName.toLowerCase().includes(creditSearch.toLowerCase())
+          )
+          const totalGranted = enrichedRows.reduce((s, c) => s + (c.credits_total ?? 0), 0)
+          const totalUsed    = enrichedRows.reduce((s, c) => s + (c.credits_used    ?? 0), 0)
+          const totalRevenue = enrichedRows.reduce((s, c) => s + (Number(c.price_paid) || 0), 0)
 
-            <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-6">
-              <h2 className="font-semibold mb-5 text-sm">Add credits to merchant</h2>
-
-              {/* Merchant selector */}
-              <div className="mb-4">
-                <label className="text-xs text-[#8b8fa8] uppercase tracking-wider mb-2 block">Select merchant</label>
-                <select value={selectedMerchant?.id || ''} onChange={e => setSelectedMerchant(merchants.find(m => m.id === e.target.value) || null)}
-                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3b82f6]">
-                  <option value="">-- Select merchant --</option>
-                  {merchants.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.email} — {m.stores?.[0]?.name || 'No store'} ({m.order_credits?.[0]?.credits_remaining ?? 0} left)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Merchant info */}
-              {selectedMerchant && (
-                <div className="bg-[#0f1117] border border-[#2a2d35] rounded-xl p-4 mb-4">
-                  <div className="text-sm font-medium mb-1">{selectedMerchant.email}</div>
-                  <div className="text-xs text-[#8b8fa8] mb-3">Store: {selectedMerchant.stores?.[0]?.name || 'No store'} · {selectedMerchant.stores?.[0]?.currency || '—'}</div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { label: 'Remaining', value: selectedMerchant.order_credits?.[0]?.credits_remaining ?? 0, color: '#4ade80' },
-                      { label: 'Used', value: selectedMerchant.order_credits?.[0]?.credits_used ?? 0, color: '#fbbf24' },
-                      { label: 'Total ever', value: selectedMerchant.order_credits?.[0]?.credits_total ?? 0, color: '#60a5fa' },
-                    ].map((s, i) => (
-                      <div key={i} className="text-center">
-                        <div className="text-xs text-[#4a4e60] mb-1">{s.label}</div>
-                        <div className="font-bold text-lg" style={{ color: s.color }}>{s.value}</div>
-                      </div>
-                    ))}
-                  </div>
+          return (
+            <div className="space-y-6">
+              {creditSuccess && (
+                <div className="bg-[#14321f] border border-[#4ade80]/20 rounded-xl p-4 text-[#4ade80] text-sm font-medium">
+                  ✅ Credits added successfully!
                 </div>
               )}
 
-              {/* Quick amounts */}
-              <div className="mb-4">
-                <label className="text-xs text-[#8b8fa8] uppercase tracking-wider mb-2 block">Credits to add</label>
-                <div className="flex gap-2 flex-wrap mb-3">
-                  {[100, 500, 1000, 2000, 5000].map(n => (
-                    <button key={n} onClick={() => setCreditAmount(String(n))}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${creditAmount === String(n) ? 'bg-[#3b82f6] border-[#3b82f6] text-white' : 'border-[#2a2d35] text-[#8b8fa8] hover:border-[#3b82f6] hover:text-white'}`}>
-                      +{n.toLocaleString()}
-                    </button>
-                  ))}
-                </div>
-                <input type="number" value={creditAmount} onChange={e => setCreditAmount(e.target.value)}
-                  placeholder="Or enter custom amount"
-                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
-              </div>
-
-              <button onClick={handleAddCredits} disabled={!selectedMerchant || !creditAmount || addingCredits}
-                className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors">
-                {addingCredits ? 'Adding...' : `Add ${creditAmount ? parseInt(creditAmount).toLocaleString() : '0'} credits`}
-              </button>
-            </div>
-
-            {/* Credits history */}
-            <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-[#2a2d35]">
-                <span className="font-medium text-sm">All credit records</span>
-              </div>
-              {merchants
-                .filter(m => m.order_credits?.length > 0)
-                .flatMap(m => m.order_credits.map((c: any) => ({ ...c, email: m.email, storeName: m.stores?.[0]?.name })))
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                .slice(0, 30)
-                .map((c: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between px-5 py-3 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229]">
-                    <div>
-                      <div className="text-sm">{c.email}</div>
-                      <div className="text-xs text-[#4a4e60]">{c.storeName || 'No store'} · {new Date(c.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-[#4ade80]">+{c.credits_total}</div>
-                      <div className="text-xs text-[#4a4e60]">{c.credits_remaining} remaining</div>
-                    </div>
+              {/* KPI strip */}
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: 'Total credits granted', value: totalGranted.toLocaleString(), color: '#4ade80' },
+                  { label: 'Total credits used',    value: totalUsed.toLocaleString(),    color: '#fbbf24' },
+                  { label: 'Total revenue (EGP)',   value: totalRevenue.toLocaleString(), color: '#60a5fa' },
+                ].map((s, i) => (
+                  <div key={i} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4">
+                    <div className="text-xs text-[#4a4e60] mb-2">{s.label}</div>
+                    <div className="text-2xl font-bold tabular-nums" style={{ color: s.color }}>{s.value}</div>
                   </div>
-                ))
-              }
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Add credits form */}
+                <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5 space-y-4 self-start">
+                  <h2 className="font-semibold text-sm">Add credits manually</h2>
+
+                  <div>
+                    <label className="text-xs text-[#4a4e60] uppercase tracking-wider mb-1.5 block">Merchant</label>
+                    <select value={selectedMerchant?.id || ''} onChange={e => setSelectedMerchant(merchants.find(m => m.id === e.target.value) || null)}
+                      className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3b82f6]">
+                      <option value="">— Select merchant —</option>
+                      {merchants.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.email} ({m.order_credits?.[0]?.credits_remaining ?? 0} left)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {selectedMerchant && (
+                    <div className="bg-[#0f1117] border border-[#2a2d35] rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+                      {[
+                        { label: 'Left',  value: selectedMerchant.order_credits?.[0]?.credits_remaining ?? 0, color: '#4ade80' },
+                        { label: 'Used',  value: selectedMerchant.order_credits?.[0]?.credits_used       ?? 0, color: '#fbbf24' },
+                        { label: 'Total', value: selectedMerchant.order_credits?.[0]?.credits_total      ?? 0, color: '#60a5fa' },
+                      ].map((s, i) => (
+                        <div key={i}>
+                          <div className="text-[10px] text-[#4a4e60] mb-1">{s.label}</div>
+                          <div className="font-bold" style={{ color: s.color }}>{s.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs text-[#4a4e60] uppercase tracking-wider mb-1.5 block">Amount</label>
+                    <div className="flex gap-1.5 flex-wrap mb-2">
+                      {[100, 500, 1000, 2000, 5000].map(n => (
+                        <button key={n} onClick={() => setCreditAmount(String(n))}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${creditAmount === String(n) ? 'bg-[#3b82f6] border-[#3b82f6] text-white' : 'border-[#2a2d35] text-[#8b8fa8] hover:border-[#3b82f6] hover:text-white'}`}>
+                          +{n.toLocaleString()}
+                        </button>
+                      ))}
+                    </div>
+                    <input type="number" value={creditAmount} onChange={e => setCreditAmount(e.target.value)}
+                      placeholder="Custom amount"
+                      className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
+                  </div>
+
+                  <button onClick={handleAddCredits} disabled={!selectedMerchant || !creditAmount || addingCredits}
+                    className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl text-sm transition-colors cursor-pointer">
+                    {addingCredits ? 'Adding...' : `Add ${creditAmount ? parseInt(creditAmount).toLocaleString() : '0'} credits`}
+                  </button>
+                </div>
+
+                {/* All transactions */}
+                <div className="lg:col-span-2 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <input value={creditSearch} onChange={e => setCreditSearch(e.target.value)}
+                      placeholder="Search by merchant or store..."
+                      className="flex-1 bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6]" />
+                    <span className="text-xs text-[#4a4e60] whitespace-nowrap">{filtered.length} records</span>
+                  </div>
+
+                  <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
+                    <div className="admin-table-wrap">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-[#2a2d35]">
+                            {['Merchant', 'Store', 'Granted', 'Used', 'Remaining', 'Type', 'Paid (EGP)', 'Date'].map(h => (
+                              <th key={h} className="text-left px-4 py-3 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtered.slice(0, 100).map((c: any) => (
+                            <tr key={c.id} className="border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors">
+                              <td className="px-4 py-3 text-sm">{c.email}</td>
+                              <td className="px-4 py-3 text-xs text-[#8b8fa8]">{c.storeName}</td>
+                              <td className="px-4 py-3 text-sm font-bold text-[#4ade80] tabular-nums">+{(c.credits_total ?? 0).toLocaleString()}</td>
+                              <td className="px-4 py-3 text-sm text-[#fbbf24] tabular-nums">{(c.credits_used ?? 0).toLocaleString()}</td>
+                              <td className="px-4 py-3 text-sm tabular-nums" style={{ color: (c.credits_remaining ?? 0) <= 10 ? '#f87171' : '#8b8fa8' }}>
+                                {(c.credits_remaining ?? 0).toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${c.bundle_type === 'free' ? 'bg-[#a78bfa]/15 text-[#a78bfa]' : 'bg-[#3b82f6]/15 text-[#60a5fa]'}`}>
+                                  {c.bundle_type === 'free' ? 'Free' : c.bundle_type ?? 'custom'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm font-medium text-white tabular-nums">
+                                {Number(c.price_paid) > 0 ? Number(c.price_paid).toLocaleString() : <span className="text-[#4a4e60]">—</span>}
+                              </td>
+                              <td className="px-4 py-3 text-xs text-[#4a4e60] whitespace-nowrap">
+                                {new Date(c.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {filtered.length > 100 && (
+                      <div className="px-5 py-3 border-t border-[#2a2d35] text-xs text-[#4a4e60] text-center">
+                        Showing 100 of {filtered.length} records
+                      </div>
+                    )}
+                    {filtered.length === 0 && (
+                      <div className="p-10 text-center text-xs text-[#4a4e60]">No records found</div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* PAYMENTS */}
         {activeTab === 'payments' && (

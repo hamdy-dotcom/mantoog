@@ -35,6 +35,9 @@ export default function AdminPage() {
   const [processingPayment, setProcessingPayment] = useState<string | null>(null)
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({})
   const [viewingProof, setViewingProof] = useState<string | null>(null)
+  const [adminWallets, setAdminWallets] = useState<any[]>([])
+  const [newWallet, setNewWallet] = useState({ label: '', wallet_type: 'vodafone', number: '' })
+  const [savingWallet, setSavingWallet] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -151,12 +154,12 @@ export default function AdminPage() {
 
     setChartData(buildChartData(enriched, o))
 
-    // Payment requests (requires admin API — RLS blocks client)
-    const prRes = await fetch('/api/admin/payment-requests')
-    if (prRes.ok) {
-      const prJson = await prRes.json()
-      setPaymentRequests(prJson.requests ?? [])
-    }
+    const [prRes, walletsRes] = await Promise.all([
+      fetch('/api/admin/payment-requests'),
+      fetch('/api/admin/wallets'),
+    ])
+    if (prRes.ok) setPaymentRequests((await prRes.json()).requests ?? [])
+    if (walletsRes.ok) setAdminWallets((await walletsRes.json()).wallets ?? [])
   }
 
   const buildChartData = (merchants: any[], orders: any[]) => {
@@ -217,6 +220,38 @@ export default function AdminPage() {
       alert('Failed to add credits')
     }
     setAddingCredits(false)
+  }
+
+  const refreshWallets = async () => {
+    const r = await fetch('/api/admin/wallets')
+    if (r.ok) setAdminWallets((await r.json()).wallets ?? [])
+  }
+
+  const addWallet = async () => {
+    if (!newWallet.label || !newWallet.number) return
+    setSavingWallet(true)
+    const r = await fetch('/api/admin/wallets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newWallet),
+    })
+    if (r.ok) { setNewWallet({ label: '', wallet_type: 'vodafone', number: '' }); await refreshWallets() }
+    setSavingWallet(false)
+  }
+
+  const toggleWallet = async (id: string, is_active: boolean) => {
+    await fetch(`/api/admin/wallets/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active }),
+    })
+    await refreshWallets()
+  }
+
+  const deleteWallet = async (id: string) => {
+    if (!confirm('Delete this wallet?')) return
+    await fetch(`/api/admin/wallets/${id}`, { method: 'DELETE' })
+    await refreshWallets()
   }
 
   const processPayment = async (requestId: string, action: 'approve' | 'reject') => {
@@ -355,6 +390,7 @@ export default function AdminPage() {
     { id: 'orders', label: '🛒 Orders' },
     { id: 'credits', label: '💳 Credits' },
     { id: 'payments', label: '💰 Payments', badge: pendingPaymentsCount },
+    { id: 'wallets',  label: '🏦 Wallets' },
   ]
 
   return (
@@ -910,6 +946,102 @@ export default function AdminPage() {
                   })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* WALLETS */}
+        {activeTab === 'wallets' && (
+          <div className="max-w-2xl space-y-6">
+
+            {/* Add wallet form */}
+            <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-6">
+              <h2 className="font-semibold text-sm mb-5">Add wallet</h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-4">
+                <div>
+                  <label className="text-xs text-[#4a4e60] uppercase tracking-wider mb-1.5 block">Display name</label>
+                  <input
+                    value={newWallet.label}
+                    onChange={e => setNewWallet(p => ({ ...p, label: e.target.value }))}
+                    placeholder="e.g. Vodafone Cash"
+                    className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-[#4a4e60] uppercase tracking-wider mb-1.5 block">Type</label>
+                  <select
+                    value={newWallet.wallet_type}
+                    onChange={e => setNewWallet(p => ({ ...p, wallet_type: e.target.value }))}
+                    className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3b82f6]"
+                  >
+                    <option value="vodafone">Vodafone Cash</option>
+                    <option value="instapay">InstaPay</option>
+                    <option value="fawry">Fawry</option>
+                    <option value="orange">Orange Cash</option>
+                    <option value="etisalat">Etisalat Cash</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-[#4a4e60] uppercase tracking-wider mb-1.5 block">Number / Username</label>
+                  <input
+                    value={newWallet.number}
+                    onChange={e => setNewWallet(p => ({ ...p, number: e.target.value }))}
+                    placeholder="01xxxxxxxxx"
+                    dir="ltr"
+                    className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] font-mono"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={addWallet}
+                disabled={!newWallet.label || !newWallet.number || savingWallet}
+                className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+              >
+                {savingWallet ? 'Adding...' : '+ Add wallet'}
+              </button>
+            </div>
+
+            {/* Wallets list */}
+            <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-[#2a2d35] flex items-center justify-between">
+                <span className="font-medium text-sm">Active wallets shown to merchants</span>
+                <span className="text-xs text-[#4a4e60]">{adminWallets.length} total</span>
+              </div>
+              {adminWallets.length === 0 ? (
+                <div className="p-10 text-center text-[#4a4e60] text-sm">No wallets yet — add one above</div>
+              ) : (
+                adminWallets.map(w => {
+                  const COLORS: Record<string, string> = { vodafone: '#ef4444', instapay: '#10b981', fawry: '#f59e0b', orange: '#f97316', etisalat: '#22c55e' }
+                  const color = COLORS[w.wallet_type] ?? '#8b8fa8'
+                  return (
+                    <div key={w.id} className="flex items-center gap-4 px-5 py-4 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: color + '20' }}>
+                        <span className="text-xs font-bold" style={{ color }}>{w.wallet_type.slice(0, 2).toUpperCase()}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-white">{w.label}</div>
+                        <div className="text-xs text-[#4a4e60] font-mono mt-0.5" dir="ltr">{w.number}</div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => toggleWallet(w.id, !w.is_active)}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${w.is_active ? 'bg-[#14321f] border-[#4ade80]/30 text-[#4ade80] hover:bg-[#1a4a28]' : 'bg-[#1f2229] border-[#2a2d35] text-[#4a4e60] hover:border-[#3b82f6] hover:text-white'}`}>
+                          {w.is_active ? 'Active' : 'Inactive'}
+                        </button>
+                        <button
+                          onClick={() => deleteWallet(w.id)}
+                          className="text-xs text-[#f87171] hover:text-white border border-[#f87171]/20 hover:border-[#f87171] hover:bg-[#3a1414] px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            <p className="text-xs text-[#4a4e60]">
+              Only "Active" wallets are shown to merchants. Toggle to hide without deleting.
+            </p>
           </div>
         )}
 

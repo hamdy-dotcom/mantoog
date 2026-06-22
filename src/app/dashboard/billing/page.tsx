@@ -7,7 +7,14 @@ import Sidebar from '@/components/dashboard/Sidebar'
 import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import { loadMerchantStore } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
-import { MANTOOG_WALLETS } from '@/lib/config/wallets'
+const WALLET_STYLE: Record<string, { color: string; bg: string; border: string }> = {
+  vodafone: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.3)' },
+  instapay: { color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)' },
+  fawry:    { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)' },
+  orange:   { color: '#f97316', bg: 'rgba(249,115,22,0.12)',  border: 'rgba(249,115,22,0.3)' },
+  etisalat: { color: '#22c55e', bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.3)' },
+}
+const wStyle = (t: string) => WALLET_STYLE[t] ?? { color: '#8b8fa8', bg: 'rgba(139,143,168,0.12)', border: 'rgba(139,143,168,0.3)' }
 
 /* ── Icons ── */
 type IP = { className?: string; style?: React.CSSProperties }
@@ -87,7 +94,8 @@ export default function BillingPage() {
   const [selected, setSelected]             = useState<SelectedItem | null>(null)
   const [method, setMethod]                 = useState<'card' | 'wallet'>('wallet')
   const [selectedWallet, setSelectedWallet] = useState<string>('')
-  const [phone, setPhone]                   = useState('')
+  const [wallets, setWallets]               = useState<any[]>([])
+  const [walletsLoading, setWalletsLoading] = useState(false)
   const [notes, setNotes]                   = useState('')
   const [proofFile, setProofFile]           = useState<File | null>(null)
   const [proofUploading, setProofUploading] = useState(false)
@@ -129,16 +137,19 @@ export default function BillingPage() {
                    : customAmt >= 2000 && customAmt < 2500 ? CREDIT_BUNDLES[1]
                    : null
 
-  const openModal = (item: SelectedItem) => {
+  const openModal = async (item: SelectedItem) => {
     setSelected(item)
     setMethod('wallet')
     setSelectedWallet('')
-    setPhone('')
     setNotes('')
     setProofFile(null)
     setSubmitError('')
     setSubmitted(false)
     setModal(true)
+    setWalletsLoading(true)
+    const res = await fetch('/api/wallets')
+    if (res.ok) setWallets((await res.json()).wallets ?? [])
+    setWalletsLoading(false)
   }
 
   const closeModal = () => { setModal(false) }
@@ -155,7 +166,7 @@ export default function BillingPage() {
   }
 
   const handleWalletSubmit = async () => {
-    if (!selected || !selectedWallet || !phone.trim() || !proofFile) return
+    if (!selected || !selectedWallet || !proofFile) return
     setProofUploading(true)
     setSubmitError('')
 
@@ -176,11 +187,11 @@ export default function BillingPage() {
         .getPublicUrl(path)
 
       /* build request body */
+      const w = wallets.find(x => x.id === selectedWallet)
       const body: Record<string, unknown> = {
         item_type: selected.type === 'credit' ? 'credits' : 'subscription',
         amount_egp: modalPrice,
-        payment_method: selectedWallet,
-        sender_phone: phone.trim(),
+        payment_method: w?.wallet_type ?? selectedWallet,
         proof_url: publicUrl,
         merchant_notes: notes.trim() || null,
       }
@@ -208,7 +219,7 @@ export default function BillingPage() {
   }
 
   const isSubActive = (id: string) => activeSubs.includes(id) || activeSubs.includes('both')
-  const canSubmit   = !!selectedWallet && !!phone.trim() && !!proofFile && !proofUploading
+  const canSubmit   = !!selectedWallet && !!proofFile && !proofUploading
 
   if (loading) return (
     <div className="min-h-screen bg-[#0f1117] flex items-center justify-center">
@@ -678,52 +689,72 @@ export default function BillingPage() {
                       {/* Step 1: choose wallet */}
                       <div>
                         <div className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider mb-3">
-                          {ar ? '١. اختر المحفظة' : '1. Choose wallet'}
+                          {ar ? '١. اختر المحفظة للتحويل إليها' : '1. Choose wallet to transfer to'}
                         </div>
-                        <div className="space-y-2">
-                          {MANTOOG_WALLETS.map(w => (
-                            <div
-                              key={w.id}
-                              onClick={() => setSelectedWallet(w.id)}
-                              className="flex items-center justify-between rounded-xl border p-3.5 cursor-pointer transition-all"
-                              style={{
-                                borderColor: selectedWallet === w.id ? w.border : '#2a2d35',
-                                background: selectedWallet === w.id ? w.bg : 'transparent',
-                              }}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                                  style={{ background: w.color + '25' }}>
-                                  <IconWallet className="w-4 h-4" style={{ color: w.color }} />
-                                </div>
-                                <div>
-                                  <div className="text-sm font-semibold text-white">{w.label}</div>
-                                  <div className="text-xs text-[#4a4e60] font-mono mt-0.5" dir="ltr">{w.number}</div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={e => { e.stopPropagation(); copyNumber(w.number, w.id) }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+
+                        {walletsLoading ? (
+                          <div className="flex items-center justify-center py-6">
+                            <span className="w-5 h-5 border-2 border-[#3b82f6] border-t-transparent rounded-full animate-spin" />
+                          </div>
+                        ) : wallets.length === 0 ? (
+                          <div className="bg-[#1f2229] border border-[#2a2d35] rounded-xl p-5 text-center">
+                            <IconWallet className="w-6 h-6 text-[#4a4e60] mx-auto mb-2" />
+                            <p className="text-sm text-[#8b8fa8] font-medium">
+                              {ar ? 'لا توجد محافظ نشطة حالياً' : 'No active wallets available'}
+                            </p>
+                            <p className="text-xs text-[#4a4e60] mt-1">
+                              {ar ? 'تواصل مع الدعم لإتمام الدفع' : 'Contact support to complete your payment'}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {wallets.map(w => {
+                              const s = wStyle(w.wallet_type)
+                              return (
+                                <div
+                                  key={w.id}
+                                  onClick={() => setSelectedWallet(w.id)}
+                                  className="flex items-center justify-between rounded-xl border p-3.5 cursor-pointer transition-all"
                                   style={{
-                                    background: copied === w.id ? w.color + '30' : '#2a2d35',
-                                    color: copied === w.id ? w.color : '#8b8fa8',
+                                    borderColor: selectedWallet === w.id ? s.border : '#2a2d35',
+                                    background: selectedWallet === w.id ? s.bg : 'transparent',
                                   }}
                                 >
-                                  <IconCopy className="w-3.5 h-3.5" />
-                                  {copied === w.id ? (ar ? 'تم النسخ' : 'Copied!') : (ar ? 'نسخ' : 'Copy')}
-                                </button>
-                                <div
-                                  className="w-4 h-4 rounded-full border-2 transition-colors shrink-0"
-                                  style={{
-                                    borderColor: selectedWallet === w.id ? w.color : '#4a4e60',
-                                    background: selectedWallet === w.id ? w.color : 'transparent',
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                                      style={{ background: s.color + '25' }}>
+                                      <IconWallet className="w-4 h-4" style={{ color: s.color }} />
+                                    </div>
+                                    <div>
+                                      <div className="text-sm font-semibold text-white">{w.label}</div>
+                                      <div className="text-xs text-[#4a4e60] font-mono mt-0.5" dir="ltr">{w.number}</div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={e => { e.stopPropagation(); copyNumber(w.number, w.id) }}
+                                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                                      style={{
+                                        background: copied === w.id ? s.color + '30' : '#2a2d35',
+                                        color: copied === w.id ? s.color : '#8b8fa8',
+                                      }}
+                                    >
+                                      <IconCopy className="w-3.5 h-3.5" />
+                                      {copied === w.id ? (ar ? 'تم النسخ' : 'Copied!') : (ar ? 'نسخ' : 'Copy')}
+                                    </button>
+                                    <div
+                                      className="w-4 h-4 rounded-full border-2 transition-colors shrink-0"
+                                      style={{
+                                        borderColor: selectedWallet === w.id ? s.color : '#4a4e60',
+                                        background: selectedWallet === w.id ? s.color : 'transparent',
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
 
                       {/* Step 2: transfer instructions (shown after wallet selected) */}
@@ -734,7 +765,9 @@ export default function BillingPage() {
                               {ar ? '٢. حوّل المبلغ' : '2. Transfer amount'}
                             </div>
                             {(() => {
-                              const w = MANTOOG_WALLETS.find(x => x.id === selectedWallet)!
+                              const w = wallets.find(x => x.id === selectedWallet)
+                              if (!w) return null
+                              const s = wStyle(w.wallet_type)
                               return (
                                 <div className="flex items-center justify-between">
                                   <p className="text-xs text-[#8b8fa8] leading-relaxed max-w-[200px]">
@@ -743,7 +776,7 @@ export default function BillingPage() {
                                       : `Send exactly ${modalPrice.toLocaleString()} EGP to ${w.label} at:`}
                                   </p>
                                   <div className="text-end">
-                                    <div className="font-bold font-mono text-sm" style={{ color: w.color }} dir="ltr">
+                                    <div className="font-bold font-mono text-sm" style={{ color: s.color }} dir="ltr">
                                       {w.number}
                                     </div>
                                     <div className="text-xl font-bold text-white tabular-nums mt-0.5">
@@ -789,20 +822,6 @@ export default function BillingPage() {
                                     </>
                                   )}
                                 </div>
-                              </div>
-
-                              {/* Sender phone */}
-                              <div>
-                                <label className="block text-xs text-[#4a4e60] mb-1.5">
-                                  {ar ? 'رقم المحفظة المُرسِلة' : 'Sender wallet number'}
-                                </label>
-                                <input
-                                  value={phone}
-                                  onChange={e => setPhone(e.target.value)}
-                                  placeholder="01xxxxxxxxx"
-                                  dir="ltr"
-                                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors"
-                                />
                               </div>
 
                               {/* Notes (optional) */}

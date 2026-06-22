@@ -30,6 +30,11 @@ export default function AdminPage() {
   const [allProducts, setAllProducts] = useState<any[]>([])
   const [productSearch, setProductSearch] = useState('')
   const [merchantsMap, setMerchantsMap] = useState<Record<string, any>>({})
+  const [paymentRequests, setPaymentRequests] = useState<any[]>([])
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending')
+  const [processingPayment, setProcessingPayment] = useState<string | null>(null)
+  const [adminNotes, setAdminNotes] = useState<Record<string, string>>({})
+  const [viewingProof, setViewingProof] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -145,6 +150,13 @@ export default function AdminPage() {
     })
 
     setChartData(buildChartData(enriched, o))
+
+    // Payment requests (requires admin API — RLS blocks client)
+    const prRes = await fetch('/api/admin/payment-requests')
+    if (prRes.ok) {
+      const prJson = await prRes.json()
+      setPaymentRequests(prJson.requests ?? [])
+    }
   }
 
   const buildChartData = (merchants: any[], orders: any[]) => {
@@ -205,6 +217,26 @@ export default function AdminPage() {
       alert('Failed to add credits')
     }
     setAddingCredits(false)
+  }
+
+  const processPayment = async (requestId: string, action: 'approve' | 'reject') => {
+    setProcessingPayment(requestId)
+    try {
+      const res = await fetch('/api/admin/process-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: requestId, action, admin_notes: adminNotes[requestId] || null }),
+      })
+      const json = await res.json()
+      if (!res.ok) { alert('Error: ' + json.error); return }
+      // Refresh payment requests
+      const prRes = await fetch('/api/admin/payment-requests')
+      if (prRes.ok) setPaymentRequests((await prRes.json()).requests ?? [])
+    } catch {
+      alert('Failed to process payment')
+    } finally {
+      setProcessingPayment(null)
+    }
   }
 
   const loadMerchantProducts = async (merchant: any) => {
@@ -314,12 +346,15 @@ export default function AdminPage() {
 
   if (!authorized) return null
 
+  const pendingPaymentsCount = paymentRequests.filter(r => r.status === 'pending').length
+
   const tabs = [
     { id: 'overview', label: '📊 Overview' },
     { id: 'merchants', label: '👥 Merchants' },
     { id: 'products', label: '📦 Products' },
     { id: 'orders', label: '🛒 Orders' },
     { id: 'credits', label: '💳 Credits' },
+    { id: 'payments', label: '💰 Payments', badge: pendingPaymentsCount },
   ]
 
   return (
@@ -369,8 +404,13 @@ export default function AdminPage() {
         <div className="admin-tabs mb-8">
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`admin-tab px-5 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'}`}>
+              className={`admin-tab px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === tab.id ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'}`}>
               {tab.label}
+              {'badge' in tab && (tab.badge ?? 0) > 0 && (
+                <span className="text-[10px] font-bold bg-[#f87171] text-white rounded-full px-1.5 py-0.5 leading-none">
+                  {tab.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -735,6 +775,144 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* PAYMENTS */}
+        {activeTab === 'payments' && (
+          <div className="space-y-4">
+            {/* Filter bar */}
+            <div className="flex flex-wrap gap-2 items-center">
+              {(['pending', 'approved', 'rejected', 'all'] as const).map(f => {
+                const count = f === 'all' ? paymentRequests.length : paymentRequests.filter(r => r.status === f).length
+                return (
+                  <button key={f} onClick={() => setPaymentFilter(f)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors capitalize flex items-center gap-1.5 ${paymentFilter === f ? 'bg-[#3b82f6] border-[#3b82f6] text-white' : 'border-[#2a2d35] text-[#8b8fa8] hover:border-[#3b82f6] hover:text-white'}`}>
+                    {f}
+                    <span className={`text-[10px] font-bold px-1.5 rounded-full ${paymentFilter === f ? 'bg-white/20 text-white' : 'bg-[#2a2d35] text-[#4a4e60]'}`}>{count}</span>
+                  </button>
+                )
+              })}
+              <button onClick={async () => {
+                const r = await fetch('/api/admin/payment-requests')
+                if (r.ok) setPaymentRequests((await r.json()).requests ?? [])
+              }} className="text-xs text-[#8b8fa8] hover:text-white border border-[#2a2d35] px-3 py-1.5 rounded-lg transition-colors ml-auto">
+                🔄 Refresh
+              </button>
+            </div>
+
+            {/* Requests list */}
+            {paymentRequests.filter(r => paymentFilter === 'all' || r.status === paymentFilter).length === 0 ? (
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-12 text-center">
+                <div className="text-[#4a4e60] text-sm">No {paymentFilter === 'all' ? '' : paymentFilter} payment requests</div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {paymentRequests
+                  .filter(r => paymentFilter === 'all' || r.status === paymentFilter)
+                  .map(req => {
+                    const merchant = merchantsMap[req.merchant_id]
+                    const isPending = req.status === 'pending'
+                    return (
+                      <div key={req.id}
+                        className="bg-[#1a1d24] border rounded-xl overflow-hidden"
+                        style={{ borderColor: isPending ? '#f59e0b50' : req.status === 'approved' ? '#4ade8050' : '#2a2d35' }}>
+
+                        {/* Header row */}
+                        <div className="flex flex-wrap items-start gap-4 p-5">
+                          {/* Status badge */}
+                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${req.status === 'pending' ? 'bg-[#f59e0b]/20 text-[#f59e0b]' : req.status === 'approved' ? 'bg-[#4ade80]/15 text-[#4ade80]' : 'bg-[#f87171]/15 text-[#f87171]'}`}>
+                            {req.status.toUpperCase()}
+                          </span>
+
+                          {/* Key info */}
+                          <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                            <div>
+                              <div className="text-[#4a4e60] mb-0.5">Merchant</div>
+                              <div className="text-white font-medium truncate">{merchant?.email ?? req.merchant_id.slice(0, 8) + '...'}</div>
+                            </div>
+                            <div>
+                              <div className="text-[#4a4e60] mb-0.5">Type</div>
+                              <div className="text-white font-medium">
+                                {req.item_type === 'credits'
+                                  ? `${(req.credits_amount ?? 0).toLocaleString()} orders`
+                                  : `Sub: ${req.sub_plan}`}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[#4a4e60] mb-0.5">Amount</div>
+                              <div className="text-[#fbbf24] font-bold">{req.amount_egp} EGP</div>
+                            </div>
+                            <div>
+                              <div className="text-[#4a4e60] mb-0.5">Wallet · Sender</div>
+                              <div className="text-white capitalize">{req.payment_method} · <span className="font-mono" dir="ltr">{req.sender_phone || '—'}</span></div>
+                            </div>
+                          </div>
+
+                          {/* Date */}
+                          <div className="text-xs text-[#4a4e60] shrink-0 self-center">
+                            {new Date(req.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+
+                        {/* Proof + notes + actions */}
+                        <div className="border-t border-[#2a2d35] px-5 py-4 flex flex-wrap items-start gap-4">
+                          {/* Proof */}
+                          {req.proof_url ? (
+                            <button
+                              onClick={() => setViewingProof(req.proof_url)}
+                              className="flex items-center gap-1.5 text-xs text-[#60a5fa] hover:text-white border border-[#3b82f6]/30 hover:border-[#3b82f6] px-3 py-2 rounded-lg transition-colors cursor-pointer shrink-0">
+                              🖼️ View proof
+                            </button>
+                          ) : (
+                            <span className="text-xs text-[#4a4e60]">No proof</span>
+                          )}
+
+                          {/* Merchant notes */}
+                          {req.merchant_notes && (
+                            <div className="text-xs text-[#8b8fa8] bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 flex-1">
+                              <span className="text-[#4a4e60]">Merchant note: </span>{req.merchant_notes}
+                            </div>
+                          )}
+
+                          {/* Admin notes + actions (pending only) */}
+                          {isPending && (
+                            <div className="flex items-center gap-2 ms-auto flex-wrap">
+                              <input
+                                value={adminNotes[req.id] ?? ''}
+                                onChange={e => setAdminNotes(prev => ({ ...prev, [req.id]: e.target.value }))}
+                                placeholder="Admin notes (optional)"
+                                className="bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-xs text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] w-48"
+                              />
+                              <button
+                                onClick={() => processPayment(req.id, 'approve')}
+                                disabled={processingPayment === req.id}
+                                className="text-xs bg-[#14321f] hover:bg-[#4ade80] border border-[#4ade80]/30 hover:border-[#4ade80] text-[#4ade80] hover:text-[#0f1117] font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 cursor-pointer">
+                                {processingPayment === req.id ? '...' : '✓ Approve'}
+                              </button>
+                              <button
+                                onClick={() => processPayment(req.id, 'reject')}
+                                disabled={processingPayment === req.id}
+                                className="text-xs bg-[#3a1414] hover:bg-[#f87171] border border-[#f87171]/30 hover:border-[#f87171] text-[#f87171] hover:text-white font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 cursor-pointer">
+                                {processingPayment === req.id ? '...' : '✗ Reject'}
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Processed info (approved/rejected) */}
+                          {!isPending && (
+                            <div className="text-xs text-[#4a4e60] ms-auto">
+                              {req.status} by {req.processed_by || '—'} ·{' '}
+                              {req.processed_at ? new Date(req.processed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                              {req.admin_notes && <span className="block mt-0.5 text-[#8b8fa8]">"{req.admin_notes}"</span>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'products' && (
           <div className="space-y-4">
             <div className="admin-filters">
@@ -819,6 +997,25 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {/* Proof image lightbox */}
+      {viewingProof && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setViewingProof(null)}>
+          <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setViewingProof(null)}
+              className="absolute -top-10 right-0 text-[#8b8fa8] hover:text-white text-2xl">×</button>
+            {viewingProof.match(/\.(pdf)$/i) ? (
+              <iframe src={viewingProof} className="w-full h-[70vh] rounded-xl border border-[#2a2d35]" />
+            ) : (
+              <img src={viewingProof} alt="Payment proof" className="w-full rounded-xl border border-[#2a2d35] max-h-[80vh] object-contain" />
+            )}
+            <a href={viewingProof} target="_blank" rel="noopener noreferrer"
+              className="mt-3 flex justify-center text-xs text-[#60a5fa] hover:underline">
+              Open in new tab ↗
+            </a>
+          </div>
+        </div>
+      )}
 
       {viewingMerchant && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">

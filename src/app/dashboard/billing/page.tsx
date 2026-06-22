@@ -1,26 +1,32 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
 import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import { loadMerchantStore } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
+import { MANTOOG_WALLETS } from '@/lib/config/wallets'
 
 /* ── Icons ── */
 type IP = { className?: string; style?: React.CSSProperties }
-const IconCard    = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>
-const IconWallet  = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v4"/><path d="M3 5v14a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-3"/><path d="M18 12a2 2 0 0 0 0 4h3v-4Z"/></svg>
-const IconBag     = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-const IconVideo   = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
-const IconTikTok  = (p:IP) => <svg viewBox="0 0 24 24" fill="currentColor" className={p.className} style={p.style}><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.3 8.3 0 004.86 1.56V6.8a4.85 4.85 0 01-1.09-.11z"/></svg>
-const IconSpark   = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Z"/><path d="M19 14l.8 2L22 16.8 20 17.6 19 20l-.8-2.4L16 16.8 18 16l1-2Z"/></svg>
-const IconCheck   = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M20 6 9 17l-5-5"/></svg>
-const IconTrend   = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-const IconRefresh = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-const IconZap     = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
-const IconX       = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+const IconCard        = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>
+const IconWallet      = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v4"/><path d="M3 5v14a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-3"/><path d="M18 12a2 2 0 0 0 0 4h3v-4Z"/></svg>
+const IconBag         = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+const IconVideo       = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+const IconTikTok      = (p:IP) => <svg viewBox="0 0 24 24" fill="currentColor" className={p.className} style={p.style}><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.3 8.3 0 004.86 1.56V6.8a4.85 4.85 0 01-1.09-.11z"/></svg>
+const IconSpark       = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Z"/><path d="M19 14l.8 2L22 16.8 20 17.6 19 20l-.8-2.4L16 16.8 18 16l1-2Z"/></svg>
+const IconCheck       = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M20 6 9 17l-5-5"/></svg>
+const IconTrend       = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+const IconRefresh     = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+const IconZap         = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
+const IconX           = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+const IconCopy        = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+const IconUpload      = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+const IconCheckCircle = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+const IconLock        = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+const IconClock       = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
 
 /* ── Data ── */
 const CREDIT_BUNDLES = [
@@ -72,17 +78,24 @@ type SelectedItem =
 
 /* ── Page ── */
 export default function BillingPage() {
-  const [store, setStore]           = useState<any>(null)
-  const [creditRows, setCreditRows] = useState<any[]>([])
-  const [subRows, setSubRows]       = useState<any[]>([])
-  const [activeSubs, setActiveSubs] = useState<string[]>([])
-  const [loading, setLoading]       = useState(true)
-  const [customAmt, setCustomAmt]   = useState(300)
-  const [selected, setSelected]     = useState<SelectedItem | null>(null)
-  const [method, setMethod]         = useState<'card' | 'vodafone'>('card')
-  const [phone, setPhone]           = useState('')
-  const [processing, setProcessing] = useState(false)
-  const [modal, setModal]           = useState(false)
+  const [store, setStore]                   = useState<any>(null)
+  const [creditRows, setCreditRows]         = useState<any[]>([])
+  const [subRows, setSubRows]               = useState<any[]>([])
+  const [activeSubs, setActiveSubs]         = useState<string[]>([])
+  const [loading, setLoading]               = useState(true)
+  const [customAmt, setCustomAmt]           = useState(300)
+  const [selected, setSelected]             = useState<SelectedItem | null>(null)
+  const [method, setMethod]                 = useState<'card' | 'wallet'>('wallet')
+  const [selectedWallet, setSelectedWallet] = useState<string>('')
+  const [phone, setPhone]                   = useState('')
+  const [notes, setNotes]                   = useState('')
+  const [proofFile, setProofFile]           = useState<File | null>(null)
+  const [proofUploading, setProofUploading] = useState(false)
+  const [submitError, setSubmitError]       = useState('')
+  const [submitted, setSubmitted]           = useState(false)
+  const [modal, setModal]                   = useState(false)
+  const [copied, setCopied]                 = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const router   = useRouter()
   const supabase = createClient()
@@ -112,27 +125,90 @@ export default function BillingPage() {
   const totalUsed       = creditRows.reduce((s, r) => s + (r.credits_used       ?? 0), 0)
   const totalEver       = creditRows.reduce((s, r) => s + (r.credits_total      ?? 0), 0)
 
-  /* hint: near a bundle threshold */
   const nearBundle = customAmt >= 800 && customAmt < 1000 ? CREDIT_BUNDLES[0]
                    : customAmt >= 2000 && customAmt < 2500 ? CREDIT_BUNDLES[1]
                    : null
 
-  const openModal = (item: SelectedItem) => { setSelected(item); setModal(true) }
+  const openModal = (item: SelectedItem) => {
+    setSelected(item)
+    setMethod('wallet')
+    setSelectedWallet('')
+    setPhone('')
+    setNotes('')
+    setProofFile(null)
+    setSubmitError('')
+    setSubmitted(false)
+    setModal(true)
+  }
+
+  const closeModal = () => { setModal(false) }
 
   const modalPrice = !selected ? 0
     : selected.type === 'credit'
       ? (selected.bundle?.price ?? selected.customAmt ?? customAmt)
       : selected.plan.price
 
-  const handlePurchase = async () => {
-    setProcessing(true)
-    await new Promise(r => setTimeout(r, 1500)) // TODO: Paymob
-    setProcessing(false)
-    setModal(false)
-    alert(ar ? 'تم استلام طلبك! سيُفعَّل الرصيد فور تأكيد الدفع.' : 'Order received! Will be activated after payment confirmation.')
+  const copyNumber = (num: string, id: string) => {
+    navigator.clipboard.writeText(num)
+    setCopied(id)
+    setTimeout(() => setCopied(''), 2000)
+  }
+
+  const handleWalletSubmit = async () => {
+    if (!selected || !selectedWallet || !phone.trim() || !proofFile) return
+    setProofUploading(true)
+    setSubmitError('')
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      /* upload proof to Supabase Storage */
+      const ext = proofFile.name.split('.').pop()
+      const path = `${user.id}/${Date.now()}_proof.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('payment-proofs')
+        .upload(path, proofFile, { upsert: false })
+      if (uploadErr) throw new Error(uploadErr.message)
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('payment-proofs')
+        .getPublicUrl(path)
+
+      /* build request body */
+      const body: Record<string, unknown> = {
+        item_type: selected.type === 'credit' ? 'credits' : 'subscription',
+        amount_egp: modalPrice,
+        payment_method: selectedWallet,
+        sender_phone: phone.trim(),
+        proof_url: publicUrl,
+        merchant_notes: notes.trim() || null,
+      }
+      if (selected.type === 'credit') {
+        body.credits_amount = selected.bundle?.orders ?? selected.customAmt ?? customAmt
+        body.bundle_id = selected.bundle?.id ?? 'custom'
+      } else {
+        body.sub_plan = selected.plan.id
+      }
+
+      const res = await fetch('/api/payments/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to submit')
+
+      setSubmitted(true)
+    } catch (err: any) {
+      setSubmitError(err.message || 'حدث خطأ، حاول مرة أخرى')
+    } finally {
+      setProofUploading(false)
+    }
   }
 
   const isSubActive = (id: string) => activeSubs.includes(id) || activeSubs.includes('both')
+  const canSubmit   = !!selectedWallet && !!phone.trim() && !!proofFile && !proofUploading
 
   if (loading) return (
     <div className="min-h-screen bg-[#0f1117] flex items-center justify-center">
@@ -154,7 +230,6 @@ export default function BillingPage() {
 
         {/* ── KPI strip ── */}
         <div className="grid grid-cols-3 gap-4 mb-10">
-          {/* Remaining */}
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5">
             <div className="flex items-center gap-2 text-[10px] text-[#4a4e60] uppercase tracking-wider mb-3">
               <IconBag className="w-3.5 h-3.5" />
@@ -170,7 +245,6 @@ export default function BillingPage() {
             <div className="text-xs text-[#4a4e60]">{totalUsed.toLocaleString()} {ar ? 'مستخدم' : 'used'}</div>
           </div>
 
-          {/* Subscriptions */}
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5">
             <div className="flex items-center gap-2 text-[10px] text-[#4a4e60] uppercase tracking-wider mb-3">
               <IconRefresh className="w-3.5 h-3.5" />
@@ -194,7 +268,6 @@ export default function BillingPage() {
             )}
           </div>
 
-          {/* Usage */}
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5">
             <div className="flex items-center gap-2 text-[10px] text-[#4a4e60] uppercase tracking-wider mb-3">
               <IconTrend className="w-3.5 h-3.5" />
@@ -345,7 +418,6 @@ export default function BillingPage() {
                     </div>
                   )}
 
-                  {/* Icon */}
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
                     style={{ background: plan.color + '20' }}>
                     {plan.icon === 'video'  && <IconVideo  className="w-5 h-5" style={{ color: plan.color }} />}
@@ -460,12 +532,14 @@ export default function BillingPage() {
 
       {/* ── Payment modal ── */}
       {modal && selected && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4"
-          onClick={() => setModal(false)}>
-          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-6 w-full max-w-md"
-            onClick={e => e.stopPropagation()}>
-
-            <div className="flex items-start justify-between mb-6">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={closeModal}>
+          <div
+            className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-start justify-between p-6 pb-0">
               <div>
                 <h2 className="text-white font-semibold">{ar ? 'إتمام الدفع' : 'Complete payment'}</h2>
                 <p className="text-xs text-[#4a4e60] mt-0.5">
@@ -474,111 +548,313 @@ export default function BillingPage() {
                     : `${ar ? selected.plan.nameAr : selected.plan.nameEn} · ${ar ? 'شهري' : 'Monthly'}`}
                 </p>
               </div>
-              <button onClick={() => setModal(false)} className="cursor-pointer text-[#4a4e60] hover:text-white transition-colors mt-0.5">
+              <button onClick={closeModal} className="cursor-pointer text-[#4a4e60] hover:text-white transition-colors mt-0.5">
                 <IconX className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Summary */}
-            <div className="bg-[#0f1117] border border-[#2a2d35] rounded-xl p-4 mb-5 space-y-2.5">
-              {selected.type === 'credit' ? (
+            <div className="p-6 space-y-5">
+
+              {/* ── SUCCESS STATE ── */}
+              {submitted ? (
+                <div className="py-6 text-center">
+                  <div className="w-16 h-16 rounded-full bg-[#4ade80]/15 flex items-center justify-center mx-auto mb-4">
+                    <IconCheckCircle className="w-8 h-8 text-[#4ade80]" />
+                  </div>
+                  <h3 className="text-white font-bold text-lg mb-2">
+                    {ar ? 'تم استلام طلبك!' : 'Request received!'}
+                  </h3>
+                  <p className="text-[#8b8fa8] text-sm leading-relaxed max-w-xs mx-auto">
+                    {ar
+                      ? 'سيراجع فريقنا إثبات الدفع ويُفعَّل الرصيد خلال 24 ساعة.'
+                      : 'Our team will review your payment proof and activate your credits within 24 hours.'}
+                  </p>
+                  <div className="flex items-center justify-center gap-1.5 mt-4 text-xs text-[#4a4e60]">
+                    <IconClock className="w-3.5 h-3.5" />
+                    {ar ? 'عادةً خلال بضع ساعات في أوقات الدوام' : 'Usually within a few hours during business hours'}
+                  </div>
+                  <button
+                    onClick={closeModal}
+                    className="mt-6 px-6 py-2.5 bg-[#2a2d35] hover:bg-[#32363f] text-white text-sm font-medium rounded-xl transition-colors cursor-pointer"
+                  >
+                    {ar ? 'حسناً، شكراً' : 'Got it, thanks'}
+                  </button>
+                </div>
+              ) : (
                 <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#8b8fa8]">{ar ? 'عدد الطلبات' : 'Orders'}</span>
-                    <span className="text-white font-medium tabular-nums">
-                      {(selected.bundle?.orders ?? selected.customAmt ?? customAmt).toLocaleString()}
-                    </span>
+                  {/* Order summary */}
+                  <div className="bg-[#0f1117] border border-[#2a2d35] rounded-xl p-4 space-y-2.5">
+                    {selected.type === 'credit' ? (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-[#8b8fa8]">{ar ? 'عدد الطلبات' : 'Orders'}</span>
+                          <span className="text-white font-medium tabular-nums">
+                            {(selected.bundle?.orders ?? selected.customAmt ?? customAmt).toLocaleString()}
+                          </span>
+                        </div>
+                        {selected.bundle && (
+                          <>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-[#8b8fa8]">{ar ? 'السعر الأصلي' : 'Original price'}</span>
+                              <span className="text-[#4a4e60] tabular-nums line-through">
+                                {selected.bundle.orders.toLocaleString()} EGP
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-[#8b8fa8]">{ar ? 'خصم الباقة' : 'Bundle discount'}</span>
+                              <span className="text-[#4ade80] font-medium tabular-nums">-{selected.bundle.savings.toLocaleString()} EGP</span>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-[#8b8fa8]">{ar ? 'الخطة' : 'Plan'}</span>
+                          <span className="text-white font-medium">{ar ? selected.plan.nameAr : selected.plan.nameEn}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-[#8b8fa8]">{ar ? 'التجديد' : 'Renewal'}</span>
+                          <span className="text-[#8b8fa8] text-xs">{ar ? 'شهري' : 'Monthly'}</span>
+                        </div>
+                      </>
+                    )}
+                    <div className="border-t border-[#2a2d35] pt-2.5 flex justify-between">
+                      <span className="text-[#8b8fa8] text-sm font-medium">{ar ? 'الإجمالي' : 'Total'}</span>
+                      <span className="text-white font-bold text-lg tabular-nums">{modalPrice.toLocaleString()} EGP</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#8b8fa8]">{ar ? 'السعر الأصلي' : 'Original price'}</span>
-                    <span className="text-[#4a4e60] tabular-nums line-through">
-                      {(selected.bundle?.orders ?? selected.customAmt ?? customAmt).toLocaleString()} EGP
-                    </span>
+
+                  {/* Payment method tabs */}
+                  <div>
+                    <div className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider mb-2">
+                      {ar ? 'طريقة الدفع' : 'Payment method'}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setMethod('wallet')}
+                        className={`flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-medium transition-colors cursor-pointer ${method === 'wallet' ? 'border-[#3b82f6] bg-[#1a3a5c] text-white' : 'border-[#2a2d35] text-[#8b8fa8] hover:border-[#3b82f6]/50 hover:text-white'}`}>
+                        <IconWallet className="w-4 h-4" />
+                        {ar ? 'محافظ رقمية' : 'Mobile wallets'}
+                      </button>
+                      <button
+                        onClick={() => setMethod('card')}
+                        className={`flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-medium transition-colors cursor-pointer ${method === 'card' ? 'border-[#2a2d35] bg-[#1a1d24] text-[#4a4e60]' : 'border-[#2a2d35] text-[#4a4e60] hover:border-[#2a2d35]'}`}>
+                        <IconCard className="w-4 h-4" />
+                        {ar ? 'بطاقة بنكية' : 'Bank card'}
+                      </button>
+                    </div>
                   </div>
-                  {selected.bundle && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#8b8fa8]">{ar ? 'خصم الباقة' : 'Bundle discount'}</span>
-                      <span className="text-[#4ade80] font-medium tabular-nums">-{selected.bundle.savings.toLocaleString()} EGP</span>
+
+                  {/* ── CARD METHOD: coming soon ── */}
+                  {method === 'card' && (
+                    <div className="space-y-3">
+                      <div className="bg-[#1f2229] border border-[#2a2d35] rounded-xl p-5 text-center">
+                        <div className="w-12 h-12 rounded-full bg-[#2a2d35] flex items-center justify-center mx-auto mb-3">
+                          <IconLock className="w-5 h-5 text-[#4a4e60]" />
+                        </div>
+                        <p className="text-[#8b8fa8] text-sm font-medium mb-1">
+                          {ar ? 'الدفع بالبطاقة قيد التطوير' : 'Card payment coming soon'}
+                        </p>
+                        <p className="text-[#4a4e60] text-xs">
+                          {ar
+                            ? 'نعمل على تفعيل الدفع الإلكتروني. في الوقت الحالي، استخدم المحافظ الرقمية.'
+                            : "We’re working on card payment integration. Use mobile wallets for now."}
+                        </p>
+                      </div>
+                      <button
+                        disabled
+                        className="w-full bg-[#2a2d35] text-[#4a4e60] font-bold py-3 rounded-xl text-sm cursor-not-allowed flex items-center justify-center gap-2">
+                        <IconLock className="w-4 h-4" />
+                        {ar ? 'قريباً' : 'Coming soon'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* ── WALLET METHOD ── */}
+                  {method === 'wallet' && (
+                    <div className="space-y-4">
+
+                      {/* Step 1: choose wallet */}
+                      <div>
+                        <div className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider mb-3">
+                          {ar ? '١. اختر المحفظة' : '1. Choose wallet'}
+                        </div>
+                        <div className="space-y-2">
+                          {MANTOOG_WALLETS.map(w => (
+                            <div
+                              key={w.id}
+                              onClick={() => setSelectedWallet(w.id)}
+                              className="flex items-center justify-between rounded-xl border p-3.5 cursor-pointer transition-all"
+                              style={{
+                                borderColor: selectedWallet === w.id ? w.border : '#2a2d35',
+                                background: selectedWallet === w.id ? w.bg : 'transparent',
+                              }}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                                  style={{ background: w.color + '25' }}>
+                                  <IconWallet className="w-4 h-4" style={{ color: w.color }} />
+                                </div>
+                                <div>
+                                  <div className="text-sm font-semibold text-white">{w.label}</div>
+                                  <div className="text-xs text-[#4a4e60] font-mono mt-0.5" dir="ltr">{w.number}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={e => { e.stopPropagation(); copyNumber(w.number, w.id) }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                                  style={{
+                                    background: copied === w.id ? w.color + '30' : '#2a2d35',
+                                    color: copied === w.id ? w.color : '#8b8fa8',
+                                  }}
+                                >
+                                  <IconCopy className="w-3.5 h-3.5" />
+                                  {copied === w.id ? (ar ? 'تم النسخ' : 'Copied!') : (ar ? 'نسخ' : 'Copy')}
+                                </button>
+                                <div
+                                  className="w-4 h-4 rounded-full border-2 transition-colors shrink-0"
+                                  style={{
+                                    borderColor: selectedWallet === w.id ? w.color : '#4a4e60',
+                                    background: selectedWallet === w.id ? w.color : 'transparent',
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Step 2: transfer instructions (shown after wallet selected) */}
+                      {selectedWallet && (
+                        <>
+                          <div className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-4 py-3.5">
+                            <div className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider mb-2">
+                              {ar ? '٢. حوّل المبلغ' : '2. Transfer amount'}
+                            </div>
+                            {(() => {
+                              const w = MANTOOG_WALLETS.find(x => x.id === selectedWallet)!
+                              return (
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs text-[#8b8fa8] leading-relaxed max-w-[200px]">
+                                    {ar
+                                      ? `حوّل ${modalPrice.toLocaleString()} جنيه بالضبط إلى ${w.label} على الرقم:`
+                                      : `Send exactly ${modalPrice.toLocaleString()} EGP to ${w.label} at:`}
+                                  </p>
+                                  <div className="text-end">
+                                    <div className="font-bold font-mono text-sm" style={{ color: w.color }} dir="ltr">
+                                      {w.number}
+                                    </div>
+                                    <div className="text-xl font-bold text-white tabular-nums mt-0.5">
+                                      {modalPrice.toLocaleString()} <span className="text-sm text-[#8b8fa8]">EGP</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })()}
+                          </div>
+
+                          {/* Step 3: proof & details */}
+                          <div>
+                            <div className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider mb-3">
+                              {ar ? '٣. أرفق إثبات الدفع' : '3. Attach payment proof'}
+                            </div>
+                            <div className="space-y-3">
+
+                              {/* Proof file upload */}
+                              <div>
+                                <input
+                                  ref={fileRef}
+                                  type="file"
+                                  accept="image/*,.pdf"
+                                  className="hidden"
+                                  onChange={e => setProofFile(e.target.files?.[0] ?? null)}
+                                />
+                                <div
+                                  onClick={() => fileRef.current?.click()}
+                                  className={`w-full border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors ${proofFile ? 'border-[#4ade80]/40 bg-[#4ade80]/5' : 'border-[#2a2d35] hover:border-[#3a3d45]'}`}
+                                >
+                                  {proofFile ? (
+                                    <div className="flex items-center justify-center gap-2">
+                                      <IconCheckCircle className="w-4 h-4 text-[#4ade80]" />
+                                      <span className="text-sm text-[#4ade80] font-medium truncate max-w-[220px]">{proofFile.name}</span>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <IconUpload className="w-5 h-5 text-[#4a4e60] mx-auto mb-1.5" />
+                                      <p className="text-xs text-[#4a4e60]">
+                                        {ar ? 'انقر لرفع صورة أو PDF لإثبات التحويل' : 'Click to upload screenshot or PDF of transfer'}
+                                      </p>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Sender phone */}
+                              <div>
+                                <label className="block text-xs text-[#4a4e60] mb-1.5">
+                                  {ar ? 'رقم المحفظة المُرسِلة' : 'Sender wallet number'}
+                                </label>
+                                <input
+                                  value={phone}
+                                  onChange={e => setPhone(e.target.value)}
+                                  placeholder="01xxxxxxxxx"
+                                  dir="ltr"
+                                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors"
+                                />
+                              </div>
+
+                              {/* Notes (optional) */}
+                              <div>
+                                <label className="block text-xs text-[#4a4e60] mb-1.5">
+                                  {ar ? 'ملاحظات (اختياري)' : 'Notes (optional)'}
+                                </label>
+                                <input
+                                  value={notes}
+                                  onChange={e => setNotes(e.target.value)}
+                                  placeholder={ar ? 'أي تفاصيل إضافية...' : 'Any additional details...'}
+                                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Error */}
+                          {submitError && (
+                            <div className="bg-[#f87171]/10 border border-[#f87171]/20 rounded-lg px-3 py-2.5">
+                              <p className="text-xs text-[#f87171]">{submitError}</p>
+                            </div>
+                          )}
+
+                          {/* Submit */}
+                          <button
+                            onClick={handleWalletSubmit}
+                            disabled={!canSubmit}
+                            className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2"
+                          >
+                            {proofUploading ? (
+                              <>
+                                {ar ? 'جاري الإرسال...' : 'Submitting...'}
+                                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              </>
+                            ) : (
+                              ar ? 'إرسال طلب الدفع' : 'Submit payment request'
+                            )}
+                          </button>
+
+                          <p className="text-center text-xs text-[#4a4e60]">
+                            {ar
+                              ? 'سيراجع فريقنا إثبات الدفع ويُفعَّل الرصيد خلال 24 ساعة'
+                              : 'Our team will review and activate your credits within 24 hours'}
+                          </p>
+                        </>
+                      )}
                     </div>
                   )}
                 </>
-              ) : (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#8b8fa8]">{ar ? 'الخطة' : 'Plan'}</span>
-                    <span className="text-white font-medium">{ar ? selected.plan.nameAr : selected.plan.nameEn}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#8b8fa8]">{ar ? 'التجديد' : 'Renewal'}</span>
-                    <span className="text-[#8b8fa8] text-xs">{ar ? 'شهري تلقائي' : 'Auto monthly'}</span>
-                  </div>
-                </>
               )}
-              <div className="border-t border-[#2a2d35] pt-2.5 flex justify-between">
-                <span className="text-[#8b8fa8] text-sm font-medium">{ar ? 'الإجمالي' : 'Total'}</span>
-                <span className="text-white font-bold text-lg tabular-nums">{modalPrice.toLocaleString()} EGP</span>
-              </div>
             </div>
-
-            {/* Payment method */}
-            <div className="mb-5">
-              <div className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider mb-2">
-                {ar ? 'طريقة الدفع' : 'Payment method'}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setMethod('card')}
-                  className={`flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-medium transition-colors cursor-pointer ${method === 'card' ? 'border-[#3b82f6] bg-[#1a3a5c] text-white' : 'border-[#2a2d35] text-[#8b8fa8] hover:border-[#3b82f6]/50 hover:text-white'}`}>
-                  <IconCard className="w-4 h-4" />
-                  {ar ? 'بطاقة بنكية' : 'Bank card'}
-                </button>
-                <button
-                  onClick={() => setMethod('vodafone')}
-                  className={`flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-medium transition-colors cursor-pointer ${method === 'vodafone' ? 'border-[#ef4444] bg-[#3a1a1a] text-white' : 'border-[#2a2d35] text-[#8b8fa8] hover:border-[#ef4444]/50 hover:text-white'}`}>
-                  <IconWallet className="w-4 h-4" />
-                  Vodafone Cash
-                </button>
-              </div>
-            </div>
-
-            {method === 'vodafone' && (
-              <div className="mb-5">
-                <div className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider mb-1.5">
-                  {ar ? 'رقم فودافون كاش' : 'Vodafone Cash number'}
-                </div>
-                <input
-                  value={phone} onChange={e => setPhone(e.target.value)}
-                  placeholder="01xxxxxxxxx" dir="ltr"
-                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#ef4444] transition-colors"
-                />
-              </div>
-            )}
-
-            {method === 'card' && (
-              <div className="mb-5 bg-[#1a3a5c]/50 border border-[#3b82f6]/20 rounded-lg px-4 py-3">
-                <p className="text-[#60a5fa] text-xs">
-                  {ar ? '🔒 ستتم إعادة توجيهك لبوابة Paymob الآمنة لإتمام الدفع' : '🔒 You will be redirected to Paymob secure gateway'}
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={handlePurchase}
-              disabled={processing || (method === 'vodafone' && !phone.trim())}
-              className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2">
-              {processing ? (
-                <>
-                  {ar ? 'جاري المعالجة' : 'Processing'}
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                </>
-              ) : `${ar ? 'ادفع' : 'Pay'} ${modalPrice.toLocaleString()} EGP`}
-            </button>
-
-            <p className="text-center text-xs text-[#4a4e60] mt-3">
-              {selected.type === 'credit'
-                ? (ar ? 'الرصيد لا ينتهي · يُفعَّل فور تأكيد الدفع' : 'Credits never expire · Activated after payment')
-                : (ar ? 'يمكن الإلغاء في أي وقت · تجديد شهري تلقائي' : 'Cancel anytime · Monthly auto-renewal')}
-            </p>
           </div>
         </div>
       )}

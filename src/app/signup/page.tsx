@@ -90,6 +90,7 @@ export default function SignupPage() {
   const tr = t[lang]
   const ar = lang === 'ar'
 
+  const [step,         setStep]         = useState<'form' | 'verify'>('form')
   const [fullName,     setFullName]     = useState('')
   const [email,        setEmail]        = useState('')
   const [password,     setPassword]     = useState('')
@@ -100,8 +101,12 @@ export default function SignupPage() {
   const [phoneError,   setPhoneError]   = useState('')
   const [error,        setError]        = useState('')
   const [loading,      setLoading]      = useState(false)
+  const [otpCode,      setOtpCode]      = useState('')
+  const [pendingPhone, setPendingPhone] = useState('')
+  const [resending,    setResending]    = useState(false)
 
   const router = useRouter()
+  const supabase = createClient()
   const currentCountry = COUNTRY_CODES.find(c => c.code === selectedCode) || COUNTRY_CODES[0]
   const isValidPhone = phoneNumber.length === currentCountry.digits
 
@@ -121,7 +126,6 @@ export default function SignupPage() {
     }
 
     const fullPhone = selectedCode + phoneNumber
-    const supabase = createClient()
     const { data, error } = await supabase.auth.signUp({
       email, password,
       options: { data: { full_name: fullName, phone: fullPhone } },
@@ -129,15 +133,55 @@ export default function SignupPage() {
 
     if (error) { setError(error.message); setLoading(false); return }
 
+    setPendingPhone(fullPhone)
+
+    if (data.session) {
+      // Email confirmation disabled — user is signed in immediately
+      if (data.user) {
+        await supabase.from('merchants').upsert(
+          { id: data.user.id, email, phone: fullPhone, website },
+          { onConflict: 'id' }
+        )
+      }
+      recordActivity()
+      router.push('/dashboard/setup')
+    } else {
+      // Email confirmation required — show OTP step
+      setLoading(false)
+      setStep('verify')
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length < 6) return
+    setLoading(true); setError('')
+
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: otpCode,
+      type: 'signup',
+    })
+
+    if (error) {
+      setError(ar ? 'الكود غير صحيح أو منتهي الصلاحية' : 'Invalid or expired code')
+      setLoading(false); return
+    }
+
     if (data.user) {
       await supabase.from('merchants').upsert(
-        { id: data.user.id, email, phone: fullPhone, website },
+        { id: data.user.id, email, phone: pendingPhone, website },
         { onConflict: 'id' }
       )
     }
 
     recordActivity()
     router.push('/dashboard/setup')
+  }
+
+  const handleResend = async () => {
+    setResending(true); setError('')
+    await supabase.auth.resend({ type: 'signup', email })
+    setResending(false)
   }
 
   return (
@@ -183,6 +227,78 @@ export default function SignupPage() {
       <div className="relative z-10 flex items-center justify-center min-h-screen px-5 pt-28 pb-12">
         <div className="w-full max-w-[440px]">
 
+          {step === 'verify' ? (
+            /* ── OTP verification step ── */
+            <>
+              <div className="mb-8">
+                <div className="w-14 h-14 rounded-2xl bg-[#1e3a5c] border border-[#3b82f6]/30 flex items-center justify-center mb-5">
+                  <svg className="w-7 h-7 text-[#60a5fa]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/>
+                  </svg>
+                </div>
+                <h2 className="text-[1.75rem] font-black text-white mb-2 tracking-tight">
+                  {ar ? 'تحقق من بريدك الإلكتروني' : 'Check your email'}
+                </h2>
+                <p className="text-[#9aa0b4] text-sm leading-relaxed">
+                  {ar
+                    ? `أرسلنا كود التحقق إلى ${email}. أدخل الكود للمتابعة.`
+                    : `We sent a verification code to ${email}. Enter it below to continue.`}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm p-7 space-y-5">
+                <div>
+                  <label className={labelCls}>{ar ? 'كود التحقق' : 'Verification code'}</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={otpCode}
+                    onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    placeholder="000000"
+                    dir="ltr"
+                    className={`${inputCls} text-center text-xl tracking-[0.4em] font-bold`}
+                    autoFocus
+                  />
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-2.5 rounded-xl px-4 py-3"
+                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    <span className="text-red-400"><AlertIcon /></span>
+                    <p className="text-red-400 text-sm">{error}</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleVerifyOtp}
+                  disabled={loading || otpCode.length < 6}
+                  className="relative w-full py-3.5 rounded-xl font-bold text-sm text-white overflow-hidden transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: 'linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)', boxShadow: '0 4px 24px rgba(37,99,235,0.35)' }}>
+                  <span className={loading ? 'opacity-0' : ''}>{ar ? 'تأكيد الكود' : 'Verify code'}</span>
+                  {loading && <span className="absolute inset-0 flex items-center justify-center"><SpinnerIcon /></span>}
+                </button>
+
+                <div className="text-center">
+                  <p className="text-[#6b7a99] text-sm">
+                    {ar ? 'لم يصلك الكود؟' : "Didn't receive the code?"}{' '}
+                    <button
+                      onClick={handleResend}
+                      disabled={resending}
+                      className="text-[#3b82f6] hover:text-[#60a5fa] font-semibold transition-colors disabled:opacity-50 cursor-pointer">
+                      {resending ? (ar ? 'جاري الإرسال...' : 'Sending...') : (ar ? 'إعادة الإرسال' : 'Resend')}
+                    </button>
+                  </p>
+                  <button
+                    onClick={() => { setStep('form'); setOtpCode(''); setError('') }}
+                    className="text-[#4a5568] hover:text-[#9aa0b4] text-xs mt-2 transition-colors cursor-pointer">
+                    {ar ? '← تعديل البريد الإلكتروني' : '← Edit email'}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* ── Signup form ── */
+            <>
           <div className="mb-8">
             <h2 className="text-[2rem] font-black text-white mb-2 tracking-tight">
               {ar ? 'أنشئ حسابك مجاناً 🚀' : 'Create your free account 🚀'}
@@ -307,6 +423,8 @@ export default function SignupPage() {
           </p>
 
           <p className="text-[#4a5568] text-xs mt-3 text-center">{tr.freeOrdersNote}</p>
+            </>
+          )}
 
         </div>
       </div>

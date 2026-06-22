@@ -202,6 +202,11 @@ export default function LandingPage() {
   const [note, setNote] = useState('')
   const [qty, setQty] = useState(1)
   const [selectedOffer, setSelectedOffer] = useState<any>(null)
+  const [upsellProduct, setUpsellProduct] = useState<any>(null)
+  const [bumpChecked, setBumpChecked] = useState(false)
+  const [showPostUpsell, setShowPostUpsell] = useState(false)
+  const [postUpsellAccepting, setPostUpsellAccepting] = useState(false)
+  const [lastOrderId, setLastOrderId] = useState<string | null>(null)
   const [showAllReviews, setShowAllReviews] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
   const allReviewsRef = useRef<HTMLDivElement>(null)
@@ -226,6 +231,16 @@ export default function LandingPage() {
       if (lpData) {
         setLandingPage(lpData)
         try { setSections(typeof lpData.sections === 'string' ? JSON.parse(lpData.sections) : lpData.sections) } catch {}
+      }
+
+      // Load upsell product if configured
+      if (productData.upsell?.active && productData.upsell?.product_id) {
+        const { data: upData } = await supabase
+          .from('products')
+          .select('id, title, images, price')
+          .eq('id', productData.upsell.product_id)
+          .single()
+        if (upData) setUpsellProduct(upData)
       }
 
       // Increment visit count via API
@@ -291,11 +306,14 @@ export default function LandingPage() {
   const activeOffers = product
     ? ((product.offers || []) as any[]).filter((o: any) => o.active !== false).sort((a: any, b: any) => a.quantity - b.quantity)
     : []
-  const total = selectedOffer
-    ? (selectedOffer.price + shippingCost).toFixed(0)
+  const upsellConfig = product?.upsell
+  const bumpPrice = bumpChecked && upsellConfig?.type === 'bump' ? (upsellConfig.sale_price || 0) : 0
+  const baseItemTotal = selectedOffer
+    ? selectedOffer.price
     : store?.show_quantity
-      ? (parseFloat(product?.price || 0) * qty + shippingCost).toFixed(0)
-      : (parseFloat(product?.price || 0) + shippingCost).toFixed(0)
+      ? parseFloat(product?.price || 0) * qty
+      : parseFloat(product?.price || 0)
+  const total = (baseItemTotal + bumpPrice + shippingCost).toFixed(0)
   const t = formatTimer(timer)
   const primaryColor = store?.primary_color || '#2563eb'
 
@@ -397,7 +415,16 @@ export default function LandingPage() {
     setFormError('')
     setSubmitting(true)
     const orderQty = selectedOffer ? selectedOffer.quantity : (store?.show_quantity ? submitQty : 1)
-    const orderTotal = selectedOffer ? selectedOffer.price + shippingCost : (product.price * orderQty + shippingCost)
+    const bumpAmt = bumpChecked && upsellConfig?.type === 'bump' ? (upsellConfig.sale_price || 0) : 0
+    const orderTotal = (selectedOffer ? selectedOffer.price : product.price * orderQty) + bumpAmt + shippingCost
+    const upsellItem = bumpChecked && upsellProduct && upsellConfig?.type === 'bump' ? {
+      type: 'bump',
+      product_id: upsellProduct.id,
+      product_title: upsellProduct.title,
+      product_image: upsellProduct.images?.[0] || null,
+      sale_price: upsellConfig.sale_price,
+      quantity: 1,
+    } : null
     let orderOk = false
     try {
       const response = await fetch('/api/orders/create', {
@@ -426,10 +453,12 @@ export default function LandingPage() {
           location_address: pickedLocation?.address || null,
           attribution: getOrderAttributionPayload(),
           applied_offer: selectedOffer ? { id: selectedOffer.id, quantity: selectedOffer.quantity, price: selectedOffer.price } : null,
+          upsell_item: upsellItem,
         }),
       })
       const result = await response.json()
       orderOk = response.ok && result.success
+      if (orderOk && result.orderId) setLastOrderId(result.orderId)
     } catch {
       orderOk = false
     }
@@ -505,7 +534,11 @@ export default function LandingPage() {
       setAddress(submitAddress)
       setNote(submitNote)
       setQty(submitQty)
-      setSubmitted(true)
+      if (upsellConfig?.type === 'post_purchase' && upsellProduct) {
+        setShowPostUpsell(true)
+      } else {
+        setSubmitted(true)
+      }
     } else {
       setFormError(m.dir === 'rtl' ? 'حصل خطأ، حاول تاني' : 'Something went wrong, please try again')
     }
@@ -513,6 +546,73 @@ export default function LandingPage() {
 
   if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui' }}><div style={{ color: '#999' }}>Loading...</div></div>
   if (notFound) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, fontFamily: 'system-ui' }}><div style={{ fontSize: 48 }}>📦</div><div style={{ fontSize: 18, fontWeight: 600, color: '#333' }}>Product not found</div></div>
+  if (showPostUpsell && upsellProduct && upsellConfig) {
+    const acceptPostUpsell = async () => {
+      setPostUpsellAccepting(true)
+      try {
+        await fetch(`/api/orders/${lastOrderId}/add-upsell`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            upsell_item: {
+              type: 'post_purchase',
+              product_id: upsellProduct.id,
+              product_title: upsellProduct.title,
+              product_image: upsellProduct.images?.[0] || null,
+              sale_price: upsellConfig.sale_price,
+              quantity: 1,
+            },
+            additional_price: upsellConfig.sale_price,
+          }),
+        })
+      } catch {}
+      setPostUpsellAccepting(false)
+      setShowPostUpsell(false)
+      setSubmitted(true)
+    }
+    const savings = Math.round(parseFloat(upsellProduct.price) - upsellConfig.sale_price)
+    return (
+      <div dir={m.dir} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'system-ui', background: '#f9fafb' }}>
+        <div style={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, padding: '18px 16px', textAlign: 'center' }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 4 }}>{m.dir === 'rtl' ? 'تم استلام طلبك!' : 'Order received!'}</div>
+            <div style={{ fontSize: 12, color: '#666' }}>{m.dir === 'rtl' ? `شكراً ${name}` : `Thank you ${name}`}</div>
+          </div>
+          <div style={{ background: '#fff', border: `2px solid ${th.accent}`, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ background: th.accent, padding: '10px 14px', textAlign: 'center' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>⚡ {m.dir === 'rtl' ? 'عرض خاص لك قبل أن تغادر!' : 'Special offer before you go!'}</div>
+            </div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                {upsellProduct.images?.[0] && (
+                  <img src={upsellProduct.images[0]} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10, border: '1px solid #e5e7eb', flexShrink: 0 }} />
+                )}
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 4 }}>{upsellProduct.title}</div>
+                  <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>{m.dir === 'rtl' ? 'أضفه لنفس طلبك — بدون شحن إضافي' : 'Add to same order — no extra shipping'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>{upsellConfig.sale_price} {store?.currency}</span>
+                    {savings > 0 && <span style={{ fontSize: 11, color: '#9ca3af', textDecoration: 'line-through' }}>{upsellProduct.price} {store?.currency}</span>}
+                    {savings > 0 && <span style={{ fontSize: 10, background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: 20, fontWeight: 600 }}>{m.dir === 'rtl' ? `وفر ${savings}` : `Save ${savings}`}</span>}
+                  </div>
+                </div>
+              </div>
+              <button onClick={acceptPostUpsell} disabled={postUpsellAccepting}
+                style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontSize: 15, fontWeight: 700, cursor: postUpsellAccepting ? 'wait' : 'pointer', width: '100%' }}>
+                {postUpsellAccepting ? '...' : (m.dir === 'rtl' ? `✓ نعم! أريده — أضفه لطلبي` : `✓ Yes! Add it to my order`)}
+              </button>
+              <button onClick={() => { setShowPostUpsell(false); setSubmitted(true) }}
+                style={{ background: 'transparent', color: '#9ca3af', border: '1px solid #e5e7eb', borderRadius: 12, padding: '11px', fontSize: 13, cursor: 'pointer', width: '100%' }}>
+                {m.dir === 'rtl' ? 'لا شكراً، لا أريد هذا العرض' : 'No thanks, I\'ll pass'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (submitted) return (
     <div dir={m.dir} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24, textAlign: 'center', fontFamily: 'system-ui', background: '#f9fafb' }}>
       <div style={{ fontSize: 72 }}>✅</div>
@@ -1366,6 +1466,74 @@ export default function LandingPage() {
                 style={{ ...inputStyle, resize: 'none', fontFamily: 'inherit' }}
               />
             )}
+
+            {upsellConfig?.type === 'bump' && upsellProduct && (() => {
+              const bumpSavings = Math.round(parseFloat(upsellProduct.price) - upsellConfig.sale_price)
+              const bumpPct = Math.round(bumpSavings / parseFloat(upsellProduct.price) * 100)
+              return (
+                <div style={{ borderRadius: 14, overflow: 'hidden', border: `2px dashed ${bumpChecked ? th.accent : '#f59e0b'}`, transition: 'border-color 0.2s', direction: m.dir as any }}>
+                  {/* Header strip */}
+                  <div style={{ background: bumpChecked ? th.accent : '#f59e0b', padding: '7px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>
+                      ⚡ {m.dir === 'rtl' ? 'عرض حصري للطلب الحالي فقط' : 'Exclusive offer — this order only'}
+                    </span>
+                    <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.25)', color: '#fff', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
+                      {m.dir === 'rtl' ? `وفر ${bumpPct}%` : `Save ${bumpPct}%`}
+                    </span>
+                  </div>
+                  {/* Body */}
+                  <div style={{ background: bumpChecked ? `${th.accent}0d` : th.cardBg, padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'center' }}>
+                    {upsellProduct.images?.[0] && (
+                      <img src={upsellProduct.images[0]} alt="" style={{ width: 68, height: 68, objectFit: 'cover', borderRadius: 10, border: `1px solid ${th.cardBorder}`, flexShrink: 0 }} />
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: th.text, marginBottom: 3, lineHeight: 1.3 }}>{upsellProduct.title}</div>
+                      <div style={{ fontSize: 11, color: th.subtext, marginBottom: 8 }}>
+                        {m.dir === 'rtl' ? 'يكمّل طلبك بشكل مثالي' : 'Pairs perfectly with your order'}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 20, fontWeight: 800, color: '#16a34a' }}>{upsellConfig.sale_price} {store?.currency}</span>
+                        {bumpSavings > 0 && (
+                          <span style={{ fontSize: 13, color: '#9ca3af', textDecoration: 'line-through' }}>{upsellProduct.price} {store?.currency}</span>
+                        )}
+                        {bumpSavings > 0 && (
+                          <span style={{ fontSize: 11, background: '#dcfce7', color: '#166534', padding: '3px 8px', borderRadius: 20, fontWeight: 700 }}>
+                            {m.dir === 'rtl' ? `وفر ${bumpSavings} ${store?.currency}` : `Save ${bumpSavings} ${store?.currency}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Social proof line */}
+                  <div style={{ background: th.cardBg, borderTop: `1px solid ${th.cardBorder}`, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 12 }}>🔥</span>
+                    <span style={{ fontSize: 11, color: th.subtext }}>
+                      {m.dir === 'rtl' ? 'يشتريه معظم العملاء مع هذا المنتج' : 'Most customers add this with their order'}
+                    </span>
+                  </div>
+                  {/* CTA checkbox row */}
+                  <div
+                    onClick={() => setBumpChecked(c => !c)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                      background: bumpChecked ? th.accent : '#fefce8',
+                      borderTop: `1px solid ${bumpChecked ? th.accent : '#fde68a'}`,
+                      padding: '11px 14px', transition: 'background 0.2s',
+                      direction: m.dir as any,
+                    }}
+                  >
+                    <div style={{ width: 22, height: 22, borderRadius: 6, border: `2.5px solid ${bumpChecked ? '#fff' : th.accent}`, background: bumpChecked ? '#fff' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                      {bumpChecked && <span style={{ color: th.accent, fontSize: 13, fontWeight: 900 }}>✓</span>}
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: bumpChecked ? '#fff' : '#92400e', flex: 1 }}>
+                      {bumpChecked
+                        ? (m.dir === 'rtl' ? `✓ تمت الإضافة — الإجمالي: ${total} ${store?.currency}` : `✓ Added — Total: ${total} ${store?.currency}`)
+                        : (m.dir === 'rtl' ? `نعم! أضفه لطلبي بـ ${upsellConfig.sale_price} ${store?.currency} فقط` : `Yes! Add it for ${upsellConfig.sale_price} ${store?.currency} only`)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })()}
 
             <div style={{ background: th.cardBg, border: `1px solid ${th.cardBorder}`, borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: th.subtext }}>

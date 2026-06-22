@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const { attribution: rawAttribution, ...orderFields } = body ?? {}
     const attribution = parseAttribution(rawAttribution)
 
-    const { error } = await supabase.from('orders').insert({
+    const { data: orderData, error } = await supabase.from('orders').insert({
       store_id: orderFields.store_id,
       merchant_id: orderFields.merchant_id,
       product_id: orderFields.product_id,
@@ -71,16 +71,17 @@ export async function POST(request: NextRequest) {
       map_link: orderFields.map_link ?? null,
       location_address: orderFields.location_address ?? null,
       applied_offer: orderFields.applied_offer ?? null,
+      upsell_item: orderFields.upsell_item ?? null,
       ...attribution,
       ip_address: getClientIp(request),
       ip_country: getIpCountry(request),
-    })
+    }).select('id').single()
 
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, orderId: orderData?.id ?? null })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json({ success: false, error: message }, { status: 500 })

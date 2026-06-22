@@ -147,7 +147,7 @@ export default function OrdersPage() {
       o.order_number || o.id.slice(0, 8),
       o.customer_name,
       o.customer_phone,
-      o.products?.title || '',
+      o.upsell_item ? `${o.products?.title || ''} + ${o.upsell_item.product_title}` : (o.products?.title || ''),
       o.quantity,
       `${o.total_price} ${o.currency}`,
       o.address_governorate || '',
@@ -170,7 +170,7 @@ export default function OrdersPage() {
     const rows = filteredOrders.map((order: any) => ({
       'الاسم': order.customer_name || '',
       'الهاتف': order.customer_phone || '',
-      'المنتج': order.products?.title || '',
+      'المنتج': order.upsell_item ? `${order.products?.title || ''} + ${order.upsell_item.product_title}` : (order.products?.title || ''),
       'الكمية': order.quantity || '',
       'المبلغ': order.total_price || '',
       'العملة': order.currency || '',
@@ -466,7 +466,17 @@ export default function OrdersPage() {
                     {order.products?.images?.[0] && (
                       <img src={order.products.images[0]} alt="" className="w-8 h-8 rounded-lg object-cover border border-[#2a2d35] shrink-0" />
                     )}
-                    <span className="text-xs text-[#8b8fa8] truncate">{order.products?.title || '—'}</span>
+                    <div className="min-w-0">
+                      <span className="text-xs text-[#8b8fa8] truncate block">
+                        {order.products?.title || '—'}
+                        {order.upsell_item && ` + ${order.upsell_item.product_title}`}
+                      </span>
+                      {order.upsell_item && (
+                        <span className="text-[10px] text-[#a78bfa] font-medium bg-[#a78bfa]/10 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                          {order.upsell_item.type === 'bump' ? 'Bump' : 'Upsell'}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Address */}

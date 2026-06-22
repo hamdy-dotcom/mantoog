@@ -235,13 +235,14 @@ export default function AdminPage() {
   const exportOrdersCSV = () => {
     const filtered = filteredOrders
     const headers = [
-      'Store', 'Customer', 'Phone', 'Governorate', 'Amount', 'Currency', 'Status', 'Date',
+      'Store', 'Customer', 'Phone', 'Product', 'Governorate', 'Amount', 'Currency', 'Status', 'Date',
       ...ORDER_ATTRIBUTION_FIELDS.map(field => ORDER_ATTRIBUTION_LABELS[field]),
     ]
     const rows = filtered.map(o => [
       o.stores?.name || '',
       o.customer_name || '',
       o.customer_phone || '',
+      o.upsell_item ? `${o.products?.title || ''} + ${o.upsell_item.product_title}` : (o.products?.title || ''),
       o.address_governorate || '',
       o.total_price || '',
       o.stores?.currency || '',
@@ -262,7 +263,7 @@ export default function AdminPage() {
     const rows = filteredOrders.map((order: any) => ({
       'الاسم': order.customer_name || '',
       'الهاتف': order.customer_phone || '',
-      'المنتج': order.products?.title || '',
+      'المنتج': order.upsell_item ? `${order.products?.title || ''} + ${order.upsell_item.product_title}` : (order.products?.title || ''),
       'العنوان': [order.address_line1, order.address_governorate].filter(Boolean).join(', ') || '',
       'المبلغ': order.total_price || '',
       'العملة': order.currency || '',
@@ -579,7 +580,10 @@ export default function AdminPage() {
                     {filteredOrders.slice(0, 100).map((order) => (
                       <tr key={order.id} className="border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors">
                         <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">{order.stores?.name || '—'}</td>
-                        <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">{order.products?.title || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">
+                          {order.products?.title || '—'}
+                          {order.upsell_item && <span className="text-[#a78bfa]"> + {order.upsell_item.product_title}</span>}
+                        </td>
                         <td className="px-4 py-3 text-sm">{order.customer_name || '—'}</td>
                         <td className="px-4 py-3 text-xs text-[#8b8fa8]">{order.customer_phone || '—'}</td>
                         <td className="px-4 py-3 text-xs text-[#8b8fa8]">

@@ -101,8 +101,6 @@ export default function SignupPage() {
   const [phoneError,   setPhoneError]   = useState('')
   const [error,        setError]        = useState('')
   const [loading,      setLoading]      = useState(false)
-  const [otpCode,      setOtpCode]      = useState('')
-  const [pendingPhone, setPendingPhone] = useState('')
   const [resending,    setResending]    = useState(false)
 
   const router = useRouter()
@@ -126,14 +124,16 @@ export default function SignupPage() {
     }
 
     const fullPhone = selectedCode + phoneNumber
+    const callbackUrl = `${window.location.origin}/auth/callback?next=/dashboard/setup`
     const { data, error } = await supabase.auth.signUp({
       email, password,
-      options: { data: { full_name: fullName, phone: fullPhone } },
+      options: {
+        data: { full_name: fullName, phone: fullPhone },
+        emailRedirectTo: callbackUrl,
+      },
     })
 
     if (error) { setError(error.message); setLoading(false); return }
-
-    setPendingPhone(fullPhone)
 
     if (data.session) {
       // Email confirmation disabled — user is signed in immediately
@@ -152,35 +152,10 @@ export default function SignupPage() {
     }
   }
 
-  const handleVerifyOtp = async () => {
-    if (otpCode.length < 6) return
-    setLoading(true); setError('')
-
-    const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token: otpCode,
-      type: 'signup',
-    })
-
-    if (error) {
-      setError(ar ? 'الكود غير صحيح أو منتهي الصلاحية' : 'Invalid or expired code')
-      setLoading(false); return
-    }
-
-    if (data.user) {
-      await supabase.from('merchants').upsert(
-        { id: data.user.id, email, phone: pendingPhone, website },
-        { onConflict: 'id' }
-      )
-    }
-
-    recordActivity()
-    router.push('/dashboard/setup')
-  }
-
   const handleResend = async () => {
     setResending(true); setError('')
-    await supabase.auth.resend({ type: 'signup', email })
+    const callbackUrl = `${window.location.origin}/auth/callback?next=/dashboard/setup`
+    await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: callbackUrl } })
     setResending(false)
   }
 
@@ -247,19 +222,19 @@ export default function SignupPage() {
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm p-7 space-y-5">
-                <div>
-                  <label className={labelCls}>{ar ? 'كود التحقق' : 'Verification code'}</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={otpCode}
-                    onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                    placeholder="000000"
-                    dir="ltr"
-                    className={`${inputCls} text-center text-xl tracking-[0.4em] font-bold`}
-                    autoFocus
-                  />
+                {/* Email preview chip */}
+                <div className="flex items-center gap-3 bg-white/[0.06] border border-white/10 rounded-xl px-4 py-3">
+                  <svg className="w-4 h-4 text-[#60a5fa] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/>
+                  </svg>
+                  <span className="text-sm text-white font-medium truncate">{email}</span>
                 </div>
+
+                <p className="text-[#9aa0b4] text-sm leading-relaxed">
+                  {ar
+                    ? 'افتح بريدك الإلكتروني واضغط على زر "تأكيد البريد الإلكتروني" لإكمال إنشاء حسابك.'
+                    : 'Open your email and click the "Confirm Email Address" button to complete your account setup.'}
+                </p>
 
                 {error && (
                   <div className="flex items-center gap-2.5 rounded-xl px-4 py-3"
@@ -269,18 +244,9 @@ export default function SignupPage() {
                   </div>
                 )}
 
-                <button
-                  onClick={handleVerifyOtp}
-                  disabled={loading || otpCode.length < 6}
-                  className="relative w-full py-3.5 rounded-xl font-bold text-sm text-white overflow-hidden transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: 'linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)', boxShadow: '0 4px 24px rgba(37,99,235,0.35)' }}>
-                  <span className={loading ? 'opacity-0' : ''}>{ar ? 'تأكيد الكود' : 'Verify code'}</span>
-                  {loading && <span className="absolute inset-0 flex items-center justify-center"><SpinnerIcon /></span>}
-                </button>
-
-                <div className="text-center">
+                <div className="text-center space-y-3">
                   <p className="text-[#6b7a99] text-sm">
-                    {ar ? 'لم يصلك الكود؟' : "Didn't receive the code?"}{' '}
+                    {ar ? 'لم يصلك الإيميل؟' : "Didn't receive the email?"}{' '}
                     <button
                       onClick={handleResend}
                       disabled={resending}
@@ -288,9 +254,12 @@ export default function SignupPage() {
                       {resending ? (ar ? 'جاري الإرسال...' : 'Sending...') : (ar ? 'إعادة الإرسال' : 'Resend')}
                     </button>
                   </p>
+                  <p className="text-[#4a5568] text-xs">
+                    {ar ? 'تحقق من مجلد السبام إذا لم تجده' : "Check your spam folder if you don't see it"}
+                  </p>
                   <button
-                    onClick={() => { setStep('form'); setOtpCode(''); setError('') }}
-                    className="text-[#4a5568] hover:text-[#9aa0b4] text-xs mt-2 transition-colors cursor-pointer">
+                    onClick={() => { setStep('form'); setError('') }}
+                    className="text-[#4a5568] hover:text-[#9aa0b4] text-xs transition-colors cursor-pointer block mx-auto">
                     {ar ? '← تعديل البريد الإلكتروني' : '← Edit email'}
                   </button>
                 </div>

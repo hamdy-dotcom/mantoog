@@ -1,7 +1,7 @@
 'use client'
 import { useRef, useState } from 'react'
 
-export default function FashionTheme({ store, product, landingPage, sections, images, benefits, shippingCost, onSubmit, submitting, formError }: any) {
+export default function FashionTheme({ store, product, landingPage, sections, images, benefits, shippingCost, onSubmit, submitting, formError, activeOffers = [], selectedOffer, setSelectedOffer, upsellProduct, upsellConfig, bumpChecked, setBumpChecked }: any) {
   const formRef = useRef<HTMLDivElement>(null)
   const [activeImg, setActiveImg] = useState(0)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
@@ -31,7 +31,9 @@ export default function FashionTheme({ store, product, landingPage, sections, im
     ? JSON.parse(rawColors)
     : []
   const currency = store?.currency || 'SAR'
-  const total = (parseFloat(product?.price || 0) * qty + parseFloat(shippingCost || 0)).toFixed(0)
+  const bumpPrice = bumpChecked && upsellConfig?.type === 'bump' ? (upsellConfig.sale_price || 0) : 0
+  const basePrice = selectedOffer ? selectedOffer.price : parseFloat(product?.price || 0) * qty
+  const total = (basePrice + bumpPrice + parseFloat(shippingCost || 0)).toFixed(0)
   const discount = product?.compare_at_price ? Math.round((1 - product.price / product.compare_at_price) * 100) : null
 
   const seed = product?.id ? product.id.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0) : 42
@@ -213,6 +215,61 @@ export default function FashionTheme({ store, product, landingPage, sections, im
               {store?.show_note && (
                 <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="ملاحظات إضافية (اختياري)" rows={3}
                   style={{ ...inputStyle, resize: 'none' }} />
+              )}
+
+              {/* Bundle offers */}
+              {activeOffers.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#111', marginBottom: 8 }}>اختر العرض المناسب</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div onClick={() => setSelectedOffer(null)}
+                      style={{ border: `2px solid ${!selectedOffer ? '#111' : '#e5e7eb'}`, borderRadius: 8, padding: '10px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, background: !selectedOffer ? '#f9f9f9' : '#fff' }}>
+                      <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${!selectedOffer ? '#111' : '#aaa'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {!selectedOffer && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#111' }} />}
+                      </div>
+                      <span style={{ fontSize: 13, flex: 1 }}>قطعة واحدة</span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{parseFloat(product?.price || 0)} {currency}</span>
+                    </div>
+                    {activeOffers.map((offer: any) => {
+                      const isSelected = selectedOffer?.id === offer.id
+                      const savings = Math.round(parseFloat(product?.price || 0) * offer.quantity - offer.price)
+                      return (
+                        <div key={offer.id} onClick={() => setSelectedOffer(offer)}
+                          style={{ border: `2px solid ${isSelected ? '#111' : '#e5e7eb'}`, borderRadius: 8, padding: '10px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, background: isSelected ? '#f9f9f9' : '#fff' }}>
+                          <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${isSelected ? '#111' : '#aaa'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {isSelected && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#111' }} />}
+                          </div>
+                          <span style={{ fontSize: 13, flex: 1 }}>{offer.quantity} قطع</span>
+                          <span style={{ fontSize: 13, fontWeight: 700 }}>{offer.price} {currency}</span>
+                          {savings > 0 && <span style={{ fontSize: 11, background: '#111', color: '#fff', borderRadius: 4, padding: '2px 6px' }}>وفر {savings}</span>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Bump upsell */}
+              {upsellConfig?.type === 'bump' && upsellProduct && (
+                <div onClick={() => setBumpChecked(!bumpChecked)}
+                  style={{ border: `2px dashed ${bumpChecked ? '#111' : '#f59e0b'}`, borderRadius: 10, overflow: 'hidden', cursor: 'pointer' }}>
+                  <div style={{ background: bumpChecked ? '#111' : '#f59e0b', padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#fff' }}>
+                    ⚡ عرض حصري — أضفه الآن بسعر خاص!
+                  </div>
+                  <div style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: bumpChecked ? '#f9f9f9' : '#fff' }}>
+                    {upsellProduct.images?.[0] && <img src={upsellProduct.images[0]} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb', flexShrink: 0 }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>{upsellProduct.title}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: '#16a34a' }}>{upsellConfig.sale_price} {currency}</span>
+                        <span style={{ fontSize: 12, color: '#aaa', textDecoration: 'line-through' }}>{upsellProduct.price} {currency}</span>
+                      </div>
+                    </div>
+                    <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${bumpChecked ? '#fff' : '#111'}`, background: bumpChecked ? '#fff' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {bumpChecked && <span style={{ color: '#111', fontSize: 13, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                    </div>
+                  </div>
+                </div>
               )}
 
               <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '14px' }}>

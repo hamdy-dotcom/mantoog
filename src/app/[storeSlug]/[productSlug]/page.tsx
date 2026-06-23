@@ -761,6 +761,16 @@ export default function LandingPage() {
   }
 
   // Theme routing
+  const sharedCheckoutProps = {
+    activeOffers,
+    selectedOffer,
+    setSelectedOffer,
+    upsellProduct,
+    upsellConfig,
+    bumpChecked,
+    setBumpChecked,
+  }
+
   if (store?.theme === 'fashion') {
     return (
       <FashionTheme
@@ -773,12 +783,9 @@ export default function LandingPage() {
         shippingCost={shippingCost}
         submitting={submitting}
         formError={formError}
+        {...sharedCheckoutProps}
         onSubmit={async ({ name, phone, address, note, qty, selectedSize, selectedColor }: any) => {
-          setName(name)
-          setPhone(phone)
-          setAddress(address)
-          setNote(note)
-          setQty(qty)
+          setName(name); setPhone(phone); setAddress(address); setNote(note); setQty(qty)
           await handleSubmit({ name, phone, address, note, qty })
         }}
       />
@@ -797,12 +804,9 @@ export default function LandingPage() {
         shippingCost={shippingCost}
         submitting={submitting}
         formError={formError}
+        {...sharedCheckoutProps}
         onSubmit={async ({ name, phone, address, note, qty }: any) => {
-          setName(name)
-          setPhone(phone)
-          setAddress(address)
-          setNote(note)
-          setQty(qty)
+          setName(name); setPhone(phone); setAddress(address); setNote(note); setQty(qty)
           await handleSubmit({ name, phone, address, note, qty })
         }}
       />
@@ -821,12 +825,9 @@ export default function LandingPage() {
         shippingCost={shippingCost}
         submitting={submitting}
         formError={formError}
+        {...sharedCheckoutProps}
         onSubmit={async ({ name, phone, address, note, qty, selectedColor }: any) => {
-          setName(name)
-          setPhone(phone)
-          setAddress(address)
-          setNote(note)
-          setQty(qty)
+          setName(name); setPhone(phone); setAddress(address); setNote(note); setQty(qty)
           await handleSubmit({ name, phone, address, note, qty })
         }}
       />

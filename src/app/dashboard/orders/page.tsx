@@ -50,12 +50,15 @@ function getSourceMeta(src: string | null | undefined) {
   return { icon: '🌐', label: src, color: 'text-[#8b8fa8]' }
 }
 
+const CREDIT_BLOCK_THRESHOLD = -50
+
 export default function OrdersPage() {
   const { lang, dir } = useLang()
   const tr = t[lang]
   const [store, setStore] = useState<any>(null)
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState('all')
@@ -86,9 +89,15 @@ export default function OrdersPage() {
       const ctx = await loadMerchantStore(supabase, router, '*')
       if (!ctx) return
       setStore(ctx.store)
-      const ordersData = await fetchAll(
-        supabase.from('orders').select('*, products(title, images)').eq('merchant_id', ctx.user.id).order('created_at', { ascending: false })
-      )
+
+      const [ordersData, { data: creditsData }] = await Promise.all([
+        fetchAll(
+          supabase.from('orders').select('*, products(title, images)').eq('merchant_id', ctx.user.id).order('created_at', { ascending: false })
+        ),
+        supabase.from('order_credits').select('credits_remaining').eq('merchant_id', ctx.user.id).order('created_at', { ascending: false }).limit(1).single(),
+      ])
+
+      setCreditsRemaining(creditsData?.credits_remaining ?? null)
       setOrders(ordersData)
       setLoading(false)
     }
@@ -191,6 +200,59 @@ export default function OrdersPage() {
     return (
       <div className="min-h-screen bg-[#0f1117] flex items-center justify-center">
         <div className="text-[#8b8fa8] text-sm">Loading...</div>
+      </div>
+    )
+  }
+
+  const isBlocked = creditsRemaining !== null && creditsRemaining <= CREDIT_BLOCK_THRESHOLD
+
+  if (isBlocked) {
+    return (
+      <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
+        <Sidebar store={store} />
+        <main className={DASHBOARD_MAIN_CLASS}>
+          <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-4">
+            <div className="w-20 h-20 rounded-full bg-[#3a1414] border border-[#f87171]/30 flex items-center justify-center mb-6">
+              <svg className="w-10 h-10 text-[#f87171]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+
+            <h1 className="text-2xl font-bold text-white mb-2">
+              {lang === 'ar' ? 'تم تجاوز حد الطلبات' : 'Orders Limit Exceeded'}
+            </h1>
+            <p className="text-[#8b8fa8] text-sm max-w-md mb-2">
+              {lang === 'ar'
+                ? `رصيدك الحالي ${creditsRemaining} طلب. تجاوزت الحد المسموح به وتم تعليق الوصول إلى الطلبات والتصدير.`
+                : `Your current balance is ${creditsRemaining} orders. You've exceeded the allowed limit and access to orders and exports has been suspended.`}
+            </p>
+            <p className="text-[#4a4e60] text-xs max-w-sm mb-8">
+              {lang === 'ar'
+                ? 'يرجى شحن رصيدك لاستعادة الوصول الكامل.'
+                : 'Please top up your credits to restore full access.'}
+            </p>
+
+            <a
+              href="/dashboard/billing"
+              className="inline-flex items-center gap-2 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              {lang === 'ar' ? 'شحن الرصيد الآن' : 'Top Up Credits Now'}
+            </a>
+
+            <div className="mt-10 bg-[#1a1d24] border border-[#2a2d35] rounded-2xl px-8 py-6 max-w-sm w-full">
+              <div className="text-xs text-[#4a4e60] uppercase tracking-wider mb-3 font-medium">
+                {lang === 'ar' ? 'رصيدك الحالي' : 'Current Balance'}
+              </div>
+              <div className="text-4xl font-bold text-[#f87171] mb-1">{creditsRemaining}</div>
+              <div className="text-xs text-[#8b8fa8]">
+                {lang === 'ar' ? `يُفتح الوصول عند الوصول إلى ${CREDIT_BLOCK_THRESHOLD + 1}+` : `Access unlocks at ${CREDIT_BLOCK_THRESHOLD + 1} or above`}
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     )
   }

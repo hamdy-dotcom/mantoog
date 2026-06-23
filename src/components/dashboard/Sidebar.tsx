@@ -69,7 +69,7 @@ const MOBILE_NAV: NavEntry[] = [
 ]
 
 /* ─── component ──────────────────────────────────────────────────────── */
-export default function Sidebar({ store, credits }: { store: any; credits?: any }) {
+export default function Sidebar({ store }: { store: any; credits?: any }) {
   const router   = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -77,6 +77,7 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
   const { theme, toggleTheme } = useTheme()
   const [isAdmin, setIsAdmin]   = useState(false)
   const [userName, setUserName] = useState('')
+  const [credits, setCredits]   = useState<{ credits_remaining: number; credits_total: number } | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -89,6 +90,14 @@ export default function Sidebar({ store, credits }: { store: any; credits?: any 
         || user.email?.split('@')[0]
         || ''
       )
+      const { data } = await supabase
+        .from('order_credits')
+        .select('credits_remaining, credits_total')
+        .eq('merchant_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      if (data) setCredits(data)
     }
     init()
   }, [])

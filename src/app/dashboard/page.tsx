@@ -208,14 +208,20 @@ export default function DashboardPage() {
         productsData,
       ] = await Promise.all([
         supabase.from('merchants').select('*').eq('id', user.id).single(),
-        supabase.from('order_credits').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false }).limit(1).single(),
+        supabase.from('order_credits').select('*').eq('merchant_id', user.id),
         fetchAll(supabase.from('orders').select('*, products(title, images)').eq('merchant_id', user.id).order('created_at', { ascending: true })),
         fetchAll(supabase.from('products').select('id, title, images, status, created_at').eq('merchant_id', user.id).order('created_at', { ascending: false })),
       ])
 
       setMerchant(merchantData)
       setStore(storeData)
-      setCredits(creditsData)
+      if (creditsData && creditsData.length > 0) {
+        setCredits({
+          ...creditsData[0],
+          credits_remaining: creditsData.reduce((s: number, r: any) => s + (r.credits_remaining ?? 0), 0),
+          credits_total:     creditsData.reduce((s: number, r: any) => s + (r.credits_total     ?? 0), 0),
+        })
+      }
       setOrders(ordersData)
 
       const productList = productsData

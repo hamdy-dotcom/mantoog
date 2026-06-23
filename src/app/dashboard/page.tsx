@@ -549,14 +549,18 @@ export default function DashboardPage() {
             <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
               <I.CreditCard className="w-4 h-4 text-[#8b8fa8] shrink-0" />
               <span className="text-xs text-[#8b8fa8]">{lang === 'ar' ? 'رصيد الطلبات' : 'Order credits'}</span>
-              <div className="flex-1 min-w-[80px] max-w-[160px]">
+              <div className="flex-1 min-w-[100px] max-w-[200px]">
                 <div className="h-1.5 bg-[#2a2d35] rounded-full overflow-hidden">
                   <div className="h-full rounded-full bg-gradient-to-l from-[#3b82f6] to-[#7c5cff] transition-all duration-700"
-                    style={{ width: `${Math.min(100, (credits.credits_remaining / 2000) * 100)}%` }} />
+                    style={{ width: `${Math.min(100, credits.credits_total > 0 ? (credits.credits_remaining / credits.credits_total) * 100 : 100)}%` }} />
                 </div>
               </div>
-              <span className="text-sm font-bold">{credits.credits_remaining.toLocaleString()}</span>
-              <span className="text-xs text-[#4a4e60]">{lang === 'ar' ? 'طلب متبقي' : 'orders left'}</span>
+              <span className="text-sm font-bold text-white">{credits.credits_remaining.toLocaleString()}</span>
+              <span className="text-xs text-[#4a4e60]">
+                {lang === 'ar'
+                  ? `متبقي من ${credits.credits_total.toLocaleString()}`
+                  : `remaining of ${credits.credits_total.toLocaleString()}`}
+              </span>
               <button onClick={() => setShowCreditsModal(true)}
                 className="cursor-pointer ms-auto text-xs bg-[#3b82f6]/15 hover:bg-[#3b82f6]/25 text-[#60a5fa] px-3 py-1.5 rounded-lg border border-[#3b82f6]/30 transition-colors font-medium whitespace-nowrap">
                 {lang === 'ar' ? 'شراء رصيد' : 'Buy credits'}

@@ -286,25 +286,27 @@ export default function Sidebar({ store }: { store: any; credits?: any }) {
         {/* Credits widget */}
         <div className="relative z-10 mx-2.5 mb-2.5">
           <div className="bg-[#13161d] border border-[#1c1f28] rounded-2xl p-3">
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-1.5">
                 <I.Bolt className="w-3 h-3 text-[#fbbf24] shrink-0" />
                 <span className="text-[10px] text-[#525669] font-medium">
                   {lang === 'ar' ? 'رصيد الطلبات' : 'Order credits'}
                 </span>
               </div>
-              <span
-                className={`text-[11px] font-bold ${
-                  creditsRemaining <= 20 ? 'text-[#f87171]' : 'text-white'
-                }`}
-              >
+              <span className={`text-[11px] font-bold ${creditsRemaining <= 20 ? 'text-[#f87171]' : 'text-white'}`}>
                 {creditsRemaining.toLocaleString()}
               </span>
             </div>
-            {/* Segmented bar */}
+            <div className="text-[9px] text-[#3a3d4a] mb-1.5 text-end">
+              {lang === 'ar'
+                ? `من ${creditsTotal.toLocaleString()} إجمالي`
+                : `of ${creditsTotal.toLocaleString()} total`}
+            </div>
+            {/* Segmented bar — filled segments reflect actual remaining/total */}
             <div className="flex gap-0.5 mb-2.5">
               {Array.from({ length: 20 }, (_, i) => {
-                const filled = creditsPct / 100 >= (i + 1) / 20 - 0.04
+                const threshold = (i + 1) / 20
+                const filled = creditsTotal > 0 && (creditsRemaining / creditsTotal) >= threshold - 0.04 / 20
                 return (
                   <div
                     key={i}

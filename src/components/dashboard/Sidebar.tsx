@@ -90,14 +90,16 @@ export default function Sidebar({ store }: { store: any; credits?: any }) {
         || user.email?.split('@')[0]
         || ''
       )
-      const { data } = await supabase
+      const { data: rows } = await supabase
         .from('order_credits')
         .select('credits_remaining, credits_total')
         .eq('merchant_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-      if (data) setCredits(data)
+      if (rows && rows.length > 0) {
+        setCredits({
+          credits_remaining: rows.reduce((s, r) => s + (r.credits_remaining ?? 0), 0),
+          credits_total:     rows.reduce((s, r) => s + (r.credits_total     ?? 0), 0),
+        })
+      }
     }
     init()
   }, [])

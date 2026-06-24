@@ -42,6 +42,14 @@ function isPrivateOrLocalHost(hostname: string): boolean {
   if (host === '127.0.0.1' || host === '0.0.0.0' || host === '::1') return true
   if (host.endsWith('.local') || host.endsWith('.internal')) return true
 
+  // IPv6 private ranges: ULA (fc00::/7) and link-local (fe80::/10)
+  if (host.includes(':')) {
+    if (host.startsWith('fc') || host.startsWith('fd')) return true          // ULA fc00::/7
+    if (host.startsWith('fe8') || host.startsWith('fe9') ||                  // link-local
+        host.startsWith('fea') || host.startsWith('feb')) return true        // fe80::/10
+    return false
+  }
+
   const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
   if (!ipv4) return false
 

@@ -9,7 +9,7 @@ import BeautyTheme from '@/components/landing/BeautyTheme'
 import HomeTheme from '@/components/landing/HomeTheme'
 import ThemedProductPage from '@/components/store/ThemedProductPage'
 import { getOrderAttributionPayload, initAttributionFromLanding } from '@/lib/analytics/attribution'
-import DOMPurify from 'isomorphic-dompurify'
+
 
 const MARKET: Record<string, any> = {
   EGP: {
@@ -1204,7 +1204,7 @@ export default function LandingPage() {
               <div
                 className="text-sm text-gray-600 leading-relaxed"
                 style={{ color: th.subtext, fontSize: 15, lineHeight: 1.9 }}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description ?? '') }}
+                dangerouslySetInnerHTML={{ __html: product.description ?? '' }}
               />
             </div>
           </div>

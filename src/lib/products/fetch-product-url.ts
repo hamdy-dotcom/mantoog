@@ -1,6 +1,8 @@
 import * as cheerio from 'cheerio'
 
-const FETCH_TIMEOUT_MS = 15_000
+// ScraperAPI render=true (headless browser) typically takes 10-25s.
+// Keep this under Vercel's function maxDuration (set to 30s in vercel.json).
+const FETCH_TIMEOUT_MS = 25_000
 
 const BROWSER_HEADERS = {
   'User-Agent':
@@ -104,9 +106,18 @@ export async function fetchProductPageHtml(url: string): Promise<FetchProductUrl
     }
   }
 
+  const targetUrl = parsed.toString()
+  const apiKey = process.env.SCRAPERAPI_KEY
+  // Route through ScraperAPI when key is present — bypasses bot-detection on Amazon, Noon, etc.
+  // Falls back to direct fetch for local dev (no key set).
+  const fetchUrl = apiKey
+    ? `https://api.scraperapi.com/?api_key=${apiKey}&url=${encodeURIComponent(targetUrl)}&render=true`
+    : targetUrl
+
   try {
-    const response = await fetch(parsed.toString(), {
-      headers: BROWSER_HEADERS,
+    const response = await fetch(fetchUrl, {
+      // ScraperAPI handles its own browser headers; only send them on the direct-fetch fallback.
+      headers: apiKey ? undefined : BROWSER_HEADERS,
       redirect: 'follow',
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
@@ -133,7 +144,7 @@ export async function fetchProductPageHtml(url: string): Promise<FetchProductUrl
       ok: true,
       html,
       status: response.status,
-      finalUrl: response.url || parsed.toString(),
+      finalUrl: targetUrl, // return original URL, not the ScraperAPI wrapper URL
     }
   } catch (error: unknown) {
     if (error instanceof Error && error.name === 'TimeoutError') {

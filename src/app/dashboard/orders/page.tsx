@@ -129,7 +129,7 @@ export default function OrdersPage() {
     if (dateFilter === '7d') { const d = new Date(); d.setDate(d.getDate() - 7); return orderDate >= d }
     if (dateFilter === '30d') { const d = new Date(); d.setDate(d.getDate() - 30); return orderDate >= d }
     if (dateFrom || dateTo) {
-      const from = dateFrom ? new Date(dateFrom) : new Date(0)
+      const from = dateFrom ? new Date(dateFrom + 'T00:00:00') : new Date(0)
       const to = dateTo ? new Date(dateTo + 'T23:59:59') : new Date()
       return orderDate >= from && orderDate <= to
     }

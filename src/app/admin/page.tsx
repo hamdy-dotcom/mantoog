@@ -193,7 +193,7 @@ export default function AdminPage() {
 
     // ── Period range for overview filters ──
     type Bounds = { from: Date|null; to: Date|null }
-    const customFrom = ovCustomFrom ? new Date(ovCustomFrom) : null
+    const customFrom = ovCustomFrom ? new Date(ovCustomFrom + 'T00:00:00') : null
     const customTo   = ovCustomTo   ? new Date(ovCustomTo + 'T23:59:59') : null
     const customDur  = (customFrom && customTo) ? customTo.getTime() - customFrom.getTime() : null
     const bounds: Record<string, Bounds> = {
@@ -362,7 +362,7 @@ export default function AdminPage() {
         const q = orderSearch.toLowerCase()
         if (!o.customer_name?.toLowerCase().includes(q) && !o.customer_phone?.includes(q) && !o.stores?.name?.toLowerCase().includes(q) && !o.products?.title?.toLowerCase().includes(q)) return false
       }
-      if (orderDateFrom) { const d = new Date(o.created_at); if (d < new Date(orderDateFrom)) return false }
+      if (orderDateFrom) { const d = new Date(o.created_at); if (d < new Date(orderDateFrom + 'T00:00:00')) return false }
       if (orderDateTo)   { const d = new Date(o.created_at); if (d > new Date(orderDateTo + 'T23:59:59')) return false }
       return true
     })
@@ -903,7 +903,7 @@ export default function AdminPage() {
                 if (!p.title?.toLowerCase().includes(q) && !p.stores?.name?.toLowerCase().includes(q) && !merchant?.email?.toLowerCase().includes(q)) return false
               }
               if (productMerchantFilter && merchant?.id !== productMerchantFilter) return false
-              if (productDateFrom && new Date(p.created_at) < new Date(productDateFrom)) return false
+              if (productDateFrom && new Date(p.created_at) < new Date(productDateFrom + 'T00:00:00')) return false
               if (productDateTo   && new Date(p.created_at) > new Date(productDateTo+'T23:59:59')) return false
               if (price < productPriceMin) return false
               if (productPriceMax < 999999 && price > productPriceMax) return false

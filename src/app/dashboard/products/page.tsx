@@ -60,17 +60,14 @@ export default function ProductsPage() {
       if (!ctx) return
       setStore(ctx.store)
 
-      const [{ data: prods }, { data: orders }] = await Promise.all([
-        supabase
-          .from('products')
-          .select('*, landing_pages(id, published)')
-          .eq('merchant_id', ctx.user.id)
-          .order('created_at', { ascending: false }),
+      const [prodsJson, { data: orders }] = await Promise.all([
+        fetch('/api/products/my-products').then(r => r.json()).catch(() => ({ data: [] })),
         supabase
           .from('orders')
           .select('product_id, total_price')
           .eq('merchant_id', ctx.user.id),
       ])
+      const prods = prodsJson.data ?? []
 
       const map: Record<string,{count:number,revenue:number}> = {}
       for (const o of (orders || [])) {

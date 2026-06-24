@@ -240,7 +240,7 @@ export default function NewProductPage() {
         sizes: productSizes.length > 0 ? productSizes : null,
         colors: productColors.length > 0 ? productColors : null,
       })
-      .select()
+      .select('id')
       .single()
 
     if (productError) {
@@ -321,7 +321,7 @@ export default function NewProductPage() {
         sizes: productSizes.length > 0 ? productSizes : null,
         colors: productColors.length > 0 ? productColors : null,
       })
-      .select()
+      .select('id')
       .single()
 
     if (productError) {

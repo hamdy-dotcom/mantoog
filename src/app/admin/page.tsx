@@ -157,11 +157,12 @@ export default function AdminPage() {
     setMerchantsMap(mMap)
     setAllCreditRows(creditsData || [])
 
-    const [ordersData, productsData, { data: allLandingPages }] = await Promise.all([
+    const [ordersData, productsJson, { data: allLandingPages }] = await Promise.all([
       fetchAll(supabase.from('orders').select('*, stores(name, currency, merchant_id, slug), products(title)').order('created_at', { ascending: false })),
-      fetchAll(supabase.from('products').select('*, stores(name, slug, merchant_id)').order('created_at', { ascending: false })),
+      fetch('/api/admin/products').then(r => r.json()).catch(() => ({ data: [] })),
       supabase.from('landing_pages').select('product_id, visits'),
     ])
+    const productsData = productsJson.data ?? []
 
     setAllProducts(productsData.map((p: any) => ({ ...p, landing_pages: allLandingPages?.filter((lp: any) => lp.product_id === p.id) || [] })))
     setOrders(ordersData)
@@ -431,8 +432,8 @@ export default function AdminPage() {
   const loadMerchantProducts = async (merchant: any) => {
     setLoadingProducts(true); setViewingMerchant(merchant)
     const store = merchant.stores?.[0]; if (!store) { setLoadingProducts(false); return }
-    const { data } = await supabase.from('products').select('*, landing_pages(visits)').eq('store_id', store.id).order('created_at', { ascending: false })
-    setMerchantProducts(data || []); setLoadingProducts(false)
+    const json = await fetch(`/api/admin/products?store_id=${store.id}`).then(r => r.json()).catch(() => ({ data: [] }))
+    setMerchantProducts(json.data ?? []); setLoadingProducts(false)
   }
 
   const exportOrdersCSV = () => {

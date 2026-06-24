@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
-import DOMPurify from 'isomorphic-dompurify'
+import sanitizeHtml from 'sanitize-html'
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -98,7 +98,7 @@ Rules:
 
     const parsed = JSON.parse(clean)
     if (typeof parsed.description_long === 'string') {
-      parsed.description_long = DOMPurify.sanitize(parsed.description_long)
+      parsed.description_long = sanitizeHtml(parsed.description_long)
     }
 
     return NextResponse.json({ success: true, data: parsed })

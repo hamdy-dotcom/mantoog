@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import DOMPurify from 'isomorphic-dompurify'
+import sanitizeHtml from 'sanitize-html'
 import {
   detectPlatform,
   extractProductDataFromHtml,
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       ...data,
-      description: DOMPurify.sanitize(data.description ?? ''),
+      description: sanitizeHtml(data.description ?? ''),
     })
   } catch (error: unknown) {
     console.error('[api/products/fetch-url] error:', error)

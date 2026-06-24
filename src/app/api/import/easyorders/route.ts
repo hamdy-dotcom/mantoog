@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import DOMPurify from 'isomorphic-dompurify'
+import sanitizeHtml from 'sanitize-html'
 
 async function getStoreInfo(storeUrl: string) {
   const base = storeUrl.replace(/\/$/, '')
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
             title,
             price,
             compare_at_price: null,
-            description: DOMPurify.sanitize(p.description ? String(p.description) : ''),
+            description: sanitizeHtml(p.description ? String(p.description) : ''),
             images,
             status: 'active',
             currency: store.currency,
@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
           title,
           price: salePrice,
           compare_at_price: listPrice > salePrice ? listPrice : null,
-          description: DOMPurify.sanitize(p.description ? String(p.description) : ''),
+          description: sanitizeHtml(p.description ? String(p.description) : ''),
           images: combineImages(p),
           status: 'active',
           currency: store.currency,

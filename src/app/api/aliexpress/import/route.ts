@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient } from '@/lib/supabase/server'
-import DOMPurify from 'isomorphic-dompurify'
+import sanitizeHtml from 'sanitize-html'
 
 const APP_KEY = process.env.ALIEXPRESS_APP_KEY!
 const APP_SECRET = process.env.ALIEXPRESS_APP_SECRET!
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     const images = product.ae_multimedia_info_dto?.image_urls?.split(';') || []
     const price = product.ae_item_sku_info_dtos?.ae_item_sku_info_d_t_o?.[0]?.sku_price || '0'
     const title = product.ae_item_base_info_dto?.subject || ''
-    const description = DOMPurify.sanitize(product.ae_item_base_info_dto?.detail || '')
+    const description = sanitizeHtml(product.ae_item_base_info_dto?.detail || '')
 
     // Insert into products table
     const { data: newProduct, error } = await supabase

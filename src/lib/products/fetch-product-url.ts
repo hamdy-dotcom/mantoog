@@ -107,12 +107,19 @@ export async function fetchProductPageHtml(url: string): Promise<FetchProductUrl
   }
 
   const targetUrl = parsed.toString()
-  const apiKey = process.env.SCRAPERAPI_KEY
+  // .trim() + non-empty guard: Vercel can store blank env vars as '' (falsy but not undefined)
+  const apiKey = process.env.SCRAPERAPI_KEY?.trim() || undefined
+  console.log(
+    '[fetch-url] SCRAPERAPI_KEY present:', !!apiKey,
+    '| raw length:', (process.env.SCRAPERAPI_KEY ?? '').length,
+    '| trimmed length:', (apiKey ?? '').length,
+  )
   // Route through ScraperAPI when key is present — bypasses bot-detection on Amazon, Noon, etc.
-  // Falls back to direct fetch for local dev (no key set).
+  // Falls back to direct fetch when key is absent (local dev).
   const fetchUrl = apiKey
     ? `https://api.scraperapi.com/?api_key=${apiKey}&url=${encodeURIComponent(targetUrl)}&render=true`
     : targetUrl
+  console.log('[fetch-url] branch:', apiKey ? 'ScraperAPI' : 'direct-fetch', '| fetchUrl prefix:', fetchUrl.slice(0, 80))
 
   try {
     const response = await fetch(fetchUrl, {

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { visitLimiter, checkLimit } from '@/lib/ratelimit'
+import { getClientIp } from '@/lib/analytics/server'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +9,11 @@ const supabase = createClient(
 )
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request) ?? 'unknown'
+  if (!(await checkLimit(visitLimiter, ip))) {
+    return NextResponse.json({ success: false }, { status: 429 })
+  }
+
   try {
     const { landing_page_id } = await request.json()
     if (!landing_page_id) return NextResponse.json({ success: false })

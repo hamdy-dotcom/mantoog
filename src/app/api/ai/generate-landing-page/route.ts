@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
+import DOMPurify from 'isomorphic-dompurify'
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -96,6 +97,9 @@ Rules:
     clean = clean.replace(/,(\s*[}\]])/g, '$1') // remove trailing commas
 
     const parsed = JSON.parse(clean)
+    if (typeof parsed.description_long === 'string') {
+      parsed.description_long = DOMPurify.sanitize(parsed.description_long)
+    }
 
     return NextResponse.json({ success: true, data: parsed })
   } catch (error: any) {

@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/tiktok/server'
 import { recordCreditPurchase, recordSubscription, type SubscriptionPlan } from '@/lib/store/payments'
-
-const ADMIN_EMAILS = ['admin@mantoog.com']
+import { assertAdmin } from '@/lib/admin/auth'
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !ADMIN_EMAILS.includes(user.email ?? '')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = await assertAdmin()
+  if (!auth.ok) return auth.response
 
   const { request_id, action, admin_notes } = await req.json()
   if (!request_id || !action) {
@@ -51,7 +46,7 @@ export async function POST(req: NextRequest) {
   await supabaseAdmin.from('payment_requests').update({
     status: action === 'approve' ? 'approved' : 'rejected',
     admin_notes: admin_notes ?? null,
-    processed_by: user.email,
+    processed_by: auth.user.email,
     processed_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }).eq('id', request_id)

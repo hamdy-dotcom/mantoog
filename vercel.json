@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/revert-surf-scaling",
       "schedule": "30 22 * * *"
+    },
+    {
+      "path": "/api/cron/check-credit-drain",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

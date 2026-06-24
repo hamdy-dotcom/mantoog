@@ -29,10 +29,7 @@ export async function GET(req: NextRequest) {
     }),
   })
   const tokenJson = await tokenRes.json()
-  console.log('secret length:', process.env.TIKTOK_CLIENT_SECRET?.length)
-  console.log('app_id:', process.env.TIKTOK_CLIENT_KEY)
-  console.log('TT tokenJson:', JSON.stringify(tokenJson))
-  if (tokenJson.code !== 0) { console.error('TT token', tokenJson); return back(req, 'error_token') }
+  if (tokenJson.code !== 0) { console.error('TT token error code:', tokenJson.code); return back(req, 'error_token') }
 
   const { access_token, refresh_token, advertiser_ids = [], scope } = tokenJson.data
   let advertisers = advertiser_ids.map((id: string) => ({ advertiser_id: id, advertiser_name: null as string | null }))

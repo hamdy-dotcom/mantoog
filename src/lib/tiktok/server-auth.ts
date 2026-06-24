@@ -21,7 +21,6 @@ export async function resolveActiveConnection() {
     .eq('is_active', true)
 
   const activeCount = activeRows?.length ?? 0
-  console.log('[tiktok] resolveActiveConnection store_id:', store.id, 'active_rows:', activeCount)
 
   if (error) {
     console.error('[tiktok] resolveActiveConnection query error:', error.message)

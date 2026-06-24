@@ -11,7 +11,14 @@ type RouteCtx = { params: Promise<{ id: string }> }
 export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   const { id } = await ctx.params
   try {
-    const { upsell_item, additional_price } = await req.json()
+    const body = await req.json()
+    const upsell_item = typeof body.upsell_item === 'string' && body.upsell_item.trim()
+      ? body.upsell_item.trim().slice(0, 500)
+      : null
+    const additional_price = Number(body.additional_price)
+    if (!upsell_item || !Number.isFinite(additional_price) || additional_price <= 0) {
+      return NextResponse.json({ success: false, error: 'Invalid upsell data' }, { status: 400 })
+    }
 
     const { data: order, error: fetchErr } = await supabase
       .from('orders')

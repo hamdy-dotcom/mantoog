@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { assertAdmin } from '@/lib/admin/auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,13 +8,24 @@ const supabase = createClient(
 )
 
 export async function POST(request: NextRequest) {
+  const auth = await assertAdmin()
+  if (!auth.ok) return auth.response
+
   try {
     const { merchant_id, amount } = await request.json()
-    if (!merchant_id || !amount) return NextResponse.json({ success: false, error: 'Missing params' })
+    if (
+      !merchant_id ||
+      typeof amount !== 'number' ||
+      !Number.isFinite(amount) ||
+      amount <= 0 ||
+      amount > 100_000
+    ) {
+      return NextResponse.json({ success: false, error: 'Invalid params' })
+    }
 
     const { data: credits } = await supabase
       .from('order_credits')
-      .select('*')
+      .select('id, credits_total')
       .eq('merchant_id', merchant_id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -21,9 +33,7 @@ export async function POST(request: NextRequest) {
 
     if (credits) {
       const { error } = await supabase.from('order_credits')
-        .update({
-          credits_total: credits.credits_total + amount,
-        })
+        .update({ credits_total: credits.credits_total + amount })
         .eq('id', credits.id)
       if (error) return NextResponse.json({ success: false, error: error.message })
     } else {

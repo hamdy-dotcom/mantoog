@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import DOMPurify from 'isomorphic-dompurify'
 import {
   detectPlatform,
   extractProductDataFromHtml,
@@ -77,7 +78,11 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ success: true, ...data })
+    return NextResponse.json({
+      success: true,
+      ...data,
+      description: DOMPurify.sanitize(data.description ?? ''),
+    })
   } catch (error: unknown) {
     console.error('[api/products/fetch-url] error:', error)
     const message = error instanceof Error ? error.message : 'Failed to fetch product URL'

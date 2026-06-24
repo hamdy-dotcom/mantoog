@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getClientIp, getIpCountry } from '@/lib/analytics/server'
 import type { OrderAttributionPayload } from '@/lib/analytics/attribution'
 import { sendCreditsWarningEmail } from '@/lib/email/credits-warning'
+import { orderLimiter, checkLimit } from '@/lib/ratelimit'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,10 +46,84 @@ function parseAttribution(raw: unknown): OrderAttributionPayload {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request) ?? 'unknown'
+  if (!(await checkLimit(orderLimiter, ip))) {
+    return NextResponse.json({ success: false, error: 'Too many requests' }, { status: 429 })
+  }
+
   try {
     const body = await request.json()
     const { attribution: rawAttribution, ...orderFields } = body ?? {}
     const attribution = parseAttribution(rawAttribution)
+
+    // Validate required IDs
+    if (!orderFields.store_id || !orderFields.merchant_id || !orderFields.product_id) {
+      return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Fetch authoritative product and store data; verify ownership chain
+    const [{ data: product, error: productErr }, { data: store, error: storeErr }] =
+      await Promise.all([
+        supabase
+          .from('products')
+          .select('id, price, shipping_cost, offers, upsell, store_id')
+          .eq('id', orderFields.product_id)
+          .single(),
+        supabase
+          .from('stores')
+          .select('id, merchant_id, shipping_type, static_shipping_cost, currency')
+          .eq('id', orderFields.store_id)
+          .single(),
+      ])
+
+    if (productErr || !product || storeErr || !store) {
+      return NextResponse.json({ success: false, error: 'Invalid product or store' }, { status: 400 })
+    }
+
+    if (product.store_id !== orderFields.store_id || store.merchant_id !== orderFields.merchant_id) {
+      return NextResponse.json({ success: false, error: 'Relationship mismatch' }, { status: 400 })
+    }
+
+    // Quantity — must be a positive integer
+    const qty = Math.max(1, Math.round(Number(orderFields.quantity) || 1))
+
+    // Shipping — server governs; storefront uses store.shipping_type to pick source
+    const shipping =
+      store.shipping_type === 'static'
+        ? store.static_shipping_cost || 0
+        : product.shipping_cost || 0
+
+    // Base price — validate applied offer against DB if provided
+    let basePrice = product.price * qty
+    let resolvedOffer: any = null
+    if (orderFields.applied_offer != null) {
+      const offerList: any[] = Array.isArray(product.offers) ? product.offers : []
+      resolvedOffer = offerList.find(
+        (o: any) =>
+          o.id === orderFields.applied_offer.id &&
+          o.quantity === orderFields.applied_offer.quantity &&
+          Number(o.price) === Number(orderFields.applied_offer.price)
+      )
+      if (!resolvedOffer) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid offer' },
+          { status: 400 }
+        )
+      }
+      basePrice = resolvedOffer.price
+    }
+
+    // Bump upsell — must be active in DB; silently clear invalid upsell_item
+    let bumpAmt = 0
+    let upsellItemToStore: any = null
+    if (orderFields.upsell_item != null) {
+      if (product.upsell?.type === 'bump' && product.upsell?.active) {
+        bumpAmt = product.upsell.sale_price || 0
+        upsellItemToStore = orderFields.upsell_item
+      }
+    }
+
+    const computedTotal = basePrice + bumpAmt + shipping
 
     const { data: orderData, error } = await supabase.from('orders').insert({
       store_id: orderFields.store_id,
@@ -59,20 +134,22 @@ export async function POST(request: NextRequest) {
       address_governorate: orderFields.address_governorate ?? null,
       address_line1: orderFields.address_line1 ?? null,
       address_country: orderFields.address_country ?? null,
-      quantity: orderFields.quantity ?? 1,
+      quantity: qty,
       note: orderFields.note ?? null,
-      unit_price: orderFields.unit_price,
-      total_price: orderFields.total_price,
-      currency: orderFields.currency,
-      shipping_price: orderFields.shipping_price ?? null,
-      payment_method: orderFields.payment_method ?? 'cod',
-      status: orderFields.status ?? 'pending',
+      unit_price: product.price,
+      total_price: computedTotal,
+      currency: store.currency,
+      shipping_price: shipping,
+      payment_method: 'cod',
+      status: 'pending',
       lat: orderFields.lat ?? null,
       lng: orderFields.lng ?? null,
       map_link: orderFields.map_link ?? null,
       location_address: orderFields.location_address ?? null,
-      applied_offer: orderFields.applied_offer ?? null,
-      upsell_item: orderFields.upsell_item ?? null,
+      applied_offer: resolvedOffer
+        ? { id: resolvedOffer.id, quantity: resolvedOffer.quantity, price: resolvedOffer.price }
+        : null,
+      upsell_item: upsellItemToStore,
       ...attribution,
       ip_address: getClientIp(request),
       ip_country: getIpCountry(request),
@@ -94,7 +171,9 @@ export async function POST(request: NextRequest) {
 
       const remaining = credits?.credits_remaining
       if (remaining === 10 || remaining === 0) {
-        const { data: { user: merchantUser } } = await supabase.auth.admin.getUserById(orderFields.merchant_id)
+        const { data: { user: merchantUser } } = await supabase.auth.admin.getUserById(
+          orderFields.merchant_id
+        )
         const merchantEmail = merchantUser?.email
         if (merchantEmail) {
           sendCreditsWarningEmail(merchantEmail, remaining) // fire-and-forget

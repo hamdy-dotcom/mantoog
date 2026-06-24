@@ -150,7 +150,7 @@ export default function AdminPage() {
     const [{ data: storesData }, { data: merchantsData }, { data: creditsData }] = await Promise.all([
       supabase.from('stores').select('*').order('created_at', { ascending: false }),
       supabase.from('merchants').select('*').order('created_at', { ascending: false }),
-      supabase.from('order_credits').select('*').order('created_at', { ascending: false }),
+      supabase.from('order_credits').select('id, merchant_id, credits_remaining, credits_total, credits_used, bundle_type, price_paid, created_at').order('created_at', { ascending: false }),
     ])
 
     const mMap = (merchantsData || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc }, {})

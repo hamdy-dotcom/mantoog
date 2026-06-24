@@ -3,10 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { randomBytes } from 'crypto'
 
 export async function GET(req: NextRequest) {
-  console.log('secret length:', process.env.TIKTOK_CLIENT_SECRET?.length)
-  console.log('TIKTOK_CLIENT_KEY:', process.env.TIKTOK_CLIENT_KEY)
-  console.log('TIKTOK_REDIRECT_URI:', process.env.TIKTOK_REDIRECT_URI)
-
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.redirect(new URL('/login', req.url))

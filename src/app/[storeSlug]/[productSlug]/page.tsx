@@ -9,6 +9,7 @@ import BeautyTheme from '@/components/landing/BeautyTheme'
 import HomeTheme from '@/components/landing/HomeTheme'
 import ThemedProductPage from '@/components/store/ThemedProductPage'
 import { getOrderAttributionPayload, initAttributionFromLanding } from '@/lib/analytics/attribution'
+import DOMPurify from 'isomorphic-dompurify'
 
 const MARKET: Record<string, any> = {
   EGP: {
@@ -224,7 +225,7 @@ export default function LandingPage() {
       setStore(storeData)
       const market = MARKET[storeData.currency] || MARKET.EGP
       setM(market)
-      const { data: productData } = await supabase.from('products').select('*').eq('id', productSlug).eq('store_id', storeData.id).single()
+      const { data: productData } = await supabase.from('products').select('id, title, description, images, price, compare_at_price, offers, upsell, shipping_cost, store_id, status').eq('id', productSlug).eq('store_id', storeData.id).single()
       if (!productData) { setNotFound(true); setLoading(false); return }
       setProduct(productData)
       const { data: lpData } = await supabase.from('landing_pages').select('*').eq('product_id', productData.id).single()
@@ -1203,7 +1204,7 @@ export default function LandingPage() {
               <div
                 className="text-sm text-gray-600 leading-relaxed"
                 style={{ color: th.subtext, fontSize: 15, lineHeight: 1.9 }}
-                dangerouslySetInnerHTML={{ __html: product.description }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description ?? '') }}
               />
             </div>
           </div>

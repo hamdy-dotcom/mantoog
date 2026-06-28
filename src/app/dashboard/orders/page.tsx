@@ -98,7 +98,7 @@ export default function OrdersPage() {
           supabase.from('orders').select('*, products(title, images)').eq('merchant_id', ctx.user.id).order('created_at', { ascending: false })
         ),
         supabase.from('order_credits').select('credits_remaining').eq('merchant_id', ctx.user.id).order('created_at', { ascending: false }).limit(1).single(),
-        supabase.from('abandoned_checkouts').select('*, products(title, images)').eq('recovered', false).order('created_at', { ascending: false }).limit(200),
+        supabase.from('abandoned_checkouts').select('*, products(title, images)').eq('merchant_id', ctx.user.id).eq('recovered', false).order('created_at', { ascending: false }).limit(200),
       ])
 
       setCreditsRemaining(creditsData?.credits_remaining ?? null)

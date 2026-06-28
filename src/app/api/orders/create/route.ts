@@ -159,6 +159,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
+    // Mark any matching abandoned checkout as recovered (fire-and-forget)
+    supabase
+      .from('abandoned_checkouts')
+      .update({ recovered: true })
+      .eq('merchant_id', orderFields.merchant_id)
+      .eq('product_id',  orderFields.product_id)
+      .eq('customer_phone', String(orderFields.customer_phone ?? '').trim())
+      .eq('recovered', false)
+      .then(() => {})
+
     // Send credit warning emails at 10 and 0 remaining
     if (orderFields.merchant_id) {
       const { data: credits } = await supabase

@@ -211,10 +211,48 @@ export default function LandingPage() {
   const [showAllReviews, setShowAllReviews] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
   const allReviewsRef = useRef<HTMLDivElement>(null)
+  const beaconSentRef = useRef(false)
+  // Kept in a ref so the visibilitychange/beforeunload handlers always see the latest values
+  // without needing to re-register listeners on every render.
+  const beaconDataRef = useRef<any>(null)
 
   useEffect(() => {
     initAttributionFromLanding()
   }, [])
+
+  // Sync latest form values into the ref on every render
+  beaconDataRef.current = { phone, name, address, qty, submitted, submitting, store, product, selectedOffer }
+
+  useEffect(() => {
+    const send = () => {
+      const d = beaconDataRef.current
+      if (!d || beaconSentRef.current || d.submitted || d.submitting || !d.store || !d.product) return
+      const digits = String(d.phone ?? '').replace(/\D/g, '')
+      if (digits.length <= 6) return
+
+      beaconSentRef.current = true
+      const total = d.selectedOffer ? d.selectedOffer.price : d.product.price * d.qty
+      const payload = JSON.stringify({
+        store_id:         d.store.id,
+        product_id:       d.product.id,
+        merchant_id:      d.store.merchant_id,
+        customer_phone:   d.phone,
+        customer_name:    d.name    || null,
+        customer_address: d.address || null,
+        qty:              d.qty,
+        total_price:      total,
+      })
+      navigator.sendBeacon('/api/abandoned-checkouts', new Blob([payload], { type: 'application/json' }))
+    }
+
+    const onVisibility = () => { if (document.visibilityState === 'hidden') send() }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('beforeunload', send)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('beforeunload', send)
+    }
+  }, []) // empty deps — reads latest values through beaconDataRef
 
   useEffect(() => {
     const load = async () => {

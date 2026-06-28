@@ -17,6 +17,9 @@ export const orderLimiter = createLimiter(60, '1 m')
 // 120 track-visit hits / minute / IP
 export const visitLimiter = createLimiter(120, '1 m')
 
+// 10 abandoned-checkout saves / minute / IP
+export const abandonedLimiter = createLimiter(10, '1 m')
+
 export async function checkLimit(
   limiter: Ratelimit | null,
   key: string,

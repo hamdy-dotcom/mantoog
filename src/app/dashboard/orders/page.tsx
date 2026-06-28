@@ -480,6 +480,96 @@ export default function OrdersPage() {
           )}
         </div>
 
+        {/* ── Missed Orders ── */}
+        <div className="mb-6">
+          <button
+            onClick={() => setAbandonedOpen(o => !o)}
+            className={`w-full flex items-center justify-between rounded-xl px-5 py-4 text-left transition-colors ${
+              abandonedOrders.length > 0
+                ? 'bg-[#1a1d24] border border-[#fbbf24]/40 hover:border-[#fbbf24]/70'
+                : 'bg-[#1a1d24] border border-[#2a2d35] hover:border-[#3a3d45]'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xl">{abandonedOrders.length > 0 ? '⚠️' : '📭'}</span>
+              <div>
+                <div className={`font-semibold ${abandonedOrders.length > 0 ? 'text-[#fbbf24]' : 'text-[#8b8fa8]'}`}>
+                  {lang === 'ar' ? 'طلبات ناقصة' : 'Missed Orders'}
+                  {abandonedOrders.length > 0 && (
+                    <span className="ml-2 text-xs bg-[#fbbf24]/20 text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5 rounded-full">
+                      {abandonedOrders.length}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-[#4a4e60] mt-0.5">
+                  {abandonedOrders.length > 0
+                    ? (lang === 'ar'
+                        ? `${abandonedOrders.length} عميل بدأ الطلب ولم يكمله`
+                        : `${abandonedOrders.length} customer${abandonedOrders.length !== 1 ? 's' : ''} started checkout but didn't submit`)
+                    : (lang === 'ar' ? 'لا توجد طلبات ناقصة' : 'No missed orders')}
+                </div>
+              </div>
+            </div>
+            <span className="text-[#4a4e60] text-lg">{abandonedOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {abandonedOpen && (
+            <div className="mt-2 bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
+              {abandonedOrders.length === 0 ? (
+                <div className="px-5 py-8 text-center text-[#4a4e60] text-sm">
+                  {lang === 'ar' ? 'لا توجد طلبات ناقصة حتى الآن' : 'No missed orders yet'}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#2a2d35]">
+                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'الهاتف' : 'Phone'}</th>
+                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'الاسم' : 'Name'}</th>
+                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'المنتج' : 'Product'}</th>
+                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'الكمية' : 'Qty'}</th>
+                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'القيمة' : 'Value'}</th>
+                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'العنوان' : 'Address'}</th>
+                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'الوقت' : 'Time'}</th>
+                        <th className="px-4 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {abandonedOrders.map((o, i) => {
+                        const diff = Date.now() - new Date(o.created_at).getTime()
+                        const mins = Math.floor(diff / 60000)
+                        const ago = mins < 60 ? `${mins}m ago` : mins < 1440 ? `${Math.floor(mins / 60)}h ago` : `${Math.floor(mins / 1440)}d ago`
+                        return (
+                          <tr key={o.id} className={`border-b border-[#2a2d35] last:border-0 ${i % 2 !== 0 ? 'bg-[#0f1117]/40' : ''}`}>
+                            <td className="px-4 py-3 font-mono text-white">{o.customer_phone}</td>
+                            <td className="px-4 py-3 text-[#8b8fa8]">{o.customer_name || '—'}</td>
+                            <td className="px-4 py-3 text-[#8b8fa8] max-w-[160px] truncate">{o.products?.title || '—'}</td>
+                            <td className="px-4 py-3 text-[#8b8fa8]">{o.qty}</td>
+                            <td className="px-4 py-3 text-[#fbbf24]">
+                              {o.total_price ? `${Number(o.total_price).toLocaleString()} ${store?.currency || ''}` : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-[#8b8fa8] max-w-[160px] truncate">{o.customer_address || '—'}</td>
+                            <td className="px-4 py-3 text-xs text-[#4a4e60] whitespace-nowrap">{ago}</td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => markContacted(o.id)}
+                                disabled={contactingId === o.id}
+                                className="text-xs bg-[#2a2d35] hover:bg-[#3a3d45] text-[#8b8fa8] hover:text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                              >
+                                {contactingId === o.id ? '...' : (lang === 'ar' ? 'تم التواصل' : 'Contacted')}
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Orders table */}
         {filteredOrders.length === 0 ? (
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-12 text-center">
@@ -623,85 +713,6 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {/* ── Missed Orders ── */}
-        {abandonedOrders.length > 0 && (
-          <div className="mt-8">
-            <button
-              onClick={() => setAbandonedOpen(o => !o)}
-              className="w-full flex items-center justify-between bg-[#1a1d24] border border-[#fbbf24]/30 rounded-xl px-5 py-4 text-left hover:border-[#fbbf24]/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-xl">⚠️</span>
-                <div>
-                  <div className="text-[#fbbf24] font-semibold">
-                    {lang === 'ar' ? 'طلبات ناقصة' : 'Missed Orders'}
-                  </div>
-                  <div className="text-xs text-[#8b8fa8] mt-0.5">
-                    {lang === 'ar'
-                      ? `${abandonedOrders.length} عميل بدأ الطلب ولم يكمله`
-                      : `${abandonedOrders.length} customer${abandonedOrders.length !== 1 ? 's' : ''} started checkout but didn't submit`}
-                  </div>
-                </div>
-              </div>
-              <span className="text-[#fbbf24] text-lg">{abandonedOpen ? '▲' : '▼'}</span>
-            </button>
-
-            {abandonedOpen && (
-              <div className="mt-2 bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-[#2a2d35]">
-                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'الهاتف' : 'Phone'}</th>
-                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'الاسم' : 'Name'}</th>
-                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'المنتج' : 'Product'}</th>
-                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'الكمية' : 'Qty'}</th>
-                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'القيمة' : 'Value'}</th>
-                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'العنوان' : 'Address'}</th>
-                        <th className="text-left text-xs text-[#8b8fa8] uppercase tracking-wider px-4 py-3">{lang === 'ar' ? 'الوقت' : 'Time'}</th>
-                        <th className="px-4 py-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {abandonedOrders.map((o, i) => {
-                        const ago = (() => {
-                          const diff = Date.now() - new Date(o.created_at).getTime()
-                          const mins = Math.floor(diff / 60000)
-                          if (mins < 60) return `${mins}m ago`
-                          const hrs = Math.floor(mins / 60)
-                          if (hrs < 24) return `${hrs}h ago`
-                          return `${Math.floor(hrs / 24)}d ago`
-                        })()
-                        return (
-                          <tr key={o.id} className={`border-b border-[#2a2d35] last:border-0 ${i % 2 === 0 ? '' : 'bg-[#0f1117]/40'}`}>
-                            <td className="px-4 py-3 font-mono text-white">{o.customer_phone}</td>
-                            <td className="px-4 py-3 text-[#8b8fa8]">{o.customer_name || '—'}</td>
-                            <td className="px-4 py-3 text-[#8b8fa8] max-w-[160px] truncate">{o.products?.title || '—'}</td>
-                            <td className="px-4 py-3 text-[#8b8fa8]">{o.qty}</td>
-                            <td className="px-4 py-3 text-[#fbbf24]">
-                              {o.total_price ? `${Number(o.total_price).toLocaleString()} ${store?.currency || ''}` : '—'}
-                            </td>
-                            <td className="px-4 py-3 text-[#8b8fa8] max-w-[160px] truncate">{o.customer_address || '—'}</td>
-                            <td className="px-4 py-3 text-xs text-[#4a4e60] whitespace-nowrap">{ago}</td>
-                            <td className="px-4 py-3">
-                              <button
-                                onClick={() => markContacted(o.id)}
-                                disabled={contactingId === o.id}
-                                className="text-xs bg-[#2a2d35] hover:bg-[#3a3d45] text-[#8b8fa8] hover:text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
-                              >
-                                {contactingId === o.id ? '...' : (lang === 'ar' ? 'تم التواصل' : 'Contacted')}
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
       </main>
     </div>

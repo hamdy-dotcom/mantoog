@@ -7,6 +7,7 @@ import Sidebar from '@/components/dashboard/Sidebar'
 import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import { loadMerchantStore } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
+import * as XLSX from 'xlsx'
 
 export default function MissedOrdersPage() {
   const { lang, dir } = useLang()
@@ -94,6 +95,46 @@ export default function MissedOrdersPage() {
     estRevenue: filteredByDate.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0),
   }
 
+  const exportCSV = () => {
+    const headers = ['Phone', 'Name', 'Product', 'Qty', 'Value', 'Currency', 'Address', 'Time', 'Contacted']
+    const rows = filtered.map(o => [
+      o.customer_phone,
+      o.customer_name || '',
+      o.products?.title || '',
+      o.qty,
+      o.total_price || '',
+      store?.currency || '',
+      o.customer_address || '',
+      new Date(o.created_at).toLocaleDateString(),
+      o.contacted ? 'Yes' : 'No',
+    ])
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `missed-orders-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+  }
+
+  const exportExcel = () => {
+    const rows = filtered.map(o => ({
+      'الهاتف': o.customer_phone || '',
+      'الاسم': o.customer_name || '',
+      'المنتج': o.products?.title || '',
+      'الكمية': o.qty || '',
+      'القيمة': o.total_price || '',
+      'العملة': store?.currency || '',
+      'العنوان': o.customer_address || '',
+      'التاريخ': new Date(o.created_at).toLocaleString('ar-EG'),
+      'تم التواصل': o.contacted ? 'نعم' : 'لا',
+    }))
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Missed Orders')
+    XLSX.writeFile(wb, `missed-orders-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
   const timeAgo = (iso: string) => {
     const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
     if (mins < 60) return `${mins}m ago`
@@ -134,6 +175,20 @@ export default function MissedOrdersPage() {
                 ? 'عملاء بدأوا الطلب ولم يكملوه'
                 : 'Customers who started checkout but didn\'t submit'}
             </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={exportCSV}
+              className="text-xs bg-[#1f2229] hover:bg-[#2a2d35] border border-[#2a2d35] text-[#8b8fa8] hover:text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5"
+            >
+              📥 CSV
+            </button>
+            <button
+              onClick={exportExcel}
+              className="text-xs bg-[#14321f] hover:bg-[#1a4a2a] border border-[#4ade80]/20 text-[#4ade80] hover:text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5"
+            >
+              📊 Excel
+            </button>
           </div>
         </div>
 

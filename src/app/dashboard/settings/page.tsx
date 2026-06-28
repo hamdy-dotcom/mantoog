@@ -61,6 +61,20 @@ function StoreUrlDisplay({
   )
 }
 
+function parsePixelIds(s: string): string[] {
+  return s.split(',').map(x => x.trim()).filter(Boolean)
+}
+function addPixelId(current: string, newId: string): string {
+  const id = newId.trim()
+  if (!id) return current
+  const ids = parsePixelIds(current)
+  if (ids.includes(id)) return current
+  return [...ids, id].join(',')
+}
+function removePixelId(current: string, idx: number): string {
+  return parsePixelIds(current).filter((_, i) => i !== idx).join(',')
+}
+
 export default function SettingsPage() {
   const { lang, dir } = useLang()
   const tr = t[lang]
@@ -88,6 +102,9 @@ export default function SettingsPage() {
   const [metaPixelId, setMetaPixelId] = useState('')
   const [tiktokPixelId, setTiktokPixelId] = useState('')
   const [snapchatPixelId, setSnapchatPixelId] = useState('')
+  const [metaPixelInput, setMetaPixelInput] = useState('')
+  const [tiktokPixelInput, setTiktokPixelInput] = useState('')
+  const [snapchatPixelInput, setSnapchatPixelInput] = useState('')
   const [googleAdsConversionId, setGoogleAdsConversionId] = useState('')
   const [googleAdsConversionLabel, setGoogleAdsConversionLabel] = useState('')
   const [addressMode, setAddressMode] = useState<'text' | 'map'>('text')
@@ -912,13 +929,31 @@ export default function SettingsPage() {
 
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs text-[#8b8fa8] uppercase tracking-wider mb-1.5 block">{lang === 'ar' ? 'Pixel ID' : 'Pixel ID'}</label>
-                    <input
-                      value={metaPixelId}
-                      onChange={e => setMetaPixelId(e.target.value)}
-                      placeholder="e.g. 1234567890123456"
-                      className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#1877f2] transition-colors font-mono"
-                    />
+                    <label className="text-xs text-[#8b8fa8] uppercase tracking-wider mb-1.5 block">{lang === 'ar' ? 'Pixel IDs' : 'Pixel IDs'}</label>
+                    <div className="flex flex-wrap gap-1.5 min-h-[42px] bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 focus-within:border-[#1877f2] transition-colors cursor-text">
+                      {parsePixelIds(metaPixelId).map((id, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 bg-[#1877f2]/20 border border-[#1877f2]/30 text-[#60a5fa] text-xs font-mono rounded-md px-2 py-0.5">
+                          {id}
+                          <button type="button" onClick={() => setMetaPixelId(removePixelId(metaPixelId, i))} className="text-[#4a4e60] hover:text-red-400 transition-colors leading-none ml-0.5">×</button>
+                        </span>
+                      ))}
+                      <input
+                        value={metaPixelInput}
+                        onChange={e => setMetaPixelInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
+                            e.preventDefault()
+                            if (metaPixelInput.trim()) { setMetaPixelId(addPixelId(metaPixelId, metaPixelInput)); setMetaPixelInput('') }
+                          } else if (e.key === 'Backspace' && !metaPixelInput) {
+                            setMetaPixelId(removePixelId(metaPixelId, parsePixelIds(metaPixelId).length - 1))
+                          }
+                        }}
+                        onBlur={() => { if (metaPixelInput.trim()) { setMetaPixelId(addPixelId(metaPixelId, metaPixelInput)); setMetaPixelInput('') } }}
+                        placeholder={parsePixelIds(metaPixelId).length ? '' : 'e.g. 1234567890123456'}
+                        className="flex-1 min-w-[180px] bg-transparent text-sm text-white placeholder-[#4a4e60] focus:outline-none py-0.5 font-mono"
+                      />
+                    </div>
+                    <p className="text-xs text-[#4a4e60] mt-1">{lang === 'ar' ? 'اضغط Enter أو فاصلة لإضافة Pixel ID آخر' : 'Press Enter or comma to add another Pixel ID'}</p>
                   </div>
                   <div className="bg-[#0f1117] border border-[#2a2d35] rounded-lg p-3 text-xs text-[#4a4e60] leading-relaxed">
                     {lang === 'ar'
@@ -953,13 +988,31 @@ export default function SettingsPage() {
 
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs text-[#8b8fa8] uppercase tracking-wider mb-1.5 block">Pixel ID</label>
-                    <input
-                      value={tiktokPixelId}
-                      onChange={e => setTiktokPixelId(e.target.value)}
-                      placeholder="e.g. C8H2ABCDEFGHIJ1234"
-                      className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors font-mono"
-                    />
+                    <label className="text-xs text-[#8b8fa8] uppercase tracking-wider mb-1.5 block">Pixel IDs</label>
+                    <div className="flex flex-wrap gap-1.5 min-h-[42px] bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 focus-within:border-[#3b82f6] transition-colors cursor-text">
+                      {parsePixelIds(tiktokPixelId).map((id, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 bg-[#3b82f6]/20 border border-[#3b82f6]/30 text-[#60a5fa] text-xs font-mono rounded-md px-2 py-0.5">
+                          {id}
+                          <button type="button" onClick={() => setTiktokPixelId(removePixelId(tiktokPixelId, i))} className="text-[#4a4e60] hover:text-red-400 transition-colors leading-none ml-0.5">×</button>
+                        </span>
+                      ))}
+                      <input
+                        value={tiktokPixelInput}
+                        onChange={e => setTiktokPixelInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
+                            e.preventDefault()
+                            if (tiktokPixelInput.trim()) { setTiktokPixelId(addPixelId(tiktokPixelId, tiktokPixelInput)); setTiktokPixelInput('') }
+                          } else if (e.key === 'Backspace' && !tiktokPixelInput) {
+                            setTiktokPixelId(removePixelId(tiktokPixelId, parsePixelIds(tiktokPixelId).length - 1))
+                          }
+                        }}
+                        onBlur={() => { if (tiktokPixelInput.trim()) { setTiktokPixelId(addPixelId(tiktokPixelId, tiktokPixelInput)); setTiktokPixelInput('') } }}
+                        placeholder={parsePixelIds(tiktokPixelId).length ? '' : 'e.g. C8H2ABCDEFGHIJ1234'}
+                        className="flex-1 min-w-[180px] bg-transparent text-sm text-white placeholder-[#4a4e60] focus:outline-none py-0.5 font-mono"
+                      />
+                    </div>
+                    <p className="text-xs text-[#4a4e60] mt-1">{lang === 'ar' ? 'اضغط Enter أو فاصلة لإضافة Pixel ID آخر' : 'Press Enter or comma to add another Pixel ID'}</p>
                   </div>
                   <div className="bg-[#0f1117] border border-[#2a2d35] rounded-lg p-3 text-xs text-[#4a4e60] leading-relaxed">
                     {lang === 'ar'
@@ -994,22 +1047,36 @@ export default function SettingsPage() {
 
                 <div>
                   <label className="text-xs font-medium text-[#8b8fa8] uppercase tracking-wider">
-                    Snapchat Pixel ID
+                    Snapchat Pixel IDs
                   </label>
-                  <div className="mt-1.5 flex items-center gap-2 bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 focus-within:border-[#3b82f6] transition-colors">
-                    <span className="text-lg flex-shrink-0">👻</span>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 min-h-[42px] bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 focus-within:border-[#fffc00]/50 transition-colors cursor-text">
+                    {parsePixelIds(snapchatPixelId).map((id, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 bg-[#fffc00]/10 border border-[#fffc00]/20 text-[#fef08a] text-xs font-mono rounded-md px-2 py-0.5">
+                        {id}
+                        <button type="button" onClick={() => setSnapchatPixelId(removePixelId(snapchatPixelId, i))} className="text-[#4a4e60] hover:text-red-400 transition-colors leading-none ml-0.5">×</button>
+                      </span>
+                    ))}
                     <input
                       type="text"
-                      value={snapchatPixelId}
-                      onChange={e => setSnapchatPixelId(e.target.value)}
-                      placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-                      className="flex-1 bg-transparent text-sm text-white placeholder-[#4a4e60] focus:outline-none"
+                      value={snapchatPixelInput}
+                      onChange={e => setSnapchatPixelInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
+                          e.preventDefault()
+                          if (snapchatPixelInput.trim()) { setSnapchatPixelId(addPixelId(snapchatPixelId, snapchatPixelInput)); setSnapchatPixelInput('') }
+                        } else if (e.key === 'Backspace' && !snapchatPixelInput) {
+                          setSnapchatPixelId(removePixelId(snapchatPixelId, parsePixelIds(snapchatPixelId).length - 1))
+                        }
+                      }}
+                      onBlur={() => { if (snapchatPixelInput.trim()) { setSnapchatPixelId(addPixelId(snapchatPixelId, snapchatPixelInput)); setSnapchatPixelInput('') } }}
+                      placeholder={parsePixelIds(snapchatPixelId).length ? '' : 'e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890'}
+                      className="flex-1 min-w-[200px] bg-transparent text-sm text-white placeholder-[#4a4e60] focus:outline-none py-0.5 font-mono"
                     />
                   </div>
                   <p className="text-xs text-[#4a4e60] mt-1.5">
                     {lang === 'ar'
-                      ? 'احصل عليه من: Snapchat Ads Manager ← Events Manager ← Pixels'
-                      : 'Get it from: Snapchat Ads Manager → Events Manager → Pixels'}
+                      ? 'اضغط Enter أو فاصلة لإضافة Pixel ID آخر — احصل عليه من: Snapchat Ads Manager → Events Manager → Pixels'
+                      : 'Press Enter or comma to add another ID — Get from: Snapchat Ads Manager → Events Manager → Pixels'}
                   </p>
                 </div>
               </div>

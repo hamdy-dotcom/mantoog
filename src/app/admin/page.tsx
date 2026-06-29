@@ -1455,23 +1455,7 @@ export default function AdminPage() {
             </div>
           )}
 
-        </div>
-      </main>
 
-      {/* ── Proof lightbox ── */}
-      {viewingProof && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={()=>setViewingProof(null)}>
-          <div className="relative max-w-2xl w-full" onClick={e=>e.stopPropagation()}>
-            <button onClick={()=>setViewingProof(null)} className="absolute -top-10 right-0 text-[#8b8fa8] hover:text-white text-2xl cursor-pointer">×</button>
-            {viewingProof.match(/\.pdf$/i)
-              ? <iframe src={viewingProof} className="w-full h-[70vh] rounded-2xl border border-[#2a2d35]" />
-              : <img src={viewingProof} alt="Payment proof" className="w-full rounded-2xl border border-[#2a2d35] max-h-[80vh] object-contain" />}
-            <a href={viewingProof} target="_blank" rel="noopener noreferrer" className="mt-3 flex justify-center text-xs text-[#60a5fa] hover:underline">Open in new tab ↗</a>
-          </div>
-        </div>
-      )}
-
-      {/* ── Merchant products modal ── */}
           {/* ════════════════ MISSED ORDERS ════════════════ */}
           {activeTab === 'missed-orders' && (() => {
             const filteredAbandoned = abandonedCheckouts.filter(o => {
@@ -1599,6 +1583,23 @@ export default function AdminPage() {
             )
           })()}
 
+        </div>
+      </main>
+
+      {/* ── Proof lightbox ── */}
+      {viewingProof && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={()=>setViewingProof(null)}>
+          <div className="relative max-w-2xl w-full" onClick={e=>e.stopPropagation()}>
+            <button onClick={()=>setViewingProof(null)} className="absolute -top-10 right-0 text-[#8b8fa8] hover:text-white text-2xl cursor-pointer">×</button>
+            {viewingProof.match(/\.pdf$/i)
+              ? <iframe src={viewingProof} className="w-full h-[70vh] rounded-2xl border border-[#2a2d35]" />
+              : <img src={viewingProof} alt="Payment proof" className="w-full rounded-2xl border border-[#2a2d35] max-h-[80vh] object-contain" />}
+            <a href={viewingProof} target="_blank" rel="noopener noreferrer" className="mt-3 flex justify-center text-xs text-[#60a5fa] hover:underline">Open in new tab ↗</a>
+          </div>
+        </div>
+      )}
+
+      {/* ── Merchant products modal ── */}
       {viewingMerchant && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">

@@ -1498,44 +1498,7 @@ export default function AdminPage() {
             return (
               <div className="space-y-4">
 
-                {/* KPI cards — same compact style as Orders tab */}
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                  {[
-                    { label: 'Total Missed',      v: abandonedCheckouts.length,    c: '#fbbf24' },
-                    { label: 'Unrecovered',        v: totalUnrecovered,             c: '#f87171' },
-                    { label: 'Recovered',          v: totalRecovered,               c: '#4ade80' },
-                    { label: 'Recovery Rate',      v: `${recoveryRate}%`,           c: '#a78bfa' },
-                    { label: 'Platform Miss Rate', v: `${missRate}%`,               c: '#fb923c' },
-                    { label: 'Est. Revenue Lost',  v: estRevenueLost.toLocaleString(), c: '#f87171' },
-                  ].map((k, i) => (
-                    <div key={i} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-3 py-2.5 text-center">
-                      <div className="text-[10px] text-[#4a4e60] mb-1 uppercase tracking-wider">{k.label}</div>
-                      <div className="text-lg font-bold tabular-nums" style={{ color: k.c }}>{k.v}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Compact outcome bar — sits below KPIs, no separate card */}
-                <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-4 py-3 flex items-center gap-4">
-                  <span className="text-xs text-[#4a4e60] shrink-0">Checkout outcome</span>
-                  <div className="flex-1 h-2 bg-[#0f1117] rounded-full overflow-hidden flex">
-                    <div className="h-full bg-[#4ade80]" style={{ width: `${convPct}%` }} />
-                    <div className="h-full bg-[#fbbf24]" style={{ width: `${missPct}%` }} />
-                  </div>
-                  <div className="flex items-center gap-4 shrink-0 text-xs">
-                    <span className="flex items-center gap-1.5 text-[#8b8fa8]">
-                      <span className="w-2 h-2 rounded-sm bg-[#4ade80] inline-block" />
-                      <span className="text-white font-bold">{orders.length.toLocaleString()}</span> submitted
-                    </span>
-                    <span className="flex items-center gap-1.5 text-[#8b8fa8]">
-                      <span className="w-2 h-2 rounded-sm bg-[#fbbf24] inline-block" />
-                      <span className="text-[#fbbf24] font-bold">{totalUnrecovered.toLocaleString()}</span> missed
-                    </span>
-                    <span className="text-[#4a4e60]">{total.toLocaleString()} total starts</span>
-                  </div>
-                </div>
-
-                {/* Filters — matches Orders tab layout exactly */}
+                {/* Filters — FIRST, matches Orders tab layout */}
                 <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-4 space-y-3">
                   <div className="flex flex-wrap gap-3 items-center">
                     <div className="relative">
@@ -1549,27 +1512,55 @@ export default function AdminPage() {
                       <option value="">All merchants</option>
                       {merchants.map(m => <option key={m.id} value={m.id}>{m.email} ({m.stores?.[0]?.name || 'no store'})</option>)}
                     </select>
-                    <input type="date" value={abandonedDateFrom} onChange={e => setAbandonedDateFrom(e.target.value)}
-                      className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
-                    <span className="text-[#4a4e60] text-xs">to</span>
-                    <input type="date" value={abandonedDateTo} onChange={e => setAbandonedDateTo(e.target.value)}
-                      className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
-                    {(abandonedDateFrom || abandonedDateTo || abandonedMerchantFilter || abandonedSearch) && (
-                      <button onClick={() => { setAbandonedDateFrom(''); setAbandonedDateTo(''); setAbandonedMerchantFilter(''); setAbandonedSearch('') }}
-                        className="text-xs text-[#f87171] hover:text-white border border-[#f87171]/20 hover:bg-[#3a1414] px-2.5 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1">
-                        <IconX className="w-3.5 h-3.5" /> Clear
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <IconCalendar className="w-4 h-4 text-[#4a4e60] shrink-0" />
+                      <input type="date" value={abandonedDateFrom} onChange={e => setAbandonedDateFrom(e.target.value)}
+                        className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
+                      <span className="text-[#4a4e60] text-xs">to</span>
+                      <input type="date" value={abandonedDateTo} onChange={e => setAbandonedDateTo(e.target.value)}
+                        className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
+                      {(abandonedDateFrom || abandonedDateTo || abandonedMerchantFilter || abandonedSearch) && (
+                        <button onClick={() => { setAbandonedDateFrom(''); setAbandonedDateTo(''); setAbandonedMerchantFilter(''); setAbandonedSearch('') }}
+                          className="text-xs text-[#f87171] hover:text-white border border-[#f87171]/20 hover:bg-[#3a1414] px-2.5 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1">
+                          <IconX className="w-3.5 h-3.5" /> Clear
+                        </button>
+                      )}
+                    </div>
                     <span className="ml-auto text-xs text-[#4a4e60]">{filteredAbandoned.length} of {abandonedCheckouts.length}</span>
                   </div>
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 flex-wrap">
                     {([['unrecovered','Unrecovered'],['all','All'],['recovered','Recovered (converted)']] as const).map(([k, l]) => (
                       <button key={k} onClick={() => setAbandonedStatusFilter(k)}
                         className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${abandonedStatusFilter===k?'bg-[#3b82f6] border-[#3b82f6] text-white':'border-[#2a2d35] text-[#4a4e60] hover:text-white hover:border-[#3b82f6]'}`}>
                         {l}
                       </button>
                     ))}
+                    <div className="ml-auto flex items-center gap-3 text-xs text-[#4a4e60]">
+                      <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-[#4ade80] inline-block" />{orders.length.toLocaleString()} submitted</span>
+                      <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-[#fbbf24] inline-block" /><span className="text-[#fbbf24]">{totalUnrecovered.toLocaleString()}</span> missed</span>
+                      <div className="w-20 h-1.5 bg-[#0f1117] rounded-full overflow-hidden flex">
+                        <div className="h-full bg-[#4ade80]" style={{ width: `${convPct}%` }} />
+                        <div className="h-full bg-[#fbbf24]" style={{ width: `${missPct}%` }} />
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                {/* KPI cards — SECOND, same compact style as Orders tab */}
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                  {[
+                    { label: 'Total Missed',      v: abandonedCheckouts.length,       c: '#fbbf24' },
+                    { label: 'Unrecovered',        v: totalUnrecovered,                c: '#f87171' },
+                    { label: 'Recovered',          v: totalRecovered,                  c: '#4ade80' },
+                    { label: 'Recovery Rate',      v: `${recoveryRate}%`,              c: '#a78bfa' },
+                    { label: 'Platform Miss Rate', v: `${missRate}%`,                  c: '#fb923c' },
+                    { label: 'Est. Revenue Lost',  v: estRevenueLost.toLocaleString(), c: '#f87171' },
+                  ].map((k, i) => (
+                    <div key={i} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-3 py-2.5 text-center">
+                      <div className="text-[10px] text-[#4a4e60] mb-1 uppercase tracking-wider">{k.label}</div>
+                      <div className="text-lg font-bold tabular-nums" style={{ color: k.c }}>{k.v}</div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Table */}

@@ -1498,14 +1498,14 @@ export default function AdminPage() {
             return (
               <div className="space-y-4">
 
-                {/* Filters — FIRST, matches Orders tab layout */}
+                {/* ── Filters (identical structure to Orders tab) ── */}
                 <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-4 space-y-3">
                   <div className="flex flex-wrap gap-3 items-center">
                     <div className="relative">
                       <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#4a4e60]" />
                       <input value={abandonedSearch} onChange={e => setAbandonedSearch(e.target.value)}
                         placeholder="Customer, phone, product, store, merchant..."
-                        className="bg-[#0f1117] border border-[#2a2d35] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] w-72" />
+                        className="bg-[#0f1117] border border-[#2a2d35] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] w-56" />
                     </div>
                     <select value={abandonedMerchantFilter} onChange={e => setAbandonedMerchantFilter(e.target.value)}
                       className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]">
@@ -1526,7 +1526,6 @@ export default function AdminPage() {
                         </button>
                       )}
                     </div>
-                    <span className="ml-auto text-xs text-[#4a4e60]">{filteredAbandoned.length} of {abandonedCheckouts.length}</span>
                   </div>
                   <div className="flex gap-1.5 flex-wrap">
                     {([['unrecovered','Unrecovered'],['all','All'],['recovered','Recovered (converted)']] as const).map(([k, l]) => (
@@ -1535,18 +1534,11 @@ export default function AdminPage() {
                         {l}
                       </button>
                     ))}
-                    <div className="ml-auto flex items-center gap-3 text-xs text-[#4a4e60]">
-                      <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-[#4ade80] inline-block" />{orders.length.toLocaleString()} submitted</span>
-                      <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-[#fbbf24] inline-block" /><span className="text-[#fbbf24]">{totalUnrecovered.toLocaleString()}</span> missed</span>
-                      <div className="w-20 h-1.5 bg-[#0f1117] rounded-full overflow-hidden flex">
-                        <div className="h-full bg-[#4ade80]" style={{ width: `${convPct}%` }} />
-                        <div className="h-full bg-[#fbbf24]" style={{ width: `${missPct}%` }} />
-                      </div>
-                    </div>
+                    <span className="ml-auto text-xs text-[#4a4e60]">{filteredAbandoned.length} of {abandonedCheckouts.length}</span>
                   </div>
                 </div>
 
-                {/* KPI cards — SECOND, same compact style as Orders tab */}
+                {/* ── Summary stats strip (identical to Orders tab) ── */}
                 <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                   {[
                     { label: 'Total Missed',      v: abandonedCheckouts.length,       c: '#fbbf24' },
@@ -1557,62 +1549,45 @@ export default function AdminPage() {
                     { label: 'Est. Revenue Lost',  v: estRevenueLost.toLocaleString(), c: '#f87171' },
                   ].map((k, i) => (
                     <div key={i} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-3 py-2.5 text-center">
-                      <div className="text-[10px] text-[#4a4e60] mb-1 uppercase tracking-wider">{k.label}</div>
+                      <div className="text-[10px] text-[#4a4e60] mb-1">{k.label}</div>
                       <div className="text-lg font-bold tabular-nums" style={{ color: k.c }}>{k.v}</div>
                     </div>
                   ))}
                 </div>
 
-                {/* Table */}
+                {/* ── Table ── */}
                 <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full" style={{ minWidth: 1100 }}>
+                    <table className="w-full" style={{ minWidth: 900 }}>
                       <thead>
                         <tr className="border-b border-[#2a2d35]">
-                          {['Merchant','Store','Product','Phone','Name','Address','Qty','Value','Date','Contacted','Status'].map(h => (
+                          {['Store','Product','Phone','Customer','Qty','Value','Contacted','Date','Status'].map(h => (
                             <th key={h} className="text-left px-4 py-3.5 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredAbandoned.map(o => {
-                          const merchantEmail = merchantsMap[o.merchant_id]?.email || o.merchant_id?.slice(0, 8) + '…'
-                          return (
-                            <tr key={o.id} className={`border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors ${o.recovered ? 'opacity-40' : ''}`}>
-                              <td className="px-4 py-3 text-xs text-[#8b8fa8] max-w-[160px]">
-                                <div className="truncate" title={merchantEmail}>{merchantEmail}</div>
-                              </td>
-                              <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">{o.stores?.name || '—'}</td>
-                              <td className="px-4 py-3 text-xs text-[#8b8fa8] max-w-[180px]">
-                                <div className="truncate" title={o.products?.title}>{o.products?.title || '—'}</div>
-                              </td>
-                              <td className="px-4 py-3 text-xs text-white font-mono whitespace-nowrap">{o.customer_phone || '—'}</td>
-                              <td className="px-4 py-3 text-xs text-[#8b8fa8] max-w-[120px]">
-                                <div className="truncate" title={o.customer_name}>{o.customer_name || '—'}</div>
-                              </td>
-                              <td className="px-4 py-3 text-xs text-[#8b8fa8] max-w-[160px]">
-                                <div className="truncate" title={o.customer_address}>{o.customer_address || '—'}</div>
-                              </td>
-                              <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">×{o.qty}</td>
-                              <td className="px-4 py-3 text-sm font-bold text-[#fbbf24] whitespace-nowrap tabular-nums">
-                                {o.total_price ? Number(o.total_price).toLocaleString() : '—'}
-                              </td>
-                              <td className="px-4 py-3 text-xs text-[#4a4e60] whitespace-nowrap">
-                                {new Date(o.created_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${o.contacted ? 'bg-[#14321f] text-[#4ade80]' : 'bg-[#1f2229] text-[#4a4e60]'}`}>
-                                  {o.contacted ? 'Yes' : 'No'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${o.recovered ? 'bg-[#14321f] text-[#4ade80]' : 'bg-[#3a2800] text-[#fbbf24]'}`}>
-                                  {o.recovered ? 'Recovered' : 'Missed'}
-                                </span>
-                              </td>
-                            </tr>
-                          )
-                        })}
+                        {filteredAbandoned.map(o => (
+                          <tr key={o.id} className={`border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors ${o.recovered ? 'opacity-40' : ''}`}>
+                            <td className="px-4 py-3.5 text-xs text-[#8b8fa8] whitespace-nowrap">{o.stores?.name || '—'}</td>
+                            <td className="px-4 py-3.5 text-xs text-[#8b8fa8] max-w-[200px] truncate" title={o.products?.title}>{o.products?.title || '—'}</td>
+                            <td className="px-4 py-3.5 text-xs text-white font-mono whitespace-nowrap">{o.customer_phone || '—'}</td>
+                            <td className="px-4 py-3.5 text-sm text-white whitespace-nowrap">{o.customer_name || '—'}</td>
+                            <td className="px-4 py-3.5 text-xs text-[#8b8fa8] whitespace-nowrap">×{o.qty}</td>
+                            <td className="px-4 py-3.5 text-sm font-bold text-[#4ade80] whitespace-nowrap tabular-nums">{o.total_price ? Number(o.total_price).toLocaleString() : '—'}</td>
+                            <td className="px-4 py-3.5">
+                              <span className={`text-[10px] font-semibold px-2 py-1 rounded-full whitespace-nowrap ${o.contacted ? 'bg-[#14321f] text-[#4ade80]' : 'bg-[#1f2229] text-[#4a4e60]'}`}>
+                                {o.contacted ? 'Contacted' : 'Pending'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-xs text-[#4a4e60] whitespace-nowrap">{new Date(o.created_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+                            <td className="px-4 py-3.5">
+                              <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${o.recovered ? 'bg-[#14321f] text-[#4ade80]' : 'bg-[#3a2800] text-[#fbbf24]'}`}>
+                                {o.recovered ? 'Recovered' : 'Missed'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>

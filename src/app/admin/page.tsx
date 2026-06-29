@@ -72,6 +72,14 @@ export default function AdminPage() {
   const [adminWallets, setAdminWallets] = useState<any[]>([])
   const [chartRange, setChartRange]     = useState<7|30|90>(30)
 
+  /* ── missed orders tab ── */
+  const [abandonedCheckouts, setAbandonedCheckouts] = useState<any[]>([])
+  const [abandonedSearch, setAbandonedSearch]       = useState('')
+  const [abandonedMerchantFilter, setAbandonedMerchantFilter] = useState('')
+  const [abandonedDateFrom, setAbandonedDateFrom]   = useState('')
+  const [abandonedDateTo, setAbandonedDateTo]       = useState('')
+  const [abandonedStatusFilter, setAbandonedStatusFilter] = useState<'unrecovered'|'all'|'recovered'>('unrecovered')
+
   /* ── credits state ── */
   const [selectedMerchant, setSelectedMerchant] = useState<any>(null)
   const [creditAmount, setCreditAmount]   = useState('')
@@ -177,9 +185,10 @@ export default function AdminPage() {
     }))
     setMerchants(enriched)
 
-    const [prRes, wRes] = await Promise.all([fetch('/api/admin/payment-requests'), fetch('/api/admin/wallets')])
+    const [prRes, wRes, abRes] = await Promise.all([fetch('/api/admin/payment-requests'), fetch('/api/admin/wallets'), fetch('/api/admin/abandoned-checkouts')])
     if (prRes.ok) setPaymentRequests((await prRes.json()).requests ?? [])
     if (wRes.ok)  setAdminWallets((await wRes.json()).wallets ?? [])
+    if (abRes.ok) setAbandonedCheckouts((await abRes.json()).data ?? [])
   }
 
   /* ── computed analytics ── */
@@ -466,6 +475,7 @@ export default function AdminPage() {
     { id:'credits',   label:'Credits',   Icon:IconCredit },
     { id:'payments',  label:'Payments',  Icon:IconMoney,  badge: pendingCount },
     { id:'wallets',   label:'Wallets',   Icon:IconWallet },
+    { id:'missed-orders', label:'Missed Orders', Icon:IconAlert, badge: abandonedCheckouts.filter(o => !o.recovered && !o.contacted).length || undefined },
   ]
 
   return (
@@ -514,7 +524,8 @@ export default function AdminPage() {
               {activeTab === 'orders'    && `${filteredOrders.length} of ${orders.length} orders · page ${ordersPage}/${totalPages||1}`}
               {activeTab === 'credits'   && `${allCreditRows.length} credit records`}
               {activeTab === 'payments'  && `${pendingCount} pending · ${paymentRequests.length} total`}
-              {activeTab === 'wallets'   && `${adminWallets.filter(w=>w.is_active).length} active wallets`}
+              {activeTab === 'wallets'       && `${adminWallets.filter(w=>w.is_active).length} active wallets`}
+              {activeTab === 'missed-orders' && (() => { const u = abandonedCheckouts.filter(o=>!o.recovered); const pct = orders.length ? Math.round(u.length/(orders.length+u.length)*100) : 0; return `${u.length} unrecovered · ${pct}% miss rate` })()}
             </p>
           </div>
           <div className="text-xs text-[#4a4e60]">{new Date().toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short', year:'numeric' })}</div>
@@ -1083,6 +1094,50 @@ export default function AdminPage() {
                 ))}
               </div>
 
+              {/* Missed orders contribution strip */}
+              {(() => {
+                const unrecovered = abandonedCheckouts.filter(o => !o.recovered)
+                const filteredMissed = unrecovered.filter(o => {
+                  if (orderMerchantFilter && o.merchant_id !== orderMerchantFilter) return false
+                  if (orderDateFrom && new Date(o.created_at) < new Date(orderDateFrom + 'T00:00:00')) return false
+                  if (orderDateTo   && new Date(o.created_at) > new Date(orderDateTo + 'T23:59:59')) return false
+                  return true
+                })
+                const totalOpportunity = filteredOrders.length + filteredMissed.length
+                const missRate = totalOpportunity > 0 ? Math.round(filteredMissed.length / totalOpportunity * 100) : 0
+                const convRate = totalOpportunity > 0 ? Math.round(filteredOrders.length / totalOpportunity * 100) : 0
+                const estLost  = filteredMissed.reduce((s, o) => s + (Number(o.total_price) || 0), 0)
+                return (
+                  <div className="bg-[#1a1d24] border border-[#fbbf24]/20 rounded-xl p-4 flex flex-wrap items-center gap-6">
+                    <div className="flex items-center gap-2 text-xs text-[#fbbf24] font-semibold">
+                      <IconAlert className="w-4 h-4" /> Missed Orders Impact
+                    </div>
+                    <div className="flex-1 flex items-center gap-2 min-w-0">
+                      <div className="h-2 flex-1 rounded-full bg-[#0f1117] overflow-hidden flex">
+                        <div className="h-full bg-[#4ade80] rounded-l-full transition-all" style={{ width: `${convRate}%` }} />
+                        <div className="h-full bg-[#fbbf24]" style={{ width: `${missRate}%` }} />
+                      </div>
+                      <span className="text-xs text-[#4ade80] font-bold whitespace-nowrap">{convRate}% submitted</span>
+                      <span className="text-xs text-[#fbbf24] font-bold whitespace-nowrap">{missRate}% missed</span>
+                    </div>
+                    <div className="flex gap-6 text-xs shrink-0">
+                      <div className="text-center">
+                        <div className="text-[#4a4e60] mb-0.5">Missed (filter)</div>
+                        <div className="font-bold text-[#fbbf24] text-base">{filteredMissed.length}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-[#4a4e60] mb-0.5">Est. Revenue Lost</div>
+                        <div className="font-bold text-[#f87171] text-base">{estLost.toLocaleString()}</div>
+                      </div>
+                      <button onClick={() => setActiveTab('missed-orders')}
+                        className="text-xs text-[#60a5fa] hover:underline self-center cursor-pointer whitespace-nowrap">
+                        View all →
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Table */}
               <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
@@ -1417,6 +1472,161 @@ export default function AdminPage() {
       )}
 
       {/* ── Merchant products modal ── */}
+          {/* ════════════════ MISSED ORDERS ════════════════ */}
+          {activeTab === 'missed-orders' && (() => {
+            const filteredAbandoned = abandonedCheckouts.filter(o => {
+              if (abandonedStatusFilter === 'unrecovered' && o.recovered) return false
+              if (abandonedStatusFilter === 'recovered'   && !o.recovered) return false
+              if (abandonedMerchantFilter && o.merchant_id !== abandonedMerchantFilter) return false
+              if (abandonedDateFrom && new Date(o.created_at) < new Date(abandonedDateFrom + 'T00:00:00')) return false
+              if (abandonedDateTo   && new Date(o.created_at) > new Date(abandonedDateTo + 'T23:59:59')) return false
+              if (abandonedSearch) {
+                const q = abandonedSearch.toLowerCase()
+                if (!o.customer_phone?.includes(q) && !o.customer_name?.toLowerCase().includes(q) && !o.products?.title?.toLowerCase().includes(q) && !o.stores?.name?.toLowerCase().includes(q) && !(merchantsMap[o.merchant_id]?.email||'').toLowerCase().includes(q)) return false
+              }
+              return true
+            })
+
+            const totalUnrecovered = abandonedCheckouts.filter(o => !o.recovered).length
+            const totalRecovered   = abandonedCheckouts.filter(o => o.recovered).length
+            const totalUncontacted = abandonedCheckouts.filter(o => !o.recovered && !o.contacted).length
+            const estRevenueLost   = abandonedCheckouts.filter(o => !o.recovered).reduce((s, o) => s + (Number(o.total_price) || 0), 0)
+            const recoveryRate     = abandonedCheckouts.length > 0 ? Math.round(totalRecovered / abandonedCheckouts.length * 100) : 0
+            const missRate         = orders.length + totalUnrecovered > 0 ? Math.round(totalUnrecovered / (orders.length + totalUnrecovered) * 100) : 0
+
+            return (
+              <div className="space-y-4">
+
+                {/* KPI strip */}
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                  {[
+                    { label: 'Total Missed',        v: abandonedCheckouts.length, c: '#fbbf24' },
+                    { label: 'Unrecovered',          v: totalUnrecovered,          c: '#f87171' },
+                    { label: 'Recovered (orders)',   v: totalRecovered,            c: '#4ade80' },
+                    { label: 'Recovery Rate',        v: `${recoveryRate}%`,        c: '#a78bfa' },
+                    { label: 'Platform Miss Rate',   v: `${missRate}%`,            c: '#fb923c' },
+                  ].map((k, i) => (
+                    <div key={i} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-4 py-3.5">
+                      <div className="text-[10px] text-[#4a4e60] uppercase tracking-wider mb-1">{k.label}</div>
+                      <div className="text-2xl font-bold tabular-nums" style={{ color: k.c }}>{k.v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Visual bar: conversion vs miss */}
+                <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-5 py-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-white">Checkout Outcome (all time)</span>
+                    <span className="text-xs text-[#4a4e60]">{(orders.length + totalUnrecovered).toLocaleString()} total checkout starts</span>
+                  </div>
+                  <div className="h-3 w-full bg-[#0f1117] rounded-full overflow-hidden flex">
+                    {(() => {
+                      const total = orders.length + totalUnrecovered
+                      const convPct = total > 0 ? (orders.length / total) * 100 : 0
+                      const missPct = total > 0 ? (totalUnrecovered / total) * 100 : 0
+                      return (
+                        <>
+                          <div className="h-full bg-[#4ade80] transition-all" style={{ width: `${convPct}%` }} title={`Submitted: ${orders.length}`} />
+                          <div className="h-full bg-[#fbbf24]" style={{ width: `${missPct}%` }} title={`Missed: ${totalUnrecovered}`} />
+                        </>
+                      )
+                    })()}
+                  </div>
+                  <div className="flex gap-5 mt-2 text-xs text-[#8b8fa8]">
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#4ade80] inline-block" /> Submitted: <span className="text-white font-bold">{orders.length.toLocaleString()}</span></span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#fbbf24] inline-block" /> Missed (unrecovered): <span className="text-[#fbbf24] font-bold">{totalUnrecovered.toLocaleString()}</span></span>
+                    <span className="flex items-center gap-1.5 ml-auto">Est. revenue lost: <span className="text-[#f87171] font-bold ml-1">{estRevenueLost.toLocaleString()}</span> <span className="text-[#4a4e60]">(mixed currencies)</span></span>
+                  </div>
+                </div>
+
+                {/* Filters */}
+                <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 space-y-3">
+                  <div className="flex flex-wrap gap-3 items-center">
+                    <div className="relative">
+                      <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#4a4e60]" />
+                      <input value={abandonedSearch} onChange={e => setAbandonedSearch(e.target.value)} placeholder="Phone, name, product, store, merchant..."
+                        className="bg-[#0f1117] border border-[#2a2d35] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] w-64" />
+                    </div>
+                    <select value={abandonedMerchantFilter} onChange={e => setAbandonedMerchantFilter(e.target.value)}
+                      className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]">
+                      <option value="">All merchants</option>
+                      {merchants.map(m => <option key={m.id} value={m.id}>{m.email} ({m.stores?.[0]?.name || 'no store'})</option>)}
+                    </select>
+                    <div className="flex items-center gap-2">
+                      <IconCalendar className="w-4 h-4 text-[#4a4e60] shrink-0" />
+                      <input type="date" value={abandonedDateFrom} onChange={e => setAbandonedDateFrom(e.target.value)}
+                        className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
+                      <span className="text-[#4a4e60] text-xs">to</span>
+                      <input type="date" value={abandonedDateTo} onChange={e => setAbandonedDateTo(e.target.value)}
+                        className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
+                      {(abandonedDateFrom || abandonedDateTo || abandonedMerchantFilter || abandonedSearch) && (
+                        <button onClick={() => { setAbandonedDateFrom(''); setAbandonedDateTo(''); setAbandonedMerchantFilter(''); setAbandonedSearch('') }}
+                          className="text-xs text-[#f87171] hover:text-white border border-[#f87171]/20 hover:bg-[#3a1414] px-2.5 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1">
+                          <IconX className="w-3.5 h-3.5" /> Clear
+                        </button>
+                      )}
+                    </div>
+                    <span className="ml-auto text-xs text-[#4a4e60]">{filteredAbandoned.length} records</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {([['unrecovered','Unrecovered'],['all','All'],['recovered','Recovered']] as const).map(([k, l]) => (
+                      <button key={k} onClick={() => setAbandonedStatusFilter(k)}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${abandonedStatusFilter===k?'bg-[#3b82f6] border-[#3b82f6] text-white':'border-[#2a2d35] text-[#4a4e60] hover:text-white hover:border-[#3b82f6]'}`}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full" style={{ minWidth: 900 }}>
+                      <thead>
+                        <tr className="border-b border-[#2a2d35]">
+                          {['Merchant','Store','Product','Phone','Name','Address','Qty','Value','Date','Contacted','Status'].map(h => (
+                            <th key={h} className="text-left px-4 py-3.5 text-xs text-[#4a4e60] uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredAbandoned.map(o => {
+                          const merchantEmail = merchantsMap[o.merchant_id]?.email || o.merchant_id?.slice(0, 8) + '…'
+                          return (
+                            <tr key={o.id} className={`border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors ${o.recovered ? 'opacity-50' : ''}`}>
+                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8] whitespace-nowrap max-w-[140px] truncate">{merchantEmail}</td>
+                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8] whitespace-nowrap">{o.stores?.name || '—'}</td>
+                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8] max-w-[150px] truncate">{o.products?.title || '—'}</td>
+                              <td className="px-4 py-3.5 text-xs text-white font-mono whitespace-nowrap">{o.customer_phone || '—'}</td>
+                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8] whitespace-nowrap">{o.customer_name || '—'}</td>
+                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8] max-w-[140px] truncate">{o.customer_address || '—'}</td>
+                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8]">×{o.qty}</td>
+                              <td className="px-4 py-3.5 text-sm font-bold text-[#fbbf24] whitespace-nowrap tabular-nums">{o.total_price ? Number(o.total_price).toLocaleString() : '—'}</td>
+                              <td className="px-4 py-3.5 text-xs text-[#4a4e60] whitespace-nowrap">{new Date(o.created_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+                              <td className="px-4 py-3.5">
+                                {o.contacted
+                                  ? <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-[#14321f] text-[#4ade80]">Yes</span>
+                                  : <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-[#1f2229] text-[#4a4e60]">No</span>}
+                              </td>
+                              <td className="px-4 py-3.5">
+                                {o.recovered
+                                  ? <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-[#14321f] text-[#4ade80]">Recovered</span>
+                                  : <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-[#3a2800] text-[#fbbf24]">Missed</span>}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {filteredAbandoned.length === 0 && (
+                    <div className="p-14 text-center text-sm text-[#4a4e60]">No missed orders match the current filters</div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
       {viewingMerchant && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">

@@ -516,7 +516,7 @@ export default function AdminPage() {
       <main className="flex-1 min-w-0 overflow-y-auto">
         <header className="sticky top-0 z-10 bg-[#0f1117]/80 backdrop-blur border-b border-[#2a2d35] px-8 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-white font-semibold capitalize">{activeTab}</h1>
+            <h1 className="text-white font-semibold">{NAV.find(n => n.id === activeTab)?.label ?? activeTab}</h1>
             <p className="text-[#4a4e60] text-xs mt-0.5">
               {activeTab === 'overview'  && `${analytics.totalMerchants} merchants · ${analytics.totalOrders} orders · ${analytics.ordersToday} today`}
               {activeTab === 'merchants' && `${filteredMerchants.length} merchants`}
@@ -1486,90 +1486,84 @@ export default function AdminPage() {
               }
               return true
             })
-
             const totalUnrecovered = abandonedCheckouts.filter(o => !o.recovered).length
             const totalRecovered   = abandonedCheckouts.filter(o => o.recovered).length
-            const totalUncontacted = abandonedCheckouts.filter(o => !o.recovered && !o.contacted).length
             const estRevenueLost   = abandonedCheckouts.filter(o => !o.recovered).reduce((s, o) => s + (Number(o.total_price) || 0), 0)
             const recoveryRate     = abandonedCheckouts.length > 0 ? Math.round(totalRecovered / abandonedCheckouts.length * 100) : 0
             const missRate         = orders.length + totalUnrecovered > 0 ? Math.round(totalUnrecovered / (orders.length + totalUnrecovered) * 100) : 0
+            const total            = orders.length + totalUnrecovered
+            const convPct          = total > 0 ? (orders.length / total) * 100 : 0
+            const missPct          = total > 0 ? (totalUnrecovered / total) * 100 : 0
 
             return (
               <div className="space-y-4">
 
-                {/* KPI strip */}
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                {/* KPI cards — same compact style as Orders tab */}
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                   {[
-                    { label: 'Total Missed',        v: abandonedCheckouts.length, c: '#fbbf24' },
-                    { label: 'Unrecovered',          v: totalUnrecovered,          c: '#f87171' },
-                    { label: 'Recovered (orders)',   v: totalRecovered,            c: '#4ade80' },
-                    { label: 'Recovery Rate',        v: `${recoveryRate}%`,        c: '#a78bfa' },
-                    { label: 'Platform Miss Rate',   v: `${missRate}%`,            c: '#fb923c' },
+                    { label: 'Total Missed',      v: abandonedCheckouts.length,    c: '#fbbf24' },
+                    { label: 'Unrecovered',        v: totalUnrecovered,             c: '#f87171' },
+                    { label: 'Recovered',          v: totalRecovered,               c: '#4ade80' },
+                    { label: 'Recovery Rate',      v: `${recoveryRate}%`,           c: '#a78bfa' },
+                    { label: 'Platform Miss Rate', v: `${missRate}%`,               c: '#fb923c' },
+                    { label: 'Est. Revenue Lost',  v: estRevenueLost.toLocaleString(), c: '#f87171' },
                   ].map((k, i) => (
-                    <div key={i} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-4 py-3.5">
-                      <div className="text-[10px] text-[#4a4e60] uppercase tracking-wider mb-1">{k.label}</div>
-                      <div className="text-2xl font-bold tabular-nums" style={{ color: k.c }}>{k.v}</div>
+                    <div key={i} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-3 py-2.5 text-center">
+                      <div className="text-[10px] text-[#4a4e60] mb-1 uppercase tracking-wider">{k.label}</div>
+                      <div className="text-lg font-bold tabular-nums" style={{ color: k.c }}>{k.v}</div>
                     </div>
                   ))}
                 </div>
 
-                {/* Visual bar: conversion vs miss */}
-                <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-5 py-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-white">Checkout Outcome (all time)</span>
-                    <span className="text-xs text-[#4a4e60]">{(orders.length + totalUnrecovered).toLocaleString()} total checkout starts</span>
+                {/* Compact outcome bar — sits below KPIs, no separate card */}
+                <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-4 py-3 flex items-center gap-4">
+                  <span className="text-xs text-[#4a4e60] shrink-0">Checkout outcome</span>
+                  <div className="flex-1 h-2 bg-[#0f1117] rounded-full overflow-hidden flex">
+                    <div className="h-full bg-[#4ade80]" style={{ width: `${convPct}%` }} />
+                    <div className="h-full bg-[#fbbf24]" style={{ width: `${missPct}%` }} />
                   </div>
-                  <div className="h-3 w-full bg-[#0f1117] rounded-full overflow-hidden flex">
-                    {(() => {
-                      const total = orders.length + totalUnrecovered
-                      const convPct = total > 0 ? (orders.length / total) * 100 : 0
-                      const missPct = total > 0 ? (totalUnrecovered / total) * 100 : 0
-                      return (
-                        <>
-                          <div className="h-full bg-[#4ade80] transition-all" style={{ width: `${convPct}%` }} title={`Submitted: ${orders.length}`} />
-                          <div className="h-full bg-[#fbbf24]" style={{ width: `${missPct}%` }} title={`Missed: ${totalUnrecovered}`} />
-                        </>
-                      )
-                    })()}
-                  </div>
-                  <div className="flex gap-5 mt-2 text-xs text-[#8b8fa8]">
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#4ade80] inline-block" /> Submitted: <span className="text-white font-bold">{orders.length.toLocaleString()}</span></span>
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#fbbf24] inline-block" /> Missed (unrecovered): <span className="text-[#fbbf24] font-bold">{totalUnrecovered.toLocaleString()}</span></span>
-                    <span className="flex items-center gap-1.5 ml-auto">Est. revenue lost: <span className="text-[#f87171] font-bold ml-1">{estRevenueLost.toLocaleString()}</span> <span className="text-[#4a4e60]">(mixed currencies)</span></span>
+                  <div className="flex items-center gap-4 shrink-0 text-xs">
+                    <span className="flex items-center gap-1.5 text-[#8b8fa8]">
+                      <span className="w-2 h-2 rounded-sm bg-[#4ade80] inline-block" />
+                      <span className="text-white font-bold">{orders.length.toLocaleString()}</span> submitted
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[#8b8fa8]">
+                      <span className="w-2 h-2 rounded-sm bg-[#fbbf24] inline-block" />
+                      <span className="text-[#fbbf24] font-bold">{totalUnrecovered.toLocaleString()}</span> missed
+                    </span>
+                    <span className="text-[#4a4e60]">{total.toLocaleString()} total starts</span>
                   </div>
                 </div>
 
-                {/* Filters */}
-                <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 space-y-3">
+                {/* Filters — matches Orders tab layout exactly */}
+                <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-4 space-y-3">
                   <div className="flex flex-wrap gap-3 items-center">
                     <div className="relative">
                       <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#4a4e60]" />
-                      <input value={abandonedSearch} onChange={e => setAbandonedSearch(e.target.value)} placeholder="Phone, name, product, store, merchant..."
-                        className="bg-[#0f1117] border border-[#2a2d35] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] w-64" />
+                      <input value={abandonedSearch} onChange={e => setAbandonedSearch(e.target.value)}
+                        placeholder="Customer, phone, product, store, merchant..."
+                        className="bg-[#0f1117] border border-[#2a2d35] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] w-72" />
                     </div>
                     <select value={abandonedMerchantFilter} onChange={e => setAbandonedMerchantFilter(e.target.value)}
                       className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]">
                       <option value="">All merchants</option>
                       {merchants.map(m => <option key={m.id} value={m.id}>{m.email} ({m.stores?.[0]?.name || 'no store'})</option>)}
                     </select>
-                    <div className="flex items-center gap-2">
-                      <IconCalendar className="w-4 h-4 text-[#4a4e60] shrink-0" />
-                      <input type="date" value={abandonedDateFrom} onChange={e => setAbandonedDateFrom(e.target.value)}
-                        className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
-                      <span className="text-[#4a4e60] text-xs">to</span>
-                      <input type="date" value={abandonedDateTo} onChange={e => setAbandonedDateTo(e.target.value)}
-                        className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
-                      {(abandonedDateFrom || abandonedDateTo || abandonedMerchantFilter || abandonedSearch) && (
-                        <button onClick={() => { setAbandonedDateFrom(''); setAbandonedDateTo(''); setAbandonedMerchantFilter(''); setAbandonedSearch('') }}
-                          className="text-xs text-[#f87171] hover:text-white border border-[#f87171]/20 hover:bg-[#3a1414] px-2.5 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1">
-                          <IconX className="w-3.5 h-3.5" /> Clear
-                        </button>
-                      )}
-                    </div>
-                    <span className="ml-auto text-xs text-[#4a4e60]">{filteredAbandoned.length} records</span>
+                    <input type="date" value={abandonedDateFrom} onChange={e => setAbandonedDateFrom(e.target.value)}
+                      className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
+                    <span className="text-[#4a4e60] text-xs">to</span>
+                    <input type="date" value={abandonedDateTo} onChange={e => setAbandonedDateTo(e.target.value)}
+                      className="bg-[#0f1117] border border-[#2a2d35] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
+                    {(abandonedDateFrom || abandonedDateTo || abandonedMerchantFilter || abandonedSearch) && (
+                      <button onClick={() => { setAbandonedDateFrom(''); setAbandonedDateTo(''); setAbandonedMerchantFilter(''); setAbandonedSearch('') }}
+                        className="text-xs text-[#f87171] hover:text-white border border-[#f87171]/20 hover:bg-[#3a1414] px-2.5 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1">
+                        <IconX className="w-3.5 h-3.5" /> Clear
+                      </button>
+                    )}
+                    <span className="ml-auto text-xs text-[#4a4e60]">{filteredAbandoned.length} of {abandonedCheckouts.length}</span>
                   </div>
                   <div className="flex gap-1.5">
-                    {([['unrecovered','Unrecovered'],['all','All'],['recovered','Recovered']] as const).map(([k, l]) => (
+                    {([['unrecovered','Unrecovered'],['all','All'],['recovered','Recovered (converted)']] as const).map(([k, l]) => (
                       <button key={k} onClick={() => setAbandonedStatusFilter(k)}
                         className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${abandonedStatusFilter===k?'bg-[#3b82f6] border-[#3b82f6] text-white':'border-[#2a2d35] text-[#4a4e60] hover:text-white hover:border-[#3b82f6]'}`}>
                         {l}
@@ -1581,7 +1575,7 @@ export default function AdminPage() {
                 {/* Table */}
                 <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full" style={{ minWidth: 900 }}>
+                    <table className="w-full" style={{ minWidth: 1100 }}>
                       <thead>
                         <tr className="border-b border-[#2a2d35]">
                           {['Merchant','Store','Product','Phone','Name','Address','Qty','Value','Date','Contacted','Status'].map(h => (
@@ -1593,25 +1587,37 @@ export default function AdminPage() {
                         {filteredAbandoned.map(o => {
                           const merchantEmail = merchantsMap[o.merchant_id]?.email || o.merchant_id?.slice(0, 8) + '…'
                           return (
-                            <tr key={o.id} className={`border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors ${o.recovered ? 'opacity-50' : ''}`}>
-                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8] whitespace-nowrap max-w-[140px] truncate">{merchantEmail}</td>
-                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8] whitespace-nowrap">{o.stores?.name || '—'}</td>
-                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8] max-w-[150px] truncate">{o.products?.title || '—'}</td>
-                              <td className="px-4 py-3.5 text-xs text-white font-mono whitespace-nowrap">{o.customer_phone || '—'}</td>
-                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8] whitespace-nowrap">{o.customer_name || '—'}</td>
-                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8] max-w-[140px] truncate">{o.customer_address || '—'}</td>
-                              <td className="px-4 py-3.5 text-xs text-[#8b8fa8]">×{o.qty}</td>
-                              <td className="px-4 py-3.5 text-sm font-bold text-[#fbbf24] whitespace-nowrap tabular-nums">{o.total_price ? Number(o.total_price).toLocaleString() : '—'}</td>
-                              <td className="px-4 py-3.5 text-xs text-[#4a4e60] whitespace-nowrap">{new Date(o.created_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
-                              <td className="px-4 py-3.5">
-                                {o.contacted
-                                  ? <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-[#14321f] text-[#4ade80]">Yes</span>
-                                  : <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-[#1f2229] text-[#4a4e60]">No</span>}
+                            <tr key={o.id} className={`border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors ${o.recovered ? 'opacity-40' : ''}`}>
+                              <td className="px-4 py-3 text-xs text-[#8b8fa8] max-w-[160px]">
+                                <div className="truncate" title={merchantEmail}>{merchantEmail}</div>
                               </td>
-                              <td className="px-4 py-3.5">
-                                {o.recovered
-                                  ? <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-[#14321f] text-[#4ade80]">Recovered</span>
-                                  : <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-[#3a2800] text-[#fbbf24]">Missed</span>}
+                              <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">{o.stores?.name || '—'}</td>
+                              <td className="px-4 py-3 text-xs text-[#8b8fa8] max-w-[180px]">
+                                <div className="truncate" title={o.products?.title}>{o.products?.title || '—'}</div>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-white font-mono whitespace-nowrap">{o.customer_phone || '—'}</td>
+                              <td className="px-4 py-3 text-xs text-[#8b8fa8] max-w-[120px]">
+                                <div className="truncate" title={o.customer_name}>{o.customer_name || '—'}</div>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-[#8b8fa8] max-w-[160px]">
+                                <div className="truncate" title={o.customer_address}>{o.customer_address || '—'}</div>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-[#8b8fa8] whitespace-nowrap">×{o.qty}</td>
+                              <td className="px-4 py-3 text-sm font-bold text-[#fbbf24] whitespace-nowrap tabular-nums">
+                                {o.total_price ? Number(o.total_price).toLocaleString() : '—'}
+                              </td>
+                              <td className="px-4 py-3 text-xs text-[#4a4e60] whitespace-nowrap">
+                                {new Date(o.created_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${o.contacted ? 'bg-[#14321f] text-[#4ade80]' : 'bg-[#1f2229] text-[#4a4e60]'}`}>
+                                  {o.contacted ? 'Yes' : 'No'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${o.recovered ? 'bg-[#14321f] text-[#4ade80]' : 'bg-[#3a2800] text-[#fbbf24]'}`}>
+                                  {o.recovered ? 'Recovered' : 'Missed'}
+                                </span>
                               </td>
                             </tr>
                           )

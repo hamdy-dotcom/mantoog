@@ -16,6 +16,7 @@ export default function MissedOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [contactedFilter, setContactedFilter] = useState<'all' | 'uncontacted' | 'contacted'>('uncontacted')
+  const [recoveryFilter, setRecoveryFilter] = useState<'uncovered' | 'all' | 'covered'>('uncovered')
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7d' | '30d'>('7d')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -47,7 +48,6 @@ export default function MissedOrdersPage() {
           .from('abandoned_checkouts')
           .select('*, products(title, images)')
           .eq('merchant_id', ctx.user.id)
-          .eq('recovered', false)
           .order('created_at', { ascending: false })
       )
       setAllRows(rows)
@@ -85,14 +85,17 @@ export default function MissedOrdersPage() {
     const matchesContacted =
       contactedFilter === 'all' ||
       (contactedFilter === 'contacted' ? !!o.contacted : !o.contacted)
-    return matchesSearch && matchesContacted
+    const matchesRecovery =
+      recoveryFilter === 'all' ||
+      (recoveryFilter === 'covered' ? !!o.recovered : !o.recovered)
+    return matchesSearch && matchesContacted && matchesRecovery
   })
 
   const stats = {
     total: filteredByDate.length,
-    uncontacted: filteredByDate.filter(o => !o.contacted).length,
-    contacted: filteredByDate.filter(o => o.contacted).length,
-    estRevenue: filteredByDate.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0),
+    uncovered: filteredByDate.filter(o => !o.recovered).length,
+    covered: filteredByDate.filter(o => o.recovered).length,
+    estRevenue: filteredByDate.filter(o => !o.recovered).reduce((sum, o) => sum + (Number(o.total_price) || 0), 0),
   }
 
   const exportCSV = () => {
@@ -193,18 +196,39 @@ export default function MissedOrdersPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
           {[
             { label: lang === 'ar' ? 'الإجمالي' : 'Total', value: stats.total, color: 'text-white' },
-            { label: lang === 'ar' ? 'لم يُتواصَل' : 'Uncontacted', value: stats.uncontacted, color: 'text-[#fbbf24]' },
-            { label: lang === 'ar' ? 'تم التواصل' : 'Contacted', value: stats.contacted, color: 'text-[#4ade80]' },
-            { label: `${lang === 'ar' ? 'قيمة متوقعة' : 'Est. Value'} (${store?.currency || ''})`, value: stats.estRevenue.toLocaleString(), color: 'text-[#60a5fa]' },
+            { label: lang === 'ar' ? 'غير مُغطى' : 'Uncovered', value: stats.uncovered, color: 'text-[#f87171]' },
+            { label: lang === 'ar' ? 'مُغطى' : 'Covered', value: stats.covered, color: 'text-[#4ade80]' },
+            { label: `${lang === 'ar' ? 'قيمة متوقعة' : 'Est. Lost'} (${store?.currency || ''})`, value: stats.estRevenue.toLocaleString(), color: 'text-[#fbbf24]' },
           ].map((s, i) => (
             <div key={i} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4">
               <div className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider mb-1">{s.label}</div>
               <div className={`text-2xl font-semibold ${s.color}`}>{s.value}</div>
             </div>
           ))}
+        </div>
+
+        {/* Status legend */}
+        <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl px-4 py-3 mb-6 flex flex-wrap gap-x-6 gap-y-2 items-center">
+          <span className="text-xs font-semibold text-white">{lang === 'ar' ? 'شرح الحالات:' : 'Status guide:'}</span>
+          <span className="flex items-center gap-2 text-xs text-[#8b8fa8]">
+            <span className="inline-flex items-center gap-1 bg-[#3a1414] text-[#f87171] font-semibold px-2 py-0.5 rounded-full text-[11px]">
+              ● {lang === 'ar' ? 'غير مُغطى' : 'Uncovered'}
+            </span>
+            {lang === 'ar'
+              ? 'العميل لم يكمل الطلب بعد — تواصل معه!'
+              : "Customer didn't place an order yet — follow up!"}
+          </span>
+          <span className="flex items-center gap-2 text-xs text-[#8b8fa8]">
+            <span className="inline-flex items-center gap-1 bg-[#14321f] text-[#4ade80] font-semibold px-2 py-0.5 rounded-full text-[11px]">
+              ✓ {lang === 'ar' ? 'مُغطى' : 'Covered'}
+            </span>
+            {lang === 'ar'
+              ? 'العميل عاد وأكمل الطلب لاحقاً'
+              : 'Customer came back and completed their order'}
+          </span>
         </div>
 
         {/* Filters */}
@@ -216,17 +240,35 @@ export default function MissedOrdersPage() {
             placeholder={lang === 'ar' ? 'ابحث برقم الهاتف أو الاسم أو المنتج...' : 'Search by phone, name, or product...'}
             className="flex-1 bg-[#1a1d24] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] transition-colors min-w-[220px]"
           />
+          {/* Recovery status filter */}
+          <div className="flex gap-1 p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl">
+            {([
+              { key: 'uncovered', ar: 'غير مُغطى', en: 'Uncovered' },
+              { key: 'all',       ar: 'الكل',      en: 'All' },
+              { key: 'covered',   ar: 'مُغطى',     en: 'Covered' },
+            ] as const).map(f => (
+              <button
+                key={f.key}
+                onClick={() => setRecoveryFilter(f.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                  recoveryFilter === f.key ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'
+                }`}
+              >
+                {lang === 'ar' ? f.ar : f.en}
+              </button>
+            ))}
+          </div>
           {/* Contacted filter */}
           <div className="flex gap-1 p-1 bg-[#1a1d24] border border-[#2a2d35] rounded-xl">
             {([
-              { key: 'all', ar: 'الكل', en: 'All' },
-              { key: 'uncontacted', ar: 'لم يُتواصَل', en: 'Uncontacted' },
-              { key: 'contacted', ar: 'تم التواصل', en: 'Contacted' },
+              { key: 'all',          ar: 'الكل',         en: 'All' },
+              { key: 'uncontacted',  ar: 'لم يُتواصَل',  en: 'Uncontacted' },
+              { key: 'contacted',    ar: 'تم التواصل',   en: 'Contacted' },
             ] as const).map(f => (
               <button
                 key={f.key}
                 onClick={() => setContactedFilter(f.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
                   contactedFilter === f.key ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'
                 }`}
               >
@@ -325,27 +367,29 @@ export default function MissedOrdersPage() {
             <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden min-w-[800px]">
 
               {/* Table header */}
-              <div className="grid grid-cols-12 gap-3 px-5 py-3 border-b border-[#2a2d35]">
-                <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الهاتف' : 'Phone'}</span>
-                <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الاسم' : 'Name'}</span>
-                <span className="col-span-3 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'المنتج' : 'Product'}</span>
-                <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الكمية' : 'Qty'}</span>
-                <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'القيمة' : 'Value'}</span>
-                <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الوقت' : 'Time'}</span>
-                <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الإجراء' : 'Action'}</span>
+              <div className="grid grid-cols-13 gap-3 px-5 py-3 border-b border-[#2a2d35]" style={{ gridTemplateColumns: '2fr 2fr 3fr 1fr 1fr 1fr 2fr 2fr' }}>
+                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الهاتف' : 'Phone'}</span>
+                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الاسم' : 'Name'}</span>
+                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'المنتج' : 'Product'}</span>
+                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الكمية' : 'Qty'}</span>
+                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'القيمة' : 'Value'}</span>
+                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الوقت' : 'Time'}</span>
+                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الحالة' : 'Status'}</span>
+                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الإجراء' : 'Action'}</span>
               </div>
 
               {filtered.map((o, i) => (
                 <div
                   key={o.id}
-                  className={`grid grid-cols-12 gap-3 px-5 py-4 border-b border-[#2a2d35] last:border-0 items-center transition-colors ${
-                    o.contacted ? 'opacity-50 hover:opacity-70' : 'hover:bg-[#1f2229]'
+                  className={`grid gap-3 px-5 py-4 border-b border-[#2a2d35] last:border-0 items-center transition-colors ${
+                    o.recovered ? 'opacity-50 hover:opacity-70' : o.contacted ? 'opacity-60 hover:opacity-80' : 'hover:bg-[#1f2229]'
                   } ${i % 2 !== 0 ? 'bg-[#0f1117]/30' : ''}`}
+                  style={{ gridTemplateColumns: '2fr 2fr 3fr 1fr 1fr 1fr 2fr 2fr' }}
                 >
                   {/* Phone */}
-                  <div className="col-span-2">
+                  <div>
                     <div className="flex items-center gap-1.5">
-                      {!o.contacted && (
+                      {!o.contacted && !o.recovered && (
                         <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] flex-shrink-0" />
                       )}
                       <span className="text-sm text-white font-mono">{o.customer_phone}</span>
@@ -353,12 +397,12 @@ export default function MissedOrdersPage() {
                   </div>
 
                   {/* Name */}
-                  <div className="col-span-2 text-sm text-[#8b8fa8] truncate">
+                  <div className="text-sm text-[#8b8fa8] truncate">
                     {o.customer_name || '—'}
                   </div>
 
                   {/* Product */}
-                  <div className="col-span-3 flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
                     {o.products?.images?.[0] && (
                       <img src={o.products.images[0]} alt="" className="w-8 h-8 rounded-lg object-cover border border-[#2a2d35] shrink-0" />
                     )}
@@ -371,10 +415,10 @@ export default function MissedOrdersPage() {
                   </div>
 
                   {/* Qty */}
-                  <div className="col-span-1 text-sm text-[#8b8fa8]">×{o.qty}</div>
+                  <div className="text-sm text-[#8b8fa8]">×{o.qty}</div>
 
                   {/* Value */}
-                  <div className="col-span-1">
+                  <div>
                     <span className="text-sm text-[#fbbf24] font-medium">
                       {o.total_price ? Number(o.total_price).toLocaleString() : '—'}
                     </span>
@@ -384,13 +428,28 @@ export default function MissedOrdersPage() {
                   </div>
 
                   {/* Time */}
-                  <div className="col-span-1 text-xs text-[#4a4e60] whitespace-nowrap">
+                  <div className="text-xs text-[#4a4e60] whitespace-nowrap">
                     {timeAgo(o.created_at)}
                   </div>
 
+                  {/* Status */}
+                  <div>
+                    {o.recovered ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#14321f] text-[#4ade80] whitespace-nowrap">
+                        ✓ {lang === 'ar' ? 'مُغطى' : 'Covered'}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#3a1414] text-[#f87171] whitespace-nowrap">
+                        ● {lang === 'ar' ? 'غير مُغطى' : 'Uncovered'}
+                      </span>
+                    )}
+                  </div>
+
                   {/* Action */}
-                  <div className="col-span-2">
-                    {o.contacted ? (
+                  <div>
+                    {o.recovered ? (
+                      <span className="text-xs text-[#4a4e60]">—</span>
+                    ) : o.contacted ? (
                       <span className="text-xs text-[#4ade80] flex items-center gap-1">
                         ✓ {lang === 'ar' ? 'تم التواصل' : 'Contacted'}
                       </span>
@@ -398,7 +457,7 @@ export default function MissedOrdersPage() {
                       <button
                         onClick={() => markContacted(o.id)}
                         disabled={contactingId === o.id}
-                        className="text-xs bg-[#2a2d35] hover:bg-[#3a3d45] text-[#8b8fa8] hover:text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                        className="text-xs bg-[#2a2d35] hover:bg-[#3a3d45] text-[#8b8fa8] hover:text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap cursor-pointer"
                       >
                         {contactingId === o.id ? '...' : (lang === 'ar' ? 'تم التواصل' : 'Mark Contacted')}
                       </button>

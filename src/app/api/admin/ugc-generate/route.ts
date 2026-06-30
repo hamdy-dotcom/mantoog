@@ -4,33 +4,33 @@ import { assertAdmin } from '@/lib/admin/auth'
 
 export const maxDuration = 30
 
-// Kling O1 reference-to-video: uses product image as visual reference (not start frame)
-// Generates a fresh UGC scene while maintaining the product's exact appearance
+// Kling O1 reference-to-video
+// Correct API: elements[].frontal_image_url + reference_image_urls
+// Product referenced in prompt as @Element1
 const FAL_KLING_REF = 'https://queue.fal.run/fal-ai/kling-video/o1/reference-to-video'
 
 const SYSTEM_PROMPT = `You are an expert TikTok UGC ad creative director for the Saudi Arabian market.
-You will be shown the product images. The AI video model will use these images as a visual reference to keep the product looking exactly right in the generated video.
-Your job: write a scene + motion prompt describing the UGC ad. You do NOT need to describe the product appearance — the model already has the reference images.
+You will be shown product images. The AI video model will receive the product as "@Element1" — a visual element it will place in the video with exact appearance.
+Your job: write a motion/scene prompt. Always refer to the product as "@Element1" — never describe its appearance, just call it @Element1.
 
-Write a prompt covering:
+Write a prompt like this structure (but as natural flowing text):
 
-1. PERSON & SCENE:
-Saudi woman in casual hijab and abaya, OR Saudi man in white thobe and shemagh. Saudi home interior — warm living room or kitchen. Soft natural daylight. Authentic, unstaged look.
+A Saudi woman in casual hijab and abaya sits in a warm Saudi living room. She picks up @Element1 and reacts with surprise and excitement. She says [exact Saudi Arabic dialogue]. She holds @Element1 up close to camera with both hands, rotating it to show different angles. She speaks [more Arabic] about its key benefit. She demonstrates using @Element1. She looks directly at camera: "اطلبه الحين!"
 
-2. SHOT SEQUENCE (10 seconds):
-  • 0–2s: Person reacts naturally to the product with excitement. Says one punchy line in Saudi Arabic dialect (write EXACT words in Arabic script).
-  • 2–6s: Person holds the product clearly toward camera with both hands. Rotates it to show key features. Speaks Arabic about the main benefit (write EXACT words in Arabic script). Product and face both clearly visible.
-  • 6–9s: Person actively demonstrates using the product. Shows it working. Natural reaction.
-  • 9–10s: Person looks directly at camera: "اطلبه الحين!" or "جربه الحين!"
+SHOT TIMING (10 seconds):
+• 0–2s: Person picks up @Element1, surprised reaction, one punchy Arabic line
+• 2–6s: Holds @Element1 up to camera, rotates it, speaks Arabic about the benefit
+• 6–9s: Demonstrates @Element1 in use, positive reaction
+• 9–10s: Direct to camera CTA in Arabic
 
-3. TECHNICAL:
-Handheld iPhone footage, slightly shaky. Person's eyes ALWAYS OPEN — relaxed, natural gaze, zero wide-eyed or staring. Calm authentic expressions. Warm ambient home sounds + natural Arabic voiceover.
+TECHNICAL: Handheld iPhone, slightly shaky. Eyes always OPEN — natural relaxed gaze, never wide-eyed. Warm home light. Authentic unstaged look. Arabic voiceover.
 
 ABSOLUTE RULES:
-- Output only the prompt text. No labels, no headers, no explanation.
-- ALL spoken dialogue in Saudi Arabic script only. Zero English spoken words.
-- NEVER name any brand, retailer, or platform.
-- Keep under 350 words.`
+- Output only the prompt text. No labels, no markdown, no explanation.
+- ALWAYS call the product @Element1 in the prompt.
+- ALL spoken dialogue in Saudi Arabic script only. Zero English.
+- NEVER name any brand or retailer.
+- Keep under 300 words.`
 
 export async function POST(req: NextRequest) {
   const auth = await assertAdmin()
@@ -39,19 +39,18 @@ export async function POST(req: NextRequest) {
   const { title, description, imageUrls = [] } = await req.json().catch(() => ({}))
   if (!title) return NextResponse.json({ error: 'title required' }, { status: 400 })
 
-  const imageUrl: string | null = (imageUrls as string[])[0] ?? null
-  if (!imageUrl) return NextResponse.json({ error: 'at least one product image required' }, { status: 400 })
+  const urls = imageUrls as string[]
+  if (!urls[0]) return NextResponse.json({ error: 'at least one product image required' }, { status: 400 })
 
   const falKey = process.env.FAL_KEY
   if (!falKey) return NextResponse.json({ error: 'FAL_KEY not configured' }, { status: 500 })
-
   const anthropicKey = process.env.ANTHROPIC_API_KEY
   if (!anthropicKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
 
-  // Step 1: Claude writes the UGC scene + motion prompt
+  // Step 1: Claude writes the UGC scene prompt (must use @Element1 for product)
   const client = new Anthropic({ apiKey: anthropicKey })
 
-  const imageBlocks = (imageUrls as string[]).slice(0, 4).map((url: string) => ({
+  const imageBlocks = urls.slice(0, 4).map(url => ({
     type: 'image' as const,
     source: { type: 'url' as const, url },
   }))
@@ -61,14 +60,14 @@ export async function POST(req: NextRequest) {
     text: `Product: ${title}
 ${description ? `Description: ${description.slice(0, 300)}` : ''}
 
-Write a Kling reference-to-video motion prompt. The model already has the product images for visual reference — focus on the UGC scene, person, motion, and Arabic dialogue.`,
+Write the UGC scene prompt. Always refer to this product as @Element1.`,
   }
 
   let veoPrompt: string
   try {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 800,
+      max_tokens: 700,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: [...imageBlocks, textBlock] }],
     })
@@ -78,14 +77,20 @@ Write a Kling reference-to-video motion prompt. The model already has the produc
     return NextResponse.json({ error: `Claude error: ${e.message}` }, { status: 502 })
   }
 
-  // Step 2: Submit to Kling reference-to-video
+  // Step 2: Submit to Kling O1 reference-to-video with correct elements structure
+  // elements[0] = product visual reference → appears as @Element1 in the video
+  const element = {
+    frontal_image_url: urls[0],
+    ...(urls.length > 1 ? { reference_image_urls: urls.slice(1, 4) } : {}),
+  }
+
   try {
     const res = await fetch(FAL_KLING_REF, {
       method: 'POST',
       headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        image_url: imageUrl,
         prompt: veoPrompt,
+        elements: [element],
         duration: '10',
         aspect_ratio: '9:16',
       }),

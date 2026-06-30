@@ -4,33 +4,36 @@ import { assertAdmin } from '@/lib/admin/auth'
 
 export const maxDuration = 30
 
-// Kling O1 reference-to-video
-// Correct API: elements[].frontal_image_url + reference_image_urls
-// Product referenced in prompt as @Element1
-const FAL_KLING_REF = 'https://queue.fal.run/fal-ai/kling-video/o1/reference-to-video'
+// VEO3 full image-to-video — product image is the literal start frame
+// generate_audio: true → Arabic speech + ambient sounds
+// Much higher quality than VEO3 lite and Kling
+const FAL_VEO3_I2V = 'https://queue.fal.run/fal-ai/veo3/image-to-video'
 
 const SYSTEM_PROMPT = `You are an expert TikTok UGC ad creative director for the Saudi Arabian market.
-You will be shown product images. The AI video model will receive the product as "@Element1" — a visual element it will place in the video with exact appearance.
-Your job: write a motion/scene prompt. Always refer to the product as "@Element1" — never describe its appearance, just call it @Element1.
+The video will START with the exact product image as its first frame. Your prompt must describe how the scene EVOLVES from that starting point — hands reaching in, camera pulling back to reveal a home setting, person appearing.
 
-Write a prompt like this structure (but as natural flowing text):
+Write a prompt that flows naturally from "product sitting in frame" → "UGC ad scene":
 
-A Saudi woman in casual hijab and abaya sits in a warm Saudi living room. She picks up @Element1 and reacts with surprise and excitement. She says [exact Saudi Arabic dialogue]. She holds @Element1 up close to camera with both hands, rotating it to show different angles. She speaks [more Arabic] about its key benefit. She demonstrates using @Element1. She looks directly at camera: "اطلبه الحين!"
+STRUCTURE TO FOLLOW:
+1. Camera starts tight on the product (this is the start frame — white bg fades/transitions)
+2. A Saudi woman's hands enter from below, picking up the product with both hands
+3. Camera pulls back to reveal a warm Saudi living room, soft natural daylight
+4. Woman reacts with excitement — looks at product, then to camera. Says Arabic line.
+5. She holds the product up, rotates it, demonstrates it — speaks Arabic about key benefit
+6. She demonstrates using the product actively
+7. Looks directly at camera: "اطلبه الحين!" or "جربه الحين!"
 
-SHOT TIMING (10 seconds):
-• 0–2s: Person picks up @Element1, surprised reaction, one punchy Arabic line
-• 2–6s: Holds @Element1 up to camera, rotates it, speaks Arabic about the benefit
-• 6–9s: Demonstrates @Element1 in use, positive reaction
-• 9–10s: Direct to camera CTA in Arabic
+WRITE IT AS ONE FLOWING DESCRIPTIVE PROMPT (not a list). Example style:
+"The video opens on the [product description] sitting still. Two hands in a beige abaya sleeve reach in from the bottom of frame and gently pick it up. The camera smoothly pulls back to reveal a warm Saudi home living room — cream walls, soft morning light through curtains. A Saudi woman in a soft beige hijab and abaya looks at the product in her hands with delight and says بالعامية السعودية: "[exact Arabic words]". She lifts it toward the camera..."
 
-TECHNICAL: Handheld iPhone, slightly shaky. Eyes always OPEN — natural relaxed gaze, never wide-eyed. Warm home light. Authentic unstaged look. Arabic voiceover.
-
-ABSOLUTE RULES:
-- Output only the prompt text. No labels, no markdown, no explanation.
-- ALWAYS call the product @Element1 in the prompt.
-- ALL spoken dialogue in Saudi Arabic script only. Zero English.
-- NEVER name any brand or retailer.
-- Keep under 300 words.`
+RULES:
+- Write ONLY the prompt text. No labels, no headers, no markdown.
+- Include the exact Arabic dialogue the woman speaks (Saudi dialect, Arabic script).
+- Eyes ALWAYS open — relaxed natural gaze. No wide eyes, no staring, no closed eyes.
+- Handheld iPhone footage feel, slightly shaky.
+- Warm authentic home setting, not studio.
+- Never name any brand or retailer.
+- Keep under 400 words.`
 
 export async function POST(req: NextRequest) {
   const auth = await assertAdmin()
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
   const anthropicKey = process.env.ANTHROPIC_API_KEY
   if (!anthropicKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
 
-  // Step 1: Claude writes the UGC scene prompt (must use @Element1 for product)
+  // Step 1: Claude writes the scene evolution prompt
   const client = new Anthropic({ apiKey: anthropicKey })
 
   const imageBlocks = urls.slice(0, 4).map(url => ({
@@ -60,14 +63,14 @@ export async function POST(req: NextRequest) {
     text: `Product: ${title}
 ${description ? `Description: ${description.slice(0, 300)}` : ''}
 
-Write the UGC scene prompt. Always refer to this product as @Element1.`,
+The video start frame IS the product image above. Write the VEO3 image-to-video prompt describing how a Saudi UGC ad scene evolves from that starting frame.`,
   }
 
   let veoPrompt: string
   try {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 700,
+      max_tokens: 800,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: [...imageBlocks, textBlock] }],
     })
@@ -77,22 +80,19 @@ Write the UGC scene prompt. Always refer to this product as @Element1.`,
     return NextResponse.json({ error: `Claude error: ${e.message}` }, { status: 502 })
   }
 
-  // Step 2: Submit to Kling O1 reference-to-video with correct elements structure
-  // elements[0] = product visual reference → appears as @Element1 in the video
-  const element = {
-    frontal_image_url: urls[0],
-    ...(urls.length > 1 ? { reference_image_urls: urls.slice(1, 4) } : {}),
-  }
-
+  // Step 2: Submit to VEO3 image-to-video
   try {
-    const res = await fetch(FAL_KLING_REF, {
+    const res = await fetch(FAL_VEO3_I2V, {
       method: 'POST',
       headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        image_url: urls[0],
         prompt: veoPrompt,
-        elements: [element],
-        duration: '10',
         aspect_ratio: '9:16',
+        duration: '8s',
+        resolution: '720p',
+        generate_audio: true,
+        negative_prompt: 'white background, studio lighting, closed eyes, wide eyes, bulging eyes, fake smile, artificial, staged',
       }),
       signal: AbortSignal.timeout(15000),
     })
@@ -113,7 +113,7 @@ Write the UGC scene prompt. Always refer to this product as @Element1.`,
 
     return NextResponse.json({
       requestId: b.request_id as string,
-      statusUrl: b.status_url ?? `https://queue.fal.run/fal-ai/kling-video/o1/reference-to-video/requests/${b.request_id}/status`,
+      statusUrl: b.status_url ?? `https://queue.fal.run/fal-ai/veo3/image-to-video/requests/${b.request_id}/status`,
       responseUrl: b.response_url ?? null,
       veoPrompt,
     })

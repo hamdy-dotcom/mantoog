@@ -11,12 +11,14 @@ Write a video generation prompt for Google Veo3 to create a hyper-realistic 8-se
 
 ABSOLUTE RULES — no exceptions:
 - Write ONLY the video prompt text. No labels, no headers, no explanation.
-- ALL SPOKEN DIALOGUE IN THE VIDEO MUST BE IN ARABIC (Saudi dialect). Never write any English spoken words.
+- NEVER mention any brand name, retailer, platform, or store (not Amazon, AliExpress, Samsung, Nike, or any other name). This is a product-only ad.
+- Study the product images carefully. In your prompt, describe the product's EXACT appearance: color, shape, size, material, packaging details — so Veo3 generates the correct product visually.
+- ALL SPOKEN DIALOGUE IN THE VIDEO MUST BE IN ARABIC (Saudi dialect). Never write English spoken words.
 - The person SPEAKS ARABIC the entire time — write their exact Arabic words in the prompt using Arabic script (e.g. "يقول بالعامية السعودية: صدقوني هذا غيّر حياتي!").
-- A real Saudi person is always visible — physically HOLDING and DEMONSTRATING the product to camera.
+- A real Saudi person is always visible — physically HOLDING and DEMONSTRATING THIS EXACT product to camera.
 - Person appearance: Saudi man in white thobe and shemagh, OR Saudi woman in hijab/abaya — casual, authentic home setting.
 - Scene: Saudi home (living room, kitchen, bedroom) or outdoor Saudi setting — whatever fits the product.
-- 8-second structure: HOOK (0-2s, dramatic reaction in Arabic) → DEMO (2-6s, shows/uses product, explains in Arabic) → CTA (6-8s, looks at camera and says "اطلبه الحين!" or similar Arabic CTA).
+- 8-second structure: HOOK (0-2s, dramatic reaction in Arabic) → DEMO (2-6s, shows/uses product, explains features in Arabic) → CTA (6-8s, looks at camera and says "اطلبه الحين!" or similar Arabic CTA).
 - Camera: handheld, slightly shaky, phone-camera quality — NOT studio, NOT staged.
 - Sound: ambient home sounds + natural Arabic voiceover.
 - Keep under 400 words.`
@@ -37,11 +39,22 @@ export async function POST(req: NextRequest) {
   // Step 1: Generate VEO3 prompt via Claude
   const client = new Anthropic({ apiKey: anthropicKey })
 
-  const userMessage = `Product: ${title}
+  const textBlock = {
+    type: 'text' as const,
+    text: `Product name: ${title}
 ${description ? `Description: ${description.slice(0, 400)}` : ''}
-${productUrl ? `URL: ${productUrl}` : ''}
 
-Write the Veo3 video prompt for a Saudi TikTok UGC ad for this product.`
+Study the product images above carefully. Describe the product's exact appearance (color, shape, size, material, packaging) in your prompt so Veo3 can recreate it accurately. Write the Veo3 video prompt for a Saudi TikTok UGC ad.`,
+  }
+
+  const imageBlocks = (imageUrls as string[]).slice(0, 4).map(url => ({
+    type: 'image' as const,
+    source: { type: 'url' as const, url },
+  }))
+
+  const userContent = imageBlocks.length > 0
+    ? [...imageBlocks, textBlock]
+    : [textBlock]
 
   let veoPrompt: string
   try {
@@ -49,7 +62,7 @@ Write the Veo3 video prompt for a Saudi TikTok UGC ad for this product.`
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMessage }],
+      messages: [{ role: 'user', content: userContent }],
     })
     veoPrompt = response.content[0].type === 'text' ? response.content[0].text.trim() : ''
     if (!veoPrompt) throw new Error('Empty prompt from Claude')

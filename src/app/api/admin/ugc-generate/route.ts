@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { assertAdmin } from '@/lib/admin/auth'
+import { supabaseAdmin } from '@/lib/tiktok/server'
 
-export const maxDuration = 30
+export const maxDuration = 60
 
 // VEO3.1 Lite reference-to-video
 // image_urls = product reference images → consistent subject appearance
@@ -36,6 +37,25 @@ ABSOLUTE RULES:
 - ALL spoken dialogue in Saudi Arabic script only. Zero English spoken words.
 - NEVER name any brand, retailer, or platform.
 - Keep under 450 words.`
+
+async function proxyImageToSupabase(imageUrl: string, idx: number): Promise<string | null> {
+  try {
+    const res = await fetch(imageUrl, { signal: AbortSignal.timeout(10000) })
+    if (!res.ok) return null
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const contentType = res.headers.get('content-type') || 'image/jpeg'
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg'
+    const path = `ugc-temp/${Date.now()}-${idx}.${ext}`
+    const { error } = await supabaseAdmin.storage
+      .from('store-assets')
+      .upload(path, buffer, { contentType, upsert: true })
+    if (error) return null
+    const { data } = supabaseAdmin.storage.from('store-assets').getPublicUrl(path)
+    return data.publicUrl
+  } catch {
+    return null
+  }
+}
 
 export async function POST(req: NextRequest) {
   const auth = await assertAdmin()
@@ -82,15 +102,21 @@ Write the VEO3 UGC video prompt. The model will receive the product images as vi
     return NextResponse.json({ error: `Claude error: ${e.message}` }, { status: 502 })
   }
 
-  // Step 2: Submit to VEO3.1 Lite reference-to-video
-  // image_urls = product reference images for consistent subject appearance
+  // Step 2: Proxy Amazon CDN images through Supabase (fal.ai can't fetch Amazon CDN URLs directly)
+  const proxyResults = await Promise.all(urls.slice(0, 4).map((u, i) => proxyImageToSupabase(u, i)))
+  const proxyUrls = proxyResults.filter(Boolean) as string[]
+  if (proxyUrls.length === 0) {
+    return NextResponse.json({ error: 'Failed to proxy product images — cannot pass reference images to fal.ai', veoPrompt }, { status: 502 })
+  }
+
+  // Step 3: Submit to VEO3.1 Lite reference-to-video with accessible Supabase URLs
   try {
     const res = await fetch(FAL_VEO3_REF, {
       method: 'POST',
       headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: veoPrompt,
-        image_urls: urls.slice(0, 4),
+        image_urls: proxyUrls,
         aspect_ratio: '9:16',
         resolution: '720p',
         generate_audio: true,

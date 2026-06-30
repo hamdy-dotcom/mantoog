@@ -6,20 +6,20 @@ export const maxDuration = 30
 
 const FAL_VEO3_LITE = 'https://queue.fal.run/fal-ai/veo3.1/lite'
 
-const SYSTEM_PROMPT = `You are an expert TikTok UGC ad creative director specializing in the Saudi Arabian market.
-Write a detailed, scene-by-scene video generation prompt for Google Veo3 to create a hyper-realistic 8-second UGC TikTok ad.
+const SYSTEM_PROMPT = `You are an expert TikTok UGC ad creative director for the Saudi Arabian market.
+Write a video generation prompt for Google Veo3 to create a hyper-realistic 8-second UGC TikTok ad.
 
-CRITICAL rules — read carefully:
-- Write ONLY the video prompt text. No labels, no explanation, no intro, no markdown headers.
-- A REAL PERSON must be visible at all times — a Saudi man or woman physically HOLDING, USING, and PRESENTING the product to camera. This is not a product showcase; this is a human-led UGC review.
-- The person must speak in Saudi Arabic dialect (كتابة بالعامية السعودية) — include their exact spoken words.
-- Describe the person's appearance: Saudi man in white thobe + shemagh, OR Saudi woman in hijab/abaya, casual and authentic-looking.
-- Set the scene: Saudi home living room, kitchen, desert camp, mall, etc. — pick what fits the product.
-- Structure the 8 seconds: HOOK (0-2s, person reacts to product dramatically) → DEMO (2-6s, person holds up product, uses it, explains feature) → CTA (6-8s, person looks at camera: "اطلبه الحين!")
-- Camera: handheld, slightly shaky, close-ups of the person's face and hands, phone-camera quality
-- Sound: ambient home/environment sounds + natural conversational Arabic voiceover
-- Style: authentic iPhone footage, real home background, NOT staged, NOT studio, NOT cartoonish
-- Keep under 400 words`
+ABSOLUTE RULES — no exceptions:
+- Write ONLY the video prompt text. No labels, no headers, no explanation.
+- ALL SPOKEN DIALOGUE IN THE VIDEO MUST BE IN ARABIC (Saudi dialect). Never write any English spoken words.
+- The person SPEAKS ARABIC the entire time — write their exact Arabic words in the prompt using Arabic script (e.g. "يقول بالعامية السعودية: صدقوني هذا غيّر حياتي!").
+- A real Saudi person is always visible — physically HOLDING and DEMONSTRATING the product to camera.
+- Person appearance: Saudi man in white thobe and shemagh, OR Saudi woman in hijab/abaya — casual, authentic home setting.
+- Scene: Saudi home (living room, kitchen, bedroom) or outdoor Saudi setting — whatever fits the product.
+- 8-second structure: HOOK (0-2s, dramatic reaction in Arabic) → DEMO (2-6s, shows/uses product, explains in Arabic) → CTA (6-8s, looks at camera and says "اطلبه الحين!" or similar Arabic CTA).
+- Camera: handheld, slightly shaky, phone-camera quality — NOT studio, NOT staged.
+- Sound: ambient home sounds + natural Arabic voiceover.
+- Keep under 400 words.`
 
 export async function POST(req: NextRequest) {
   const auth = await assertAdmin()
@@ -70,9 +70,19 @@ Write the Veo3 video prompt for a Saudi TikTok UGC ad for this product.`
       signal: AbortSignal.timeout(15000),
     })
     const txt = await res.text()
-    if (!res.ok) throw new Error(`fal.ai ${res.status}: ${txt.slice(0, 200)}`)
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: `fal.ai ${res.status}: ${txt.slice(0, 200)}`, veoPrompt },
+        { status: 502 }
+      )
+    }
     const b = JSON.parse(txt)
-    if (!b.request_id) throw new Error(`no request_id: ${txt.slice(0, 200)}`)
+    if (!b.request_id) {
+      return NextResponse.json(
+        { error: `no request_id: ${txt.slice(0, 200)}`, veoPrompt },
+        { status: 502 }
+      )
+    }
 
     return NextResponse.json({
       requestId: b.request_id as string,
@@ -81,6 +91,6 @@ Write the Veo3 video prompt for a Saudi TikTok UGC ad for this product.`
       veoPrompt,
     })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 502 })
+    return NextResponse.json({ error: e.message, veoPrompt }, { status: 502 })
   }
 }

@@ -141,6 +141,7 @@ export default function UGCTestPage() {
         }),
       })
       const data = await res.json()
+      if (data.veoPrompt) setVeoPrompt(data.veoPrompt)
       if (!res.ok) throw new Error(data.error || 'Generation request failed')
       setRequestId(data.requestId)
       setStatusUrl(data.statusUrl)
@@ -363,9 +364,25 @@ export default function UGCTestPage() {
 
         {/* Error */}
         {step === 'error' && error && (
-          <div className="bg-[#1a1d24] border border-[#5a1a1a] rounded-xl p-4 space-y-2">
+          <div className="bg-[#1a1d24] border border-[#5a1a1a] rounded-xl p-4 space-y-3">
             <div className="text-sm font-semibold text-[#f87171]">Error</div>
             <div className="text-xs text-[#f87171] leading-relaxed">{error}</div>
+            {veoPrompt && (
+              <>
+                <button
+                  onClick={() => setShowPrompt(v => !v)}
+                  className="flex items-center gap-1 text-xs text-[#6366f1] hover:text-[#818cf8] cursor-pointer transition-colors"
+                >
+                  <IconChevDown className={`w-3.5 h-3.5 transition-transform duration-150 ${showPrompt ? 'rotate-180' : ''}`} />
+                  {showPrompt ? 'Hide' : 'Show'} generated prompt
+                </button>
+                {showPrompt && (
+                  <div className="bg-[#0f1117] border border-[#2a2d35] rounded-lg p-3 text-xs text-[#8b8fa8] whitespace-pre-wrap leading-relaxed">
+                    {veoPrompt}
+                  </div>
+                )}
+              </>
+            )}
             <button
               onClick={() => { setStep(product ? 'extracted' : 'idle'); setError(null) }}
               className="text-xs text-[#8b8fa8] hover:text-white cursor-pointer transition-colors underline"

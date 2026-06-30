@@ -111,7 +111,7 @@ Write the VEO3 UGC video prompt. The model will receive the product images as vi
     const txt = await res.text()
     if (!res.ok) {
       return NextResponse.json(
-        { error: `fal.ai ${res.status}: ${txt}`, veoPrompt, proxyUrls },
+        { error: `fal.ai ${res.status}: ${txt}\n\nPROXY_URLS: ${JSON.stringify(proxyUrls)}`, veoPrompt, proxyUrls },
         { status: 502 }
       )
     }

@@ -86,21 +86,22 @@ Write the VEO3 UGC video prompt. The model will receive the product images as vi
     return NextResponse.json({ error: `Claude error: ${e.message}` }, { status: 502 })
   }
 
-  // Step 2: Proxy Amazon CDN images through Supabase (fal.ai can't fetch Amazon CDN URLs directly)
-  const proxyResults = await Promise.all(urls.slice(0, 4).map((u, i) => proxyImageToSupabase(u, i)))
-  const proxyUrls = proxyResults.filter(Boolean) as string[]
-  if (proxyUrls.length === 0) {
-    return NextResponse.json({ error: 'Failed to proxy product images — cannot pass reference images to fal.ai', veoPrompt }, { status: 502 })
+  // Step 2: Proxy the main product image through Supabase (fal.ai can't fetch Amazon CDN URLs directly).
+  // VEO3.1 reference-to-video accepts EXACTLY ONE reference image — sending 2+ makes it
+  // reject generation with "Could not generate images". So we send only the first (main) image.
+  const proxyUrl = await proxyImageToSupabase(urls[0], 0)
+  if (!proxyUrl) {
+    return NextResponse.json({ error: 'Failed to proxy product image — cannot pass reference image to fal.ai', veoPrompt }, { status: 502 })
   }
 
-  // Step 3: Submit to VEO3.1 Lite reference-to-video with accessible Supabase URLs
+  // Step 3: Submit to VEO3.1 Lite reference-to-video with the single accessible Supabase URL
   try {
     const res = await fetch(FAL_VEO3_REF, {
       method: 'POST',
       headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: veoPrompt,
-        image_urls: proxyUrls,
+        image_urls: [proxyUrl],
         aspect_ratio: '9:16',
         resolution: '720p',
         generate_audio: true,
@@ -109,9 +110,8 @@ Write the VEO3 UGC video prompt. The model will receive the product images as vi
     })
     const txt = await res.text()
     if (!res.ok) {
-      const debug = `KEY_PREFIX=${falKey.slice(0,8)} PROXY_COUNT=${proxyUrls.length} URLS=${proxyUrls.map(u=>u.slice(-40)).join('|')}`
       return NextResponse.json(
-        { error: `fal.ai ${res.status}: ${txt} ||| ${debug}`, veoPrompt, proxyUrls },
+        { error: `fal.ai ${res.status}: ${txt.slice(0, 300)}`, veoPrompt },
         { status: 502 }
       )
     }

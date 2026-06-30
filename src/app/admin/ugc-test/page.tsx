@@ -366,7 +366,7 @@ export default function UGCTestPage() {
         {step === 'error' && error && (
           <div className="bg-[#1a1d24] border border-[#5a1a1a] rounded-xl p-4 space-y-3">
             <div className="text-sm font-semibold text-[#f87171]">Error</div>
-            <div className="text-xs text-[#f87171] leading-relaxed">{error}</div>
+            <pre className="text-xs text-[#f87171] leading-relaxed whitespace-pre-wrap break-all overflow-auto max-h-64">{error}</pre>
             {veoPrompt && (
               <>
                 <button

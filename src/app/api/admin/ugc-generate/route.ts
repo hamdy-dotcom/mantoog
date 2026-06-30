@@ -119,14 +119,13 @@ Write the VEO3 UGC video prompt. The model will receive the product images as vi
         aspect_ratio: '9:16',
         resolution: '720p',
         generate_audio: true,
-        auto_fix: true,
       }),
       signal: AbortSignal.timeout(15000),
     })
     const txt = await res.text()
     if (!res.ok) {
       return NextResponse.json(
-        { error: `fal.ai ${res.status}: ${txt.slice(0, 200)}`, veoPrompt },
+        { error: `fal.ai ${res.status}: ${txt}`, veoPrompt, proxyUrls },
         { status: 502 }
       )
     }

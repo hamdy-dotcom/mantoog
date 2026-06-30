@@ -4,31 +4,31 @@ import { assertAdmin } from '@/lib/admin/auth'
 
 export const maxDuration = 30
 
-// Kling v2.5 Turbo Standard — image-to-video, $0.042/s
-// Takes the actual product image as start frame → exact product appearance
-const FAL_KLING = 'https://queue.fal.run/fal-ai/kling-video/v2.5-turbo/standard/image-to-video'
+// Kling O1 reference-to-video: uses product image as visual reference (not start frame)
+// Generates a fresh UGC scene while maintaining the product's exact appearance
+const FAL_KLING_REF = 'https://queue.fal.run/fal-ai/kling-video/o1/reference-to-video'
 
 const SYSTEM_PROMPT = `You are an expert TikTok UGC ad creative director for the Saudi Arabian market.
-The product image is already provided as the video start frame — you do NOT need to describe the product's appearance.
-Your job is to write a motion/scene prompt that tells the AI how to animate and extend that image into an 8-second UGC video.
+You will be shown the product images. The AI video model will use these images as a visual reference to keep the product looking exactly right in the generated video.
+Your job: write a scene + motion prompt describing the UGC ad. You do NOT need to describe the product appearance — the model already has the reference images.
 
-Write a prompt that describes MOTION and SCENE only:
+Write a prompt covering:
 
-1. SCENE SETUP:
-The product sits in a Saudi home (living room or kitchen). A Saudi woman in casual hijab and abaya, or a Saudi man in white thobe and shemagh, reaches into frame from the side and picks up the product naturally.
+1. PERSON & SCENE:
+Saudi woman in casual hijab and abaya, OR Saudi man in white thobe and shemagh. Saudi home interior — warm living room or kitchen. Soft natural daylight. Authentic, unstaged look.
 
-2. SHOT SEQUENCE (describe motion and camera):
-  • 0–2s: Hands reach in and pick up the product confidently. Camera handheld, slightly shaky. Product remains clearly visible.
-  • 2–5s: Person holds the product up toward camera, rotates it to show different angles. Their face enters frame — natural, relaxed expression, eyes open. Person speaks in Saudi Arabic dialect (write their EXACT words in Arabic script).
-  • 5–7s: Person demonstrates using the product — shows it working, reacts positively. Speaks Arabic about one key benefit (write exact Arabic words).
-  • 7–8s: Person looks directly at camera: "اطلبه الحين!" or "جربه الحين!"
+2. SHOT SEQUENCE (10 seconds):
+  • 0–2s: Person reacts naturally to the product with excitement. Says one punchy line in Saudi Arabic dialect (write EXACT words in Arabic script).
+  • 2–6s: Person holds the product clearly toward camera with both hands. Rotates it to show key features. Speaks Arabic about the main benefit (write EXACT words in Arabic script). Product and face both clearly visible.
+  • 6–9s: Person actively demonstrates using the product. Shows it working. Natural reaction.
+  • 9–10s: Person looks directly at camera: "اطلبه الحين!" or "جربه الحين!"
 
 3. TECHNICAL:
-iPhone handheld footage, slightly shaky. Soft warm natural daylight. Person's eyes ALWAYS OPEN — natural, relaxed gaze, zero wide-eyed or staring expressions. Authentic Saudi home background, unstaged. Ambient sounds.
+Handheld iPhone footage, slightly shaky. Person's eyes ALWAYS OPEN — relaxed, natural gaze, zero wide-eyed or staring. Calm authentic expressions. Warm ambient home sounds + natural Arabic voiceover.
 
 ABSOLUTE RULES:
-- Output only the prompt text. No labels, no markdown, no explanation.
-- ALL spoken dialogue MUST be in Saudi Arabic script only. Zero English spoken words.
+- Output only the prompt text. No labels, no headers, no explanation.
+- ALL spoken dialogue in Saudi Arabic script only. Zero English spoken words.
 - NEVER name any brand, retailer, or platform.
 - Keep under 350 words.`
 
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   const anthropicKey = process.env.ANTHROPIC_API_KEY
   if (!anthropicKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
 
-  // Step 1: Claude writes the motion/scene prompt (product appearance comes from the image)
+  // Step 1: Claude writes the UGC scene + motion prompt
   const client = new Anthropic({ apiKey: anthropicKey })
 
   const imageBlocks = (imageUrls as string[]).slice(0, 4).map((url: string) => ({
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     text: `Product: ${title}
 ${description ? `Description: ${description.slice(0, 300)}` : ''}
 
-The images above show the exact product. Write a Kling image-to-video motion prompt — the product appearance is already in the start frame, so focus on motion, person, Arabic dialogue, and scene.`,
+Write a Kling reference-to-video motion prompt. The model already has the product images for visual reference — focus on the UGC scene, person, motion, and Arabic dialogue.`,
   }
 
   let veoPrompt: string
@@ -78,9 +78,9 @@ The images above show the exact product. Write a Kling image-to-video motion pro
     return NextResponse.json({ error: `Claude error: ${e.message}` }, { status: 502 })
   }
 
-  // Step 2: Submit to Kling image-to-video (product image as start frame)
+  // Step 2: Submit to Kling reference-to-video
   try {
-    const res = await fetch(FAL_KLING, {
+    const res = await fetch(FAL_KLING_REF, {
       method: 'POST',
       headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -108,7 +108,7 @@ The images above show the exact product. Write a Kling image-to-video motion pro
 
     return NextResponse.json({
       requestId: b.request_id as string,
-      statusUrl: b.status_url ?? `https://queue.fal.run/fal-ai/kling-video/v2.5-turbo/standard/image-to-video/requests/${b.request_id}/status`,
+      statusUrl: b.status_url ?? `https://queue.fal.run/fal-ai/kling-video/o1/reference-to-video/requests/${b.request_id}/status`,
       responseUrl: b.response_url ?? null,
       veoPrompt,
     })

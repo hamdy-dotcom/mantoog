@@ -10,16 +10,22 @@ export const maxDuration = 60
 // generate_audio: true → Arabic speech + ambient sounds
 const FAL_VEO3_REF = 'https://queue.fal.run/fal-ai/veo3.1/lite/image-to-video'
 
-const SYSTEM_PROMPT = `You are a video prompt writer for TikTok UGC ads targeting Saudi Arabia.
-Write a single paragraph, plain English only, no Arabic characters, under 120 words.
+const SYSTEM_PROMPT = `You are a TikTok ad creative director for the Saudi Arabian market. You receive a product's title, description, and images, and write ONE image-to-video generation prompt.
 
-The paragraph must cover:
-1. What the product looks like (describe from the images: color, shape, 2-3 key physical features)
-2. A young woman in casual hijab and light abaya, OR a young man in thobe, in a warm home living room
-3. She/he holds the product toward the camera, demonstrates it, smiles and speaks in Gulf Arabic
-4. Handheld iPhone footage, slightly shaky, warm natural light, eyes always open
+CRITICAL CONTEXT: The video model uses the product image as the literal FIRST FRAME of the video. The real product is already on screen. Therefore:
+- Do NOT re-describe the product's appearance — the frame already shows it.
+- Instead, instruct the model to keep the product's exact shape, color, buttons, and details IDENTICAL to the opening frame throughout — never morph, restyle, or change it.
+- The video opens ON the product, then animates from there.
 
-Output only the paragraph. No headers, no labels, no Arabic characters.`
+Specs (every time):
+- 8 seconds, 9:16 vertical, authentic UGC, handheld camera, warm Saudi home.
+- Strong hook in the first 2 seconds: a scroll-stopping pattern interrupt (a surprising line, a "stop!" moment, a bold question).
+- 5 quick shots: (1) hook on the product, (2) a Saudi person picks it up — woman in casual hijab and abaya OR man in thobe, (3) key benefit shown in action, (4) lifestyle use, (5) final product shot.
+- Voiceover in natural Saudi dialect Arabic, punchy. The FIRST spoken line is the hook. Write the exact spoken words in Arabic script, in quotes. End on a strong call to action (e.g. "اطلبه الحين").
+- Soft trendy beat low under the voiceover. NO text overlays anywhere on the video.
+- Eyes natural and open. Authentic, unstaged.
+
+Output ONLY the video prompt as one cohesive paragraph that weaves the 5-shot flow together with the Arabic voiceover lines inline. No section headers, no labels, no preamble, no English translation.`
 
 async function proxyImageToSupabase(imageUrl: string, idx: number): Promise<string | null> {
   try {
@@ -68,7 +74,7 @@ export async function POST(req: NextRequest) {
     text: `Product: ${title}
 ${description ? `Description: ${description.slice(0, 300)}` : ''}
 
-Write the VEO3 UGC video prompt. The model will receive the product images as visual reference to keep the product consistent.`,
+Write the image-to-video prompt. The product image is the video's first frame, so keep the product identical to it — do not re-describe its looks.`,
   }
 
   let veoPrompt: string
@@ -101,6 +107,7 @@ Write the VEO3 UGC video prompt. The model will receive the product images as vi
         image_url: proxyUrl,
         aspect_ratio: '9:16',
         resolution: '720p',
+        duration: '8s',
         generate_audio: true,
       }),
       signal: AbortSignal.timeout(15000),

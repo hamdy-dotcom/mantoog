@@ -5,11 +5,10 @@ import { supabaseAdmin } from '@/lib/tiktok/server'
 
 export const maxDuration = 60
 
-// VEO3.1 Lite reference-to-video
-// image_urls = product reference images → consistent subject appearance
+// VEO3.1 Lite image-to-video
+// image_url = the product photo, used as the video's first frame → strong product fidelity
 // generate_audio: true → Arabic speech + ambient sounds
-// Fresh scene generation (NOT start-frame constrained)
-const FAL_VEO3_REF = 'https://queue.fal.run/fal-ai/veo3.1/lite/reference-to-video'
+const FAL_VEO3_REF = 'https://queue.fal.run/fal-ai/veo3.1/lite/image-to-video'
 
 const SYSTEM_PROMPT = `You are a video prompt writer for TikTok UGC ads targeting Saudi Arabia.
 Write a single paragraph, plain English only, no Arabic characters, under 120 words.
@@ -87,21 +86,19 @@ Write the VEO3 UGC video prompt. The model will receive the product images as vi
   }
 
   // Step 2: Proxy the main product image through Supabase (fal.ai can't fetch Amazon CDN URLs directly).
-  // VEO3.1 reference-to-video accepts EXACTLY ONE reference image — sending 2+ makes it
-  // reject generation with "Could not generate images". So we send only the first (main) image.
   const proxyUrl = await proxyImageToSupabase(urls[0], 0)
   if (!proxyUrl) {
-    return NextResponse.json({ error: 'Failed to proxy product image — cannot pass reference image to fal.ai', veoPrompt }, { status: 502 })
+    return NextResponse.json({ error: 'Failed to proxy product image — cannot pass image to fal.ai', veoPrompt }, { status: 502 })
   }
 
-  // Step 3: Submit to VEO3.1 Lite reference-to-video with the single accessible Supabase URL
+  // Step 3: Submit to VEO3.1 Lite image-to-video — the product photo is the first frame
   try {
     const res = await fetch(FAL_VEO3_REF, {
       method: 'POST',
       headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: veoPrompt,
-        image_urls: [proxyUrl],
+        image_url: proxyUrl,
         aspect_ratio: '9:16',
         resolution: '720p',
         generate_audio: true,
@@ -125,7 +122,7 @@ Write the VEO3 UGC video prompt. The model will receive the product images as vi
 
     return NextResponse.json({
       requestId: b.request_id as string,
-      statusUrl: b.status_url ?? `https://queue.fal.run/fal-ai/veo3.1/lite/reference-to-video/requests/${b.request_id}/status`,
+      statusUrl: b.status_url ?? `https://queue.fal.run/fal-ai/veo3.1/lite/image-to-video/requests/${b.request_id}/status`,
       responseUrl: b.response_url ?? null,
       veoPrompt,
     })

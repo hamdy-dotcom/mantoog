@@ -12,16 +12,15 @@ export const maxDuration = 60
 const FAL_VEO3_REF = 'https://queue.fal.run/fal-ai/veo3.1/lite/reference-to-video'
 
 const SYSTEM_PROMPT = `You are a video prompt writer for TikTok UGC ads targeting Saudi Arabia.
-The reference images show exactly what the product looks like — do not describe its color, shape, or features in the prompt.
+Write a single paragraph, plain English only, no Arabic characters, under 120 words.
 
-Write a single paragraph, plain English only, no Arabic characters, under 120 words, that describes:
-1. The setting: warm Saudi home living room, soft natural daylight
-2. The person: a young woman in casual hijab and light abaya, OR a young man in thobe
-3. The action sequence: she picks up the product from the table, holds it up toward the camera with both hands, demonstrates using it, speaks in Gulf Arabic about how good it is, then looks directly at camera with a warm smile
-4. Camera: handheld iPhone footage, slightly shaky, warm ambient light, eyes always open
+The paragraph must cover:
+1. What the product looks like (describe from the images: color, shape, 2-3 key physical features)
+2. A young woman in casual hijab and light abaya, OR a young man in thobe, in a warm home living room
+3. She/he holds the product toward the camera, demonstrates it, smiles and speaks in Gulf Arabic
+4. Handheld iPhone footage, slightly shaky, warm natural light, eyes always open
 
-Reference the item only as "the product" — never describe its appearance.
-Output only the prompt paragraph. Nothing else.`
+Output only the paragraph. No headers, no labels, no Arabic characters.`
 
 async function proxyImageToSupabase(imageUrl: string, idx: number): Promise<string | null> {
   try {

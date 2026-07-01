@@ -1,4 +1,4 @@
-import { tiktokGet } from '@/lib/tiktok/mutations'
+import { tiktokGet, tiktokPost } from '@/lib/tiktok/mutations'
 import {
   buildCreateFlowError,
   type CreateFlowError,
@@ -207,4 +207,25 @@ export async function resolveNumericPixelId(
   storedValue: string
 ): Promise<ConversionPixelResolveResult> {
   return resolveConversionPixel(connection, storedValue)
+}
+
+/**
+ * Best-effort create a TikTok pixel and return its numeric id.
+ * Returns null on any failure (caller should fall back gracefully).
+ */
+export async function createPixel(
+  connection: Connection,
+  pixelName: string
+): Promise<string | null> {
+  try {
+    const res = await tiktokPost(connection, '/pixel/create/', {
+      pixel_name: pixelName.slice(0, 100),
+      pixel_mode: 'STANDARD',
+    })
+    const data = (res?.data ?? {}) as Record<string, unknown>
+    const pixelId = data.pixel_id ?? data.pixel_code ?? data.code
+    return pixelId != null ? String(pixelId) : null
+  } catch {
+    return null
+  }
 }

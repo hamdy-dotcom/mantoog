@@ -120,7 +120,9 @@ export async function POST(req: NextRequest) {
 
   const result = await launchCreateAdAtomic(connection, { id: store.id }, payload)
   if (!('ok' in result) || !result.ok) {
-    return NextResponse.json({ error: 'launch_failed', detail: result }, { status: 502 })
+    const d = result as any
+    const reason = `launch failed at ${d.step || '?'} — ${d.message || d.error || 'unknown'}${d.code ? ` (code ${d.code})` : ''}`
+    return NextResponse.json({ error: reason, detail: result }, { status: 502 })
   }
 
   // Deduct credits (best-effort on latest row)

@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { resolveOrThrow } from '@/lib/tiktok/mutations'
 import { supabaseAdmin } from '@/lib/tiktok/server'
 import { launchCreateAdAtomic } from '@/lib/tiktok/create-ad/service'
-import { DEFAULT_ADVANCED, type CreateAdWizardPayload } from '@/lib/tiktok/create-ad/types'
+import { DEFAULT_ADVANCED, AGE_OPTIONS, type CreateAdWizardPayload } from '@/lib/tiktok/create-ad/types'
 import { fetchCountryLocations } from '@/lib/tiktok/targeting/locations'
 import { defaultLocationId } from '@/lib/tiktok/targeting/location-defaults'
 import { createPixel } from '@/lib/tiktok/pixels'
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
       daily_budget: budget,
       schedule_start: scheduleStart,
       location_id: locationId,
-      age_groups: [],          // empty = all ages
+      age_groups: AGE_OPTIONS.map(a => a.id), // all ages (TikTok requires them explicit)
       gender: 'GENDER_UNLIMITED',
       advanced: { ...DEFAULT_ADVANCED, touched: true }, // standard, abo, daily, auto bid/placement, all-day, comments/downloads/sharing on
       conversion_event: 'place_an_order',

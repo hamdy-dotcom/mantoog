@@ -4,10 +4,10 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-type Step = 'url' | 'extracting' | 'generating' | 'polling' | 'creating_page' | 'review' | 'launching' | 'launched' | 'error'
+type Step = 'url' | 'extracting' | 'details' | 'generating' | 'polling' | 'creating_page' | 'review' | 'launching' | 'launched' | 'error'
 
 type Product = { title: string; description: string; images: string[]; price: string | null }
-type ProductPage = { productId: string; landingUrl: string; caption: string; price: number; currency: string }
+type ProductPage = { productId: string; landingUrl: string; caption: string; titleAr: string; price: number; compareAtPrice: number | null; currency: string }
 
 const FIXED_CREDIT_COST = 50
 
@@ -20,9 +20,9 @@ const IconExternal = (p:IP) => <svg viewBox="0 0 24 24" fill="none" stroke="curr
 
 const STEPS = ['Product', 'Video', 'Review', 'Launch'] as const
 function stepIndex(s: Step): number {
-  if (s === 'url' || s === 'extracting') return 0
-  if (s === 'generating' || s === 'polling') return 1
-  if (s === 'creating_page' || s === 'review') return 2
+  if (s === 'url' || s === 'extracting' || s === 'details') return 0
+  if (s === 'creating_page' || s === 'generating' || s === 'polling') return 1
+  if (s === 'review') return 2
   return 3
 }
 
@@ -43,6 +43,8 @@ export default function UGCAdWizard() {
   const [veoPrompt, setVeoPrompt] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [productPage, setProductPage] = useState<ProductPage | null>(null)
+  const [priceInput, setPriceInput] = useState('')
+  const [discountInput, setDiscountInput] = useState('')
   const [dailyBudget, setDailyBudget] = useState('50')
   const [startAt, setStartAt] = useState(defaultStartLocal())
   const [launchResult, setLaunchResult] = useState<any>(null)
@@ -73,22 +75,6 @@ export default function UGCAdWizard() {
   const stopPolling = useCallback(() => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }, [])
   useEffect(() => () => { stopPolling() }, [stopPolling])
 
-  const createProductPage = useCallback(async () => {
-    const p = productRef.current
-    if (!p) return
-    setStep('creating_page')
-    try {
-      const res = await fetch('/api/admin/ugc-create-product', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: p.title, description: p.description, price: p.price, images: p.images, sourceUrl: url.trim() }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to create product page')
-      setProductPage(data)
-      setStep('review')
-    } catch (e: any) { setError(e.message); setStep('error') }
-  }, [url])
-
   const startPolling = useCallback((sUrl: string, rUrl: string | null) => {
     stopPolling()
     pollRef.current = setInterval(async () => {
@@ -98,13 +84,13 @@ export default function UGCAdWizard() {
         const res = await fetch(`/api/admin/ugc-status?${params}`)
         const data = await res.json()
         if (data.status === 'completed') {
-          stopPolling(); setVideoUrl(data.videoUrl); createProductPage()
+          stopPolling(); setVideoUrl(data.videoUrl); setStep('review')
         } else if (data.status === 'failed') {
           stopPolling(); setError(data.error || 'Generation failed'); setStep('error')
         }
       } catch { /* keep polling */ }
     }, 3000)
-  }, [stopPolling, createProductPage])
+  }, [stopPolling])
 
   const generateVideo = useCallback(async (p: Product) => {
     setStep('generating'); setVeoPrompt(null); setVideoUrl(null); setShowPrompt(false)
@@ -121,6 +107,28 @@ export default function UGCAdWizard() {
     } catch (e: any) { setError(e.message); setStep('error') }
   }, [url, startPolling])
 
+  // From the details step: create the Arabic product page (with price + discount), then start the video.
+  const startBuild = useCallback(async () => {
+    const p = productRef.current
+    if (!p) return
+    if (!priceInput || !(parseFloat(priceInput) > 0)) { setError('Enter a valid price'); return }
+    setStep('creating_page'); setError(null)
+    try {
+      const res = await fetch('/api/admin/ugc-create-product', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: p.title, description: p.description, images: p.images, sourceUrl: url.trim(),
+          price: parseFloat(priceInput),
+          compareAtPrice: discountInput && parseFloat(discountInput) > 0 ? parseFloat(discountInput) : null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to create product page')
+      setProductPage(data)
+      generateVideo(p)
+    } catch (e: any) { setError(e.message); setStep('error') }
+  }, [url, priceInput, discountInput, generateVideo])
+
   async function handleExtract() {
     const trimmed = url.trim()
     if (!trimmed) return
@@ -134,8 +142,11 @@ export default function UGCAdWizard() {
       if (data.blocked) throw new Error('This site blocks scraping (e.g. AliExpress). Try another URL.')
       const p: Product = { title: data.title || 'Untitled', description: data.description || '', images: data.images || [], price: data.price ?? null }
       setProduct(p); productRef.current = p
-      // Auto-advance straight into video creation
-      generateVideo(p)
+      // Prefill price from the scraped value; user confirms price + discount next
+      const scrapedNum = String(data.price ?? '').replace(/[^0-9.]/g, '')
+      setPriceInput(scrapedNum || '')
+      setDiscountInput('')
+      setStep('details')
     } catch (e: any) { setError(e.message); setStep('error') }
   }
 
@@ -162,6 +173,7 @@ export default function UGCAdWizard() {
   function resetAll() {
     stopPolling(); setStep('url'); setProduct(null); productRef.current = null
     setVideoUrl(null); setProductPage(null); setVeoPrompt(null); setLaunchResult(null); setError(null); setElapsed(0)
+    setPriceInput(''); setDiscountInput('')
   }
 
   function handleDownload() {
@@ -243,6 +255,32 @@ export default function UGCAdWizard() {
           </div>
         )}
 
+        {/* Details — price & discount, then build the Arabic landing page */}
+        {step === 'details' && (
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 space-y-4">
+            <div className="text-xs font-semibold text-[#8b8fa8] uppercase tracking-wider">Pricing & landing page</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-semibold text-[#8b8fa8] uppercase tracking-wider block mb-1">Selling price</label>
+                <input type="number" min="1" step="0.01" value={priceInput} onChange={e => setPriceInput(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#6366f1]" />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-[#8b8fa8] uppercase tracking-wider block mb-1">Compare-at price <span className="text-[#4a4d5a] normal-case">(optional)</span></label>
+                <input type="number" min="0" step="0.01" value={discountInput} onChange={e => setDiscountInput(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#6366f1]" />
+              </div>
+            </div>
+            <p className="text-xs text-[#8b8fa8]">We'll create an Arabic product landing page and generate the UGC video.</p>
+            <button onClick={startBuild} disabled={busy}
+              className="w-full py-2.5 bg-[#6366f1] hover:bg-[#5558e3] disabled:opacity-40 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer">
+              Create page & video
+            </button>
+          </div>
+        )}
+
         {/* Video progress */}
         {(step === 'generating' || step === 'polling' || step === 'creating_page') && (
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 space-y-3">
@@ -271,6 +309,14 @@ export default function UGCAdWizard() {
               <video src={videoUrl} controls autoPlay loop playsInline muted
                 className="rounded-lg bg-black border border-[#2a2d35] shrink-0" style={{ width: '180px', aspectRatio: '9/16' }} />
               <div className="flex-1 min-w-0 space-y-3">
+                <div>
+                  <div className="text-[11px] font-semibold text-[#8b8fa8] uppercase tracking-wider mb-1">Product (Arabic)</div>
+                  <div className="text-sm text-white leading-snug" dir="rtl">{productPage.titleAr}</div>
+                  <div className="text-xs text-[#8b8fa8] mt-0.5">
+                    {productPage.price} {productPage.currency}
+                    {productPage.compareAtPrice ? <span className="line-through ml-2 text-[#4a4d5a]">{productPage.compareAtPrice}</span> : null}
+                  </div>
+                </div>
                 <div>
                   <div className="text-[11px] font-semibold text-[#8b8fa8] uppercase tracking-wider mb-1">Landing page</div>
                   <a href={productPage.landingUrl} target="_blank" rel="noopener noreferrer"

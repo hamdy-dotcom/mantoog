@@ -3,41 +3,72 @@ import Anthropic from '@anthropic-ai/sdk'
 import { assertAdmin } from '@/lib/admin/auth'
 import { supabaseAdmin } from '@/lib/tiktok/server'
 
-export const maxDuration = 60
+export const maxDuration = 90
 
-// VEO3.1 Lite image-to-video
-// image_url = the product photo, used as the video's first frame → strong product fidelity
-// generate_audio: true → Arabic speech + ambient sounds
-const FAL_VEO3_REF = 'https://queue.fal.run/fal-ai/veo3.1/lite/image-to-video'
+// Composite-first pipeline:
+// 1) nano-banana (Gemini 2.5 Flash Image) composites a Saudi person holding the REAL product
+//    (product preserved from the reference image) → photorealistic first frame
+// 2) VEO3.1 Lite image-to-video animates that frame with Arabic voiceover
+const FAL_NANO = 'https://queue.fal.run/fal-ai/nano-banana/edit'
+const FAL_VEO_I2V = 'https://queue.fal.run/fal-ai/veo3.1/lite/image-to-video'
 
-const SYSTEM_PROMPT = `You are a TikTok ad creative director for the Saudi Arabian market. You receive a product's title, description, and several images, and write ONE image-to-video generation prompt.
+const SYSTEM_PROMPT = `You are a TikTok ad creative director for the Saudi Arabian market. You receive a product's title, description, and several images. You produce TWO prompts for a two-step pipeline:
+- STEP 1 (compositing): an image model takes ONE product reference image + your imagePrompt and generates a photorealistic first frame of a Saudi person with the product.
+- STEP 2 (video): a video model animates that frame using your videoPrompt with Arabic voiceover.
 
-HOW THE MODEL WORKS: The video model uses ONE of the product images as the literal FIRST FRAME and animates forward from it. You must (a) choose which image is the best opening frame, and (b) write the prompt.
+CHOOSE THE REFERENCE IMAGE (imageIndex):
+- Pick the image that shows the PRODUCT most clearly and completely (usually a clean, well-lit product shot). The compositing model copies the product from this image, so clarity of the product matters more than scenery. Return its 0-based index.
 
-CHOOSING THE OPENING FRAME (imageIndex):
-- Prefer a LIFESTYLE / in-context image (product sitting in a real room, on a desk, in a home) so the video opens on a natural scene, NOT a plain white studio catalog shot.
-- Only fall back to a plain white-background image if there is no lifestyle image.
-- Return the 0-based index of your chosen image.
+NEVER DESCRIBE THE PRODUCT'S APPEARANCE (in BOTH prompts):
+- The reference image already shows exactly what it looks like. Any words describing its appearance make the models reinvent it. Refer to it ONLY as "the product", "the device", or "it".
+- Do NOT write its color, shape, size, material, "handle", "tank", "grille", "blades", "buttons", "tower", "compact", "LED", brand, or any capacity/number. Zero physical adjectives.
+- FORBIDDEN phrases: "by its handle", "the 7-color LED", "the transparent water tank", "the fan blades", "the control buttons". Instead: "the product", "holding the product", "presses the product", "a soft glow from the product".
 
-PRODUCT ACCURACY — THE #1 RULE (read carefully):
-- The opening frame ALREADY shows exactly what the product looks like. Any words you write describing its appearance FIGHT the image and make the model deform/reinvent the product into something else. So:
-- NEVER describe the product's appearance. In the ENGLISH scene directions, refer to it ONLY as "the product", "the device", or "it". Do NOT write ANY of: its color, shape, size, material, "handle", "tank", "grille", "blades", "buttons", "tower", "compact", "LED", brand, or any capacity/number. Zero physical adjectives.
-- FORBIDDEN example phrases (never write these): "picks it up by its handle", "the 7-color LED glow", "the transparent water tank", "the fan blades spinning", "the control buttons on top". Instead write: "picks up the product", "a soft glow from the product", "presses the product", "the product hums to life".
-- The person interacts with "the product" — picks it up, presses it, tilts it, holds it — without you naming or describing any of its parts.
-- Keep the product visually IDENTICAL to the opening frame the whole time. Do NOT add parts or attachments. Do NOT change its shape or proportions.
-- The Arabic voiceover MAY mention benefits (cooling, mist, colors) since that is spoken ad copy — but the English visual directions must stay free of any product description.
-- Mist/vapor stays LOW and close to the product only. Mist must NEVER rise up to, around, or across the person's face, nose, or mouth — never let it look like the person is breathing out or emitting vapor. The person's face stays clear; they just feel the breeze on their skin and smile with mouth closed.
+imagePrompt (the composite first frame):
+- A young Saudi person — a woman in a casual hijab and abaya, OR a man in a thobe — in a warm, realistic Saudi home (living room, bedroom, or office), holding the product naturally in their hands (or with it resting on a table beside them), with a happy, natural expression, looking at the product or the camera.
+- Explicitly instruct: keep the product IDENTICAL to the reference image — same shape, proportions, and details; do not alter it or add parts.
+- Photorealistic, authentic UGC phone-photo look, soft natural light, vertical 9:16 framing.
 
-PROMPT SPECS:
-- 8 seconds, 9:16 vertical, authentic UGC, handheld camera, warm Saudi home.
-- Do NOT hold on a static product photo — begin with immediate natural motion (a hand reaching in, the camera moving, or a person already interacting) so it never looks like a frozen catalog image.
-- Strong hook in the first 2 seconds: a scroll-stopping pattern interrupt (a surprising line, a "stop!" moment, a bold question).
-- 5 quick shots: (1) hook, (2) a Saudi person picks up the product — woman in casual hijab and abaya OR man in thobe, (3) she/he presses a button and the product works, (4) lifestyle use, (5) final shot on the product.
-- Voiceover in natural Saudi dialect Arabic, punchy. The FIRST spoken line is the hook. Write the exact spoken words in Arabic script, in quotes. End on a strong call to action (e.g. "اطلبه الحين").
-- Soft trendy beat low under the voiceover. NO text overlays anywhere. Eyes natural and open.
+videoPrompt (animates that first frame, 8 seconds):
+- The person is ALREADY holding/using the product in the frame. Animate natural motion: they look at it, press it, react to the cool air/mist, and speak.
+- Strong hook in the first 2 seconds. Voiceover in natural Saudi dialect Arabic, punchy; the FIRST spoken line is the hook; write the exact spoken words in Arabic script in quotes; end on a strong call to action (e.g. "اطلبه الحين").
+- Mist/vapor stays LOW and close to the product; it must NEVER rise to the person's face, nose, or mouth. The person's mouth stays closed except when speaking. Eyes open and natural.
+- Soft trendy beat low under the voiceover. NO text overlays. Handheld UGC feel.
 
-OUTPUT FORMAT — return ONLY valid JSON, nothing else:
-{"imageIndex": <number>, "prompt": "<the full video prompt as one cohesive paragraph weaving the 5 shots with the Arabic voiceover lines inline>"}`
+OUTPUT — return ONLY valid JSON, nothing else:
+{"imageIndex": <number>, "imagePrompt": "<composite first-frame prompt>", "videoPrompt": "<8s animation + Arabic voiceover prompt>"}`
+
+// Submit a fal queue job and poll it to completion; returns the result JSON.
+async function runFalJob(endpoint: string, body: object, falKey: string, maxMs: number): Promise<any> {
+  const submit = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
+  })
+  const submitTxt = await submit.text()
+  if (!submit.ok) throw new Error(`submit ${submit.status}: ${submitTxt.slice(0, 200)}`)
+  const s = JSON.parse(submitTxt)
+  const statusUrl = s.status_url
+  const responseUrl = s.response_url
+  if (!statusUrl || !responseUrl) throw new Error(`no status/response url: ${submitTxt.slice(0, 200)}`)
+
+  const start = Date.now()
+  while (Date.now() - start < maxMs) {
+    await new Promise(r => setTimeout(r, 2500))
+    const st = await fetch(statusUrl, { headers: { 'Authorization': `Key ${falKey}` }, signal: AbortSignal.timeout(10000) })
+    const sb = await st.json().catch(() => ({}))
+    const status = sb?.status
+    if (status === 'COMPLETED') {
+      const r = await fetch(responseUrl, { headers: { 'Authorization': `Key ${falKey}` }, signal: AbortSignal.timeout(10000) })
+      const rt = await r.text()
+      if (!r.ok) throw new Error(`result ${r.status}: ${rt.slice(0, 200)}`)
+      return JSON.parse(rt)
+    }
+    if (status === 'FAILED' || status === 'ERROR') throw new Error(`job ${status}`)
+  }
+  throw new Error('job timed out')
+}
 
 async function proxyImageToSupabase(imageUrl: string, idx: number): Promise<string | null> {
   try {
@@ -87,45 +118,60 @@ export async function POST(req: NextRequest) {
     text: `Product: ${title}
 ${description ? `Description: ${description.slice(0, 600)}` : ''}
 
-Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the best opening frame and write the image-to-video prompt. Return only the JSON.`,
+Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the clearest product reference image, then write the imagePrompt and videoPrompt. Return only the JSON.`,
   }
 
-  let veoPrompt: string
+  let imagePrompt: string
+  let videoPrompt: string
   let imageIndex = 0
   try {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1200,
+      max_tokens: 1400,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: [...imageBlocks, textBlock] }],
     })
     const raw = response.content[0].type === 'text' ? response.content[0].text.trim() : ''
     if (!raw) throw new Error('Empty response from Claude')
-    // Claude returns JSON { imageIndex, prompt } — parse leniently
     const json = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
     const parsed = JSON.parse(json)
-    veoPrompt = String(parsed.prompt || '').trim()
+    imagePrompt = String(parsed.imagePrompt || '').trim()
+    videoPrompt = String(parsed.videoPrompt || '').trim()
     const idx = Number(parsed.imageIndex)
     if (Number.isInteger(idx) && idx >= 0 && idx < shownImages.length) imageIndex = idx
-    if (!veoPrompt) throw new Error('No prompt in Claude JSON')
+    if (!imagePrompt || !videoPrompt) throw new Error('Missing prompt in Claude JSON')
   } catch (e: any) {
     return NextResponse.json({ error: `Claude error: ${e.message}` }, { status: 502 })
   }
 
-  // Step 2: Proxy the chosen opening-frame image through Supabase (fal.ai can't fetch Amazon CDN URLs directly).
-  const proxyUrl = await proxyImageToSupabase(urls[imageIndex], imageIndex)
-  if (!proxyUrl) {
-    return NextResponse.json({ error: 'Failed to proxy product image — cannot pass image to fal.ai', veoPrompt }, { status: 502 })
+  // Step 2: Proxy the chosen product image through Supabase (fal.ai can't fetch Amazon CDN URLs directly).
+  const productUrl = await proxyImageToSupabase(urls[imageIndex], imageIndex)
+  if (!productUrl) {
+    return NextResponse.json({ error: 'Failed to proxy product image — cannot pass image to fal.ai', videoPrompt }, { status: 502 })
   }
 
-  // Step 3: Submit to VEO3.1 Lite image-to-video — the product photo is the first frame
+  // Step 3: Composite the person + real product into a photorealistic first frame (nano-banana).
+  let compositeUrl: string
   try {
-    const res = await fetch(FAL_VEO3_REF, {
+    const result = await runFalJob(FAL_NANO, {
+      prompt: imagePrompt,
+      image_urls: [productUrl],
+      num_images: 1,
+    }, falKey, 55000)
+    compositeUrl = result?.images?.[0]?.url ?? ''
+    if (!compositeUrl) throw new Error('no composite image returned')
+  } catch (e: any) {
+    return NextResponse.json({ error: `composite step: ${e.message}`, imagePrompt, videoPrompt }, { status: 502 })
+  }
+
+  // Step 4: Submit the composite to VEO3.1 image-to-video; client polls for the result.
+  try {
+    const res = await fetch(FAL_VEO_I2V, {
       method: 'POST',
       headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        prompt: veoPrompt,
-        image_url: proxyUrl,
+        prompt: videoPrompt,
+        image_url: compositeUrl,
         aspect_ratio: '9:16',
         resolution: '720p',
         duration: '8s',
@@ -136,14 +182,14 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the bes
     const txt = await res.text()
     if (!res.ok) {
       return NextResponse.json(
-        { error: `fal.ai ${res.status}: ${txt.slice(0, 300)}`, veoPrompt },
+        { error: `fal.ai ${res.status}: ${txt.slice(0, 300)}`, videoPrompt },
         { status: 502 }
       )
     }
     const b = JSON.parse(txt)
     if (!b.request_id) {
       return NextResponse.json(
-        { error: `no request_id: ${txt.slice(0, 200)}`, veoPrompt },
+        { error: `no request_id: ${txt.slice(0, 200)}`, videoPrompt },
         { status: 502 }
       )
     }
@@ -152,9 +198,10 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the bes
       requestId: b.request_id as string,
       statusUrl: b.status_url ?? `https://queue.fal.run/fal-ai/veo3.1/lite/image-to-video/requests/${b.request_id}/status`,
       responseUrl: b.response_url ?? null,
-      veoPrompt,
+      veoPrompt: videoPrompt,
+      compositeUrl,
     })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message, veoPrompt }, { status: 502 })
+    return NextResponse.json({ error: e.message, videoPrompt }, { status: 502 })
   }
 }

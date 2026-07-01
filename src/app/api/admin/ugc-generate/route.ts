@@ -19,16 +19,20 @@ CHOOSING THE OPENING FRAME (imageIndex):
 - Only fall back to a plain white-background image if there is no lifestyle image.
 - Return the 0-based index of your chosen image.
 
-PRODUCT ACCURACY (very important):
-- Study the product images carefully. Keep the product's exact shape, color, buttons, and proportions IDENTICAL to the opening frame throughout. Do NOT morph it, restyle it, or ADD PARTS/ATTACHMENTS that are not visible in the images.
-- Demonstrate the product's REAL features from the description (e.g. actual spray/mist modes, LED light, speed buttons, water tank) — use the genuine functions, do not invent fake behaviors.
-- The mist/air/light comes FROM THE PRODUCT ONLY. The person must NEVER blow air, breathe out, exhale visibly, or emit anything from their mouth — that is not realistic. The person simply reacts to the cool air/mist coming out of the product (feels it on their face/hand, relaxes, smiles) with their mouth closed or gently smiling.
+PRODUCT ACCURACY — THE #1 RULE (read carefully):
+- The opening frame ALREADY shows exactly what the product looks like. Any words you write describing its appearance FIGHT the image and make the model deform/reinvent the product into something else. So:
+- NEVER describe the product's appearance. In the ENGLISH scene directions, refer to it ONLY as "the product", "the device", or "it". Do NOT write ANY of: its color, shape, size, material, "handle", "tank", "grille", "blades", "buttons", "tower", "compact", "LED", brand, or any capacity/number. Zero physical adjectives.
+- FORBIDDEN example phrases (never write these): "picks it up by its handle", "the 7-color LED glow", "the transparent water tank", "the fan blades spinning", "the control buttons on top". Instead write: "picks up the product", "a soft glow from the product", "presses the product", "the product hums to life".
+- The person interacts with "the product" — picks it up, presses it, tilts it, holds it — without you naming or describing any of its parts.
+- Keep the product visually IDENTICAL to the opening frame the whole time. Do NOT add parts or attachments. Do NOT change its shape or proportions.
+- The Arabic voiceover MAY mention benefits (cooling, mist, colors) since that is spoken ad copy — but the English visual directions must stay free of any product description.
+- Mist/vapor stays LOW and close to the product only. Mist must NEVER rise up to, around, or across the person's face, nose, or mouth — never let it look like the person is breathing out or emitting vapor. The person's face stays clear; they just feel the breeze on their skin and smile with mouth closed.
 
 PROMPT SPECS:
 - 8 seconds, 9:16 vertical, authentic UGC, handheld camera, warm Saudi home.
 - Do NOT hold on a static product photo — begin with immediate natural motion (a hand reaching in, the camera moving, or a person already interacting) so it never looks like a frozen catalog image.
 - Strong hook in the first 2 seconds: a scroll-stopping pattern interrupt (a surprising line, a "stop!" moment, a bold question).
-- 5 quick shots: (1) hook, (2) a Saudi person picks it up — woman in casual hijab and abaya OR man in thobe, (3) a real feature shown in action, (4) lifestyle use, (5) final product shot.
+- 5 quick shots: (1) hook, (2) a Saudi person picks up the product — woman in casual hijab and abaya OR man in thobe, (3) she/he presses a button and the product works, (4) lifestyle use, (5) final shot on the product.
 - Voiceover in natural Saudi dialect Arabic, punchy. The FIRST spoken line is the hook. Write the exact spoken words in Arabic script, in quotes. End on a strong call to action (e.g. "اطلبه الحين").
 - Soft trendy beat low under the voiceover. NO text overlays anywhere. Eyes natural and open.
 

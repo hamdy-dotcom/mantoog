@@ -9,9 +9,10 @@ export async function GET(req: NextRequest) {
   const requestId = searchParams.get('requestId')
   const responseUrl = searchParams.get('responseUrl') || null
   const statusUrl = searchParams.get('statusUrl')
-    || `https://queue.fal.run/fal-ai/veo3.1/lite/requests/${requestId}/status`
+    || (requestId ? `https://queue.fal.run/fal-ai/veo3.1/lite/requests/${requestId}/status` : null)
 
-  if (!requestId) return NextResponse.json({ error: 'requestId required' }, { status: 400 })
+  // statusUrl (preferred) OR requestId is required
+  if (!statusUrl) return NextResponse.json({ error: 'statusUrl or requestId required' }, { status: 400 })
 
   const falKey = process.env.FAL_KEY
   if (!falKey) return NextResponse.json({ error: 'FAL_KEY not configured' }, { status: 500 })

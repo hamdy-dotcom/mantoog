@@ -8,6 +8,7 @@ import { DEFAULT_ADVANCED, AGE_OPTIONS, type CreateAdWizardPayload } from '@/lib
 import { fetchCountryLocations } from '@/lib/tiktok/targeting/locations'
 import { defaultLocationId } from '@/lib/tiktok/targeting/location-defaults'
 import { createPixel } from '@/lib/tiktok/pixels'
+import { upsertTikTokCache } from '@/lib/product-creatives/server'
 
 export const maxDuration = 120
 
@@ -54,6 +55,12 @@ export async function POST(req: NextRequest) {
     .single()
   if (!product) return NextResponse.json({ error: 'product not found' }, { status: 404 })
 
+  // Register the generated video as a product creative so the launch can reference it by id
+  const videoCreativeId = await upsertTikTokCache({
+    productId: product.id, storeId: store.id, url: videoUrl, type: 'video', name: 'AI UGC video', source: 'ai_ugc',
+  })
+  if (!videoCreativeId) return NextResponse.json({ error: 'Failed to register video creative' }, { status: 502 })
+
   // TikTok connection
   let connection: any
   try {
@@ -98,6 +105,7 @@ export async function POST(req: NextRequest) {
       source: 'product_video',
       caption: caption || product.title,
       cta: 'order_now',
+      creative_ids: [videoCreativeId],
       media: { video_url: videoUrl },
     },
     targeting: {

@@ -24,16 +24,19 @@ NEVER DESCRIBE THE PRODUCT'S APPEARANCE (in BOTH prompts):
 - Do NOT write its color, shape, size, material, "handle", "tank", "grille", "blades", "buttons", "tower", "compact", "LED", brand, or any capacity/number. Zero physical adjectives.
 - FORBIDDEN phrases: "by its handle", "the 7-color LED", "the transparent water tank", "the fan blades", "the control buttons". Instead: "the product", "holding the product", "presses the product", "a soft glow from the product".
 
-imagePrompt (the composite first frame):
-- A young Saudi person — a woman in a casual hijab and abaya, OR a man in a thobe — in a warm, realistic Saudi home (living room, bedroom, or office), holding the product naturally in their hands (or with it resting on a table beside them), with a happy, natural expression, looking at the product or the camera.
-- Explicitly instruct: keep the product IDENTICAL to the reference image — same shape, proportions, and details; do not alter it or add parts.
+imagePrompt (the composite first frame — treat it as a full OPENING SCENE):
+- Pick a realistic setting that matches how the product is ACTUALLY USED, and build the whole scene there: a kitchen for a kitchen gadget, a driveway with a car for a car-cleaning tool, a bathroom for a grooming device, a living room for a home cooler, etc. A young Saudi person (woman in casual hijab and abaya, OR man in thobe) is in that setting with the product, natural happy expression.
+- Establish the ENVIRONMENT fully in this frame — include whatever context the action will need (e.g. if the product is used on a car, the car is already visible in the shot). This prevents the video from having to invent objects later.
+- Compose it as a real opening scene: a slightly wider, natural framing that shows the person, the product, and the setting — not just a tight close-up of the product in hands.
+- Keep the product IDENTICAL to the reference image — same shape, proportions, and details; do not alter it or add parts.
 - Photorealistic, authentic UGC phone-photo look, soft natural light, vertical 9:16 framing.
 
 videoPrompt (animates that first frame, 8 seconds):
-- The person is ALREADY holding/using the product in the frame. Animate natural motion: they look at it, press it, react to the cool air/mist, and speak.
+- Everything the video needs is ALREADY in the opening frame. Animate only natural motion of what is present — the person moves, uses the product, reacts, speaks. Do NOT introduce NEW large objects that were not in the opening frame; nothing may pop into existence or slide in from off-screen. New elements may only appear by the person naturally moving or a hand reaching in.
+- REAL UGC CAMERA WORK: do not keep one static angle. Use handheld movement and 1-2 natural reframes or cuts to different angles/distances — e.g. open on a medium selfie-style shot, cut to a closer angle of the product in action, then back to the person's reaction. Slightly shaky, authentic phone-held feel.
 - Strong hook in the first 2 seconds. Voiceover in natural Saudi dialect Arabic, punchy; the FIRST spoken line is the hook; write the exact spoken words in Arabic script in quotes; end on a strong call to action (e.g. "اطلبه الحين").
-- Mist/vapor stays LOW and close to the product; it must NEVER rise to the person's face, nose, or mouth. The person's mouth stays closed except when speaking. Eyes open and natural.
-- Soft trendy beat low under the voiceover. NO text overlays. Handheld UGC feel.
+- Any spray, mist, water, or air comes ONLY from the product, aimed where it naturally goes (its target) — it NEVER comes from the person's mouth or nose. The person's mouth stays closed except when speaking. Eyes open and natural.
+- Soft trendy beat low under the voiceover. NO text overlays.
 
 OUTPUT — return ONLY valid JSON, nothing else:
 {"imageIndex": <number>, "imagePrompt": "<composite first-frame prompt>", "videoPrompt": "<8s animation + Arabic voiceover prompt>"}`

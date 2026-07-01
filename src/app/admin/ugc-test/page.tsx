@@ -48,6 +48,10 @@ export default function UGCAdWizard() {
   const [dailyBudget, setDailyBudget] = useState('50')
   const [startAt, setStartAt] = useState(defaultStartLocal())
   const [launchResult, setLaunchResult] = useState<any>(null)
+  const [showPixelModal, setShowPixelModal] = useState(false)
+  const [pixelInput, setPixelInput] = useState('')
+  const [pixelError, setPixelError] = useState<string | null>(null)
+  const [savingPixel, setSavingPixel] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [showPrompt, setShowPrompt] = useState(false)
@@ -165,9 +169,27 @@ export default function UGCAdWizard() {
         }),
       })
       const data = await res.json()
+      if (res.status === 400 && data.needsPixel) {
+        setStep('review'); setPixelError(null); setShowPixelModal(true); return
+      }
       if (!res.ok) throw new Error(data.error || 'Launch failed')
       setLaunchResult(data); setStep('launched')
     } catch (e: any) { setError(e.message); setStep('error') }
+  }
+
+  async function savePixelAndLaunch() {
+    const id = pixelInput.trim()
+    if (!id) { setPixelError('Enter your TikTok Pixel ID'); return }
+    setSavingPixel(true); setPixelError(null)
+    try {
+      const res = await fetch('/api/admin/set-store-pixel', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pixelId: id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save Pixel ID')
+      setSavingPixel(false); setShowPixelModal(false)
+      handleCreateAd() // retry the launch now that the pixel is saved
+    } catch (e: any) { setPixelError(e.message); setSavingPixel(false) }
   }
 
   function resetAll() {
@@ -402,6 +424,48 @@ export default function UGCAdWizard() {
         )}
 
       </div>
+
+      {/* Pixel modal */}
+      {showPixelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !savingPixel && setShowPixelModal(false)}>
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-5 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
+            <div>
+              <h2 className="text-base font-bold text-white">Connect your TikTok Pixel</h2>
+              <p className="text-xs text-[#8b8fa8] mt-1">Orders campaigns need a Pixel with a “Place an Order” event. Paste your Pixel ID below — we’ll save it to your store.</p>
+            </div>
+
+            <div className="bg-[#0f1117] border border-[#2a2d35] rounded-lg p-3 space-y-1.5">
+              <div className="text-[11px] font-semibold text-[#8b8fa8] uppercase tracking-wider">Don’t have a Pixel yet?</div>
+              <ol className="text-xs text-[#8b8fa8] leading-relaxed list-decimal ml-4 space-y-0.5">
+                <li>Open TikTok Ads Manager → Assets → Events → Web Events.</li>
+                <li>Click “Set Up Web Events”, choose “TikTok Pixel”, and finish setup.</li>
+                <li>Add the “Place an Order” event, then copy the Pixel ID.</li>
+              </ol>
+              <a href="https://ads.tiktok.com/i18n/events_manager" target="_blank" rel="noopener noreferrer" className="inline-block text-xs text-[#818cf8] hover:text-[#a5b4fc] underline pt-1">Open TikTok Events Manager →</a>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-semibold text-[#8b8fa8] uppercase tracking-wider block mb-1">Pixel ID</label>
+              <input value={pixelInput} onChange={e => setPixelInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !savingPixel && savePixelAndLaunch()}
+                placeholder="e.g. C1A2B3D4E5F6G7H8I9J0"
+                className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#6366f1]" />
+              {pixelError && <p className="text-xs text-[#f87171] mt-1.5">{pixelError}</p>}
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => setShowPixelModal(false)} disabled={savingPixel}
+                className="px-4 py-2.5 bg-[#0f1117] border border-[#2a2d35] hover:border-[#6366f1] text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-40">
+                Cancel
+              </button>
+              <button onClick={savePixelAndLaunch} disabled={savingPixel || !pixelInput.trim()}
+                className="flex-1 py-2.5 bg-[#6366f1] hover:bg-[#5558e3] disabled:opacity-40 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer">
+                {savingPixel ? 'Saving...' : 'Save & Launch'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -7,7 +7,6 @@ import { launchCreateAdAtomic } from '@/lib/tiktok/create-ad/service'
 import { DEFAULT_ADVANCED, AGE_OPTIONS, type CreateAdWizardPayload } from '@/lib/tiktok/create-ad/types'
 import { fetchCountryLocations } from '@/lib/tiktok/targeting/locations'
 import { defaultLocationId } from '@/lib/tiktok/targeting/location-defaults'
-import { createPixel } from '@/lib/tiktok/pixels'
 import { upsertTikTokCache } from '@/lib/product-creatives/server'
 
 export const maxDuration = 120
@@ -35,6 +34,12 @@ export async function POST(req: NextRequest) {
     .eq('merchant_id', user.id)
     .single()
   if (!store) return NextResponse.json({ error: 'no_store' }, { status: 404 })
+
+  // Orders campaigns need a TikTok Pixel with a Place-an-Order event. A brand-new pixel has
+  // none, so we require the merchant's own pixel id — the wizard prompts for it if missing.
+  if (!store.tiktok_pixel_id) {
+    return NextResponse.json({ error: 'no_pixel', needsPixel: true }, { status: 400 })
+  }
 
   // Credit balance check (order_credits wallet)
   const { data: creditRows } = await supabaseAdmin
@@ -78,17 +83,9 @@ export async function POST(req: NextRequest) {
   } catch { /* leave empty; validation will surface */ }
   if (!locationId) return NextResponse.json({ error: 'Could not resolve target location for this store currency' }, { status: 502 })
 
-  // Pixel: reuse store pixel, else best-effort auto-create + save to store
-  let pixelId: string | null = store.tiktok_pixel_id
-  let pixelWarning: string | null = null
-  if (!pixelId) {
-    pixelId = await createPixel(connection, `${store.name || 'Store'} Pixel`)
-    if (pixelId) {
-      await supabaseAdmin.from('stores').update({ tiktok_pixel_id: pixelId }).eq('id', store.id)
-    } else {
-      pixelWarning = 'No pixel on store and auto-create failed — ad launches without conversion optimization.'
-    }
-  }
+  // Pixel: the merchant's own pixel (guaranteed present — checked above)
+  const pixelId: string = store.tiktok_pixel_id
+  const pixelWarning: string | null = null
 
   // Build the locked-template payload
   const payload: CreateAdWizardPayload = {

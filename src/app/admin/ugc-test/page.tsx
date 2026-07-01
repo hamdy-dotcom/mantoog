@@ -389,7 +389,14 @@ export default function UGCAdWizard() {
         {step === 'error' && error && (
           <div className="bg-[#1a1d24] border border-[#5a1a1a] rounded-xl p-4 space-y-3">
             <div className="text-sm font-semibold text-[#f87171]">Error</div>
-            <pre className="text-xs text-[#f87171] leading-relaxed whitespace-pre-wrap break-all overflow-auto max-h-64">{error}</pre>
+            {error.includes('no_active_account') ? (
+              <div className="text-xs text-[#f87171] leading-relaxed space-y-2">
+                <p>No TikTok ad account is connected to this store. Connect one to launch the ad.</p>
+                <a href="/dashboard/tiktok" target="_blank" rel="noopener noreferrer" className="inline-block text-[#818cf8] hover:text-[#a5b4fc] underline">Connect TikTok account →</a>
+              </div>
+            ) : (
+              <pre className="text-xs text-[#f87171] leading-relaxed whitespace-pre-wrap break-all overflow-auto max-h-64">{error}</pre>
+            )}
             <button onClick={resetAll} className="text-xs text-[#8b8fa8] hover:text-white cursor-pointer transition-colors underline">Start over</button>
           </div>
         )}

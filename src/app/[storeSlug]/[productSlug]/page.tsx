@@ -231,7 +231,14 @@ export default function LandingPage() {
       if (digits.length <= 6) return
 
       beaconSentRef.current = true
-      const total = d.selectedOffer ? d.selectedOffer.price : d.product.price * d.qty
+      // COD total must match the real order: item price + shipping (same formula as the page's shippingCost).
+      const base = Number(d.selectedOffer ? d.selectedOffer.price : d.product.price * d.qty) || 0
+      const shipping = Number(
+        d.store.shipping_type === 'static'
+          ? (d.store.static_shipping_cost || 0)
+          : (d.product.shipping_cost || 0)
+      ) || 0
+      const total = base + shipping
       const payload = JSON.stringify({
         store_id:         d.store.id,
         product_id:       d.product.id,

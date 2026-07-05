@@ -41,6 +41,8 @@ export default function UGCAdWizard() {
   const [statusUrl, setStatusUrl] = useState<string | null>(null)
   const [responseUrl, setResponseUrl] = useState<string | null>(null)
   const [veoPrompt, setVeoPrompt] = useState<string | null>(null)
+  const [referenceUrl, setReferenceUrl] = useState<string | null>(null)
+  const [compositeUrl, setCompositeUrl] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [productPage, setProductPage] = useState<ProductPage | null>(null)
   const [priceInput, setPriceInput] = useState('')
@@ -106,6 +108,7 @@ export default function UGCAdWizard() {
       const data = await res.json()
       if (data.veoPrompt) setVeoPrompt(data.veoPrompt)
       if (!res.ok) throw new Error(data.error || 'Generation request failed')
+      setReferenceUrl(data.referenceUrl || null); setCompositeUrl(data.compositeUrl || null)
       setStatusUrl(data.statusUrl); setResponseUrl(data.responseUrl); setVeoPrompt(data.veoPrompt)
       setStep('polling'); startPolling(data.statusUrl, data.responseUrl)
     } catch (e: any) { setError(e.message); setStep('error') }
@@ -355,6 +358,27 @@ export default function UGCAdWizard() {
                 </button>
               </div>
             </div>
+
+            {(referenceUrl || compositeUrl) && (
+              <div className="flex gap-3">
+                {referenceUrl && (
+                  <div className="flex-1">
+                    <div className="text-[11px] font-semibold text-[#8b8fa8] uppercase tracking-wider mb-1">360° reference</div>
+                    <a href={referenceUrl} target="_blank" rel="noopener noreferrer">
+                      <img src={referenceUrl} alt="360 reference" className="w-full rounded-lg border border-[#2a2d35] bg-white" />
+                    </a>
+                  </div>
+                )}
+                {compositeUrl && (
+                  <div className="flex-1">
+                    <div className="text-[11px] font-semibold text-[#8b8fa8] uppercase tracking-wider mb-1">First frame</div>
+                    <a href={compositeUrl} target="_blank" rel="noopener noreferrer">
+                      <img src={compositeUrl} alt="composite first frame" className="w-full rounded-lg border border-[#2a2d35]" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>

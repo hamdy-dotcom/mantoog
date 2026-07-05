@@ -13,6 +13,9 @@ const FAL_NANO = 'https://queue.fal.run/fal-ai/nano-banana/edit'
 const FAL_VIDEO_I2V = 'https://queue.fal.run/fal-ai/gemini-omni-flash/image-to-video'
 const VIDEO_DURATION = 10 // seconds (Omni Flash supports 3–10)
 
+// Turns the scraped product photos into one clean multi-angle (360°) reference.
+const THREE60_PROMPT = `Create ONE clean studio product image on a plain pure-white background showing THIS exact product from several angles in a single frame — a 360-degree multi-view reference: front, three-quarter, side, and back views arranged neatly in a row or grid. Keep the product's exact shape, colour, proportions, materials, and every detail identical across all views — it is ONE product shown from different angles, do not invent variations. Photorealistic e-commerce product photography, soft even studio lighting, sharp focus. No people, no text, no extra props.`
+
 const SYSTEM_PROMPT = `You are a TikTok ad creative director for the Saudi Arabian market. You receive a product's title, description, and several images. You produce TWO prompts for a two-step pipeline:
 - STEP 1 (compositing): an image model takes ONE product reference image + your imagePrompt and generates a photorealistic first frame of a Saudi person with the product.
 - STEP 2 (video): a video model animates that frame using your videoPrompt with Arabic voiceover.
@@ -154,18 +157,33 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
     return NextResponse.json({ error: `Claude error: ${e.message}` }, { status: 502 })
   }
 
-  // Step 2: Proxy the chosen product image through Supabase (fal.ai can't fetch Amazon CDN URLs directly).
-  const productUrl = await proxyImageToSupabase(urls[imageIndex], imageIndex)
-  if (!productUrl) {
-    return NextResponse.json({ error: 'Failed to proxy product image — cannot pass image to fal.ai', videoPrompt }, { status: 502 })
+  // Step 2: Proxy several product images through Supabase (fal.ai can't fetch Amazon CDN directly).
+  const proxied = (await Promise.all(
+    urls.slice(0, 5).map((u, i) => proxyImageToSupabase(u, i))
+  )).filter(Boolean) as string[]
+  if (!proxied.length) {
+    return NextResponse.json({ error: 'Failed to proxy product images — cannot pass images to fal.ai', videoPrompt }, { status: 502 })
   }
 
-  // Step 3: Composite the person + real product into a photorealistic first frame (nano-banana).
+  // Step 3: Build a 360° multi-angle product reference from all the images (nano-banana).
+  // Falls back to the first image if the 360 render fails.
+  let referenceUrl = proxied[0]
+  try {
+    const ref = await runFalJob(FAL_NANO, {
+      prompt: THREE60_PROMPT,
+      image_urls: proxied,
+      num_images: 1,
+    }, falKey, 55000)
+    if (ref?.images?.[0]?.url) referenceUrl = ref.images[0].url
+  } catch { /* keep the first proxied image as reference */ }
+
+  // Step 4: Composite the person + real product into a photorealistic first frame,
+  // using the 360° reference plus the originals so nano-banana has full product info.
   let compositeUrl: string
   try {
     const result = await runFalJob(FAL_NANO, {
       prompt: imagePrompt,
-      image_urls: [productUrl],
+      image_urls: [referenceUrl, ...proxied].slice(0, 5),
       num_images: 1,
     }, falKey, 55000)
     compositeUrl = result?.images?.[0]?.url ?? ''
@@ -208,6 +226,7 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
       responseUrl: b.response_url ?? null,
       veoPrompt: videoPrompt,
       compositeUrl,
+      referenceUrl,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, videoPrompt }, { status: 502 })

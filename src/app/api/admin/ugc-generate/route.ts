@@ -178,12 +178,12 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
   } catch { /* keep the first proxied image as reference */ }
 
   // Step 4: Composite the person + real product into a photorealistic first frame,
-  // using the 360° reference plus the originals so nano-banana has full product info.
+  // using ONLY the 360° reference + the prompt (the 360 image is the single source of truth).
   let compositeUrl: string
   try {
     const result = await runFalJob(FAL_NANO, {
       prompt: imagePrompt,
-      image_urls: [referenceUrl, ...proxied].slice(0, 5),
+      image_urls: [referenceUrl],
       num_images: 1,
     }, falKey, 55000)
     compositeUrl = result?.images?.[0]?.url ?? ''

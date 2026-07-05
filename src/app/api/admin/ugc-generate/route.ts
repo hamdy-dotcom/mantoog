@@ -13,9 +13,6 @@ const FAL_NANO = 'https://queue.fal.run/fal-ai/nano-banana/edit'
 const FAL_VIDEO_I2V = 'https://queue.fal.run/fal-ai/gemini-omni-flash/image-to-video'
 const VIDEO_DURATION = 10 // seconds (Omni Flash supports 3–10)
 
-// Turns the scraped product photos into one clean multi-angle (360°) reference.
-const THREE60_PROMPT = `Create ONE clean studio product image on a plain pure-white background showing THIS exact product from several angles in a single frame — a 360-degree multi-view reference: front, three-quarter, side, and back views arranged neatly in a row or grid. Keep the product's exact shape, colour, proportions, materials, and every detail identical across all views — it is ONE product shown from different angles, do not invent variations. Photorealistic e-commerce product photography, soft even studio lighting, sharp focus. No people, no text, no extra props.`
-
 const SYSTEM_PROMPT = `You are a TikTok ad creative director for the Saudi Arabian market. You receive a product's title, description, and several images. You produce TWO prompts for a two-step pipeline:
 - STEP 1 (compositing): an image model takes ONE product reference image + your imagePrompt and generates a photorealistic first frame of a Saudi person with the product.
 - STEP 2 (video): a video model animates that frame using your videoPrompt with Arabic voiceover.
@@ -165,31 +162,19 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
     return NextResponse.json({ error: 'Failed to proxy product images — cannot pass images to fal.ai', videoPrompt }, { status: 502 })
   }
 
-  // Step 3: Build a 360° multi-angle product reference from all the images (nano-banana).
-  // Falls back to the first image if the 360 render fails.
-  let referenceUrl = proxied[0]
-  try {
-    const ref = await runFalJob(FAL_NANO, {
-      prompt: THREE60_PROMPT,
-      image_urls: proxied,
-      num_images: 1,
-    }, falKey, 55000)
-    if (ref?.images?.[0]?.url) referenceUrl = ref.images[0].url
-  } catch { /* keep the first proxied image as reference */ }
-
-  // Step 4: Composite the person + real product into a photorealistic first frame,
-  // using ONLY the 360° reference + the prompt (the 360 image is the single source of truth).
+  // Step 3: Generate the SINGLE first-frame image (person + real product) in one nano-banana call,
+  // fed ALL the product angles so the product is rendered accurately. No separate 360 sheet.
   let compositeUrl: string
   try {
     const result = await runFalJob(FAL_NANO, {
       prompt: imagePrompt,
-      image_urls: [referenceUrl],
+      image_urls: proxied,
       num_images: 1,
     }, falKey, 55000)
     compositeUrl = result?.images?.[0]?.url ?? ''
-    if (!compositeUrl) throw new Error('no composite image returned')
+    if (!compositeUrl) throw new Error('no image returned')
   } catch (e: any) {
-    return NextResponse.json({ error: `composite step: ${e.message}`, imagePrompt, videoPrompt }, { status: 502 })
+    return NextResponse.json({ error: `image step: ${e.message}`, imagePrompt, videoPrompt }, { status: 502 })
   }
 
   // Step 4: Submit the composite to VEO3.1 image-to-video; client polls for the result.
@@ -226,7 +211,6 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
       responseUrl: b.response_url ?? null,
       veoPrompt: videoPrompt,
       compositeUrl,
-      referenceUrl,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, videoPrompt }, { status: 502 })

@@ -8,9 +8,10 @@ export const maxDuration = 90
 // Composite-first pipeline:
 // 1) nano-banana (Gemini 2.5 Flash Image) composites a Saudi person holding the REAL product
 //    (product preserved from the reference image) → photorealistic first frame
-// 2) VEO3.1 Lite image-to-video animates that frame with Arabic voiceover
+// 2) Gemini Omni Flash image-to-video animates that frame (10s + native audio + Arabic voiceover)
 const FAL_NANO = 'https://queue.fal.run/fal-ai/nano-banana/edit'
-const FAL_VEO_I2V = 'https://queue.fal.run/fal-ai/veo3.1/lite/image-to-video'
+const FAL_VIDEO_I2V = 'https://queue.fal.run/fal-ai/gemini-omni-flash/image-to-video'
+const VIDEO_DURATION = 10 // seconds (Omni Flash supports 3–10)
 
 const SYSTEM_PROMPT = `You are a TikTok ad creative director for the Saudi Arabian market. You receive a product's title, description, and several images. You produce TWO prompts for a two-step pipeline:
 - STEP 1 (compositing): an image model takes ONE product reference image + your imagePrompt and generates a photorealistic first frame of a Saudi person with the product.
@@ -36,15 +37,16 @@ imagePrompt (the composite first frame — treat it as a full OPENING SCENE):
 - Keep the product IDENTICAL to the reference image — same shape, proportions, and details; do not alter it or add parts.
 - Photorealistic, authentic UGC phone-photo look, soft natural light, vertical 9:16 framing.
 
-videoPrompt (animates that first frame, 8 seconds):
-- Everything the video needs is ALREADY in the opening frame. Animate only natural motion of what is present — the person moves, uses the product, reacts, speaks. Do NOT introduce NEW large objects that were not in the opening frame; nothing may pop into existence or slide in from off-screen. New elements may only appear by the person naturally moving or a hand reaching in.
-- REAL UGC CAMERA WORK: do not keep one static angle. Use handheld movement and 1-2 natural reframes or cuts to different angles/distances — e.g. open on a medium selfie-style shot, cut to a closer angle of the product in action, then back to the person's reaction. Slightly shaky, authentic phone-held feel.
-- Open with a confident, conversational hook in the first 2 seconds — delivered with a natural relaxed face and calm energy, NOT a shocked or wide-eyed expression. Voiceover in natural Saudi dialect Arabic, punchy; the FIRST spoken line is the hook; write the exact spoken words in Arabic script in quotes; end on a strong call to action (e.g. "اطلبه الحين").
-- Any spray, mist, water, or air comes ONLY from the product, aimed where it naturally goes (its target) — it NEVER comes from the person's mouth or nose. The person's mouth stays closed except when speaking, eyes relaxed and natural throughout.
-- Soft trendy beat low under the voiceover. NO text overlays.
+videoPrompt (animates that first frame — a 10-second TikTok UGC ad). Follow this EXACT structure every time:
+- Length: 10 seconds. Format: 9:16 vertical. Style: authentic UGC, handheld phone footage. NO text overlays anywhere. Music: soft trendy beat, low under the voiceover.
+- MUST start with a strong creative hook in the first 2 seconds — a scroll-stopping pattern interrupt (a surprising line, a "stop!" moment, a bold question, or an unexpected visual). This hook is the most important part — never skip it. Deliver it with a calm, natural, relaxed face (never wide-eyed or shocked).
+- Give a second-by-second visual breakdown as 5 short shots: (1) the hook, (2) product reveal, (3) key benefit/feature in action, (4) lifestyle use, (5) final product shot.
+- Everything the video needs is ALREADY in the opening frame — animate only natural motion of what is present. Do NOT introduce new large objects; nothing pops in from off-screen. New elements may only enter by the person moving or a hand reaching in.
+- Voiceover script in Saudi dialect Arabic, punchy and natural, where the FIRST line is the hook. Write the exact Arabic words in Arabic script; under each Arabic line add its English translation in parentheses labelled "(EN: ...)" for the editor's reference ONLY — the English is never spoken and never shown on screen. The voiceover MUST end with a strong call to action (order-now style, e.g. "اطلبه الحين").
+- Any spray, mist, water, or air comes ONLY from the product, aimed where it naturally goes — NEVER from the person's mouth or nose. Mouth closed except when speaking; eyes relaxed and natural throughout.
 
 OUTPUT — return ONLY valid JSON, nothing else:
-{"imageIndex": <number>, "imagePrompt": "<composite first-frame prompt>", "videoPrompt": "<8s animation + Arabic voiceover prompt>"}`
+{"imageIndex": <number>, "imagePrompt": "<composite first-frame prompt>", "videoPrompt": "<10s UGC ad prompt: 5-shot breakdown + Saudi Arabic voiceover with (EN: ...) translations + CTA>"}`
 
 // Submit a fal queue job and poll it to completion; returns the result JSON.
 async function runFalJob(endpoint: string, body: object, falKey: string, maxMs: number): Promise<any> {
@@ -174,16 +176,14 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
 
   // Step 4: Submit the composite to VEO3.1 image-to-video; client polls for the result.
   try {
-    const res = await fetch(FAL_VEO_I2V, {
+    const res = await fetch(FAL_VIDEO_I2V, {
       method: 'POST',
       headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: videoPrompt,
         image_url: compositeUrl,
         aspect_ratio: '9:16',
-        resolution: '720p',
-        duration: '8s',
-        generate_audio: true,
+        duration: VIDEO_DURATION,
       }),
       signal: AbortSignal.timeout(15000),
     })
@@ -204,7 +204,7 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
 
     return NextResponse.json({
       requestId: b.request_id as string,
-      statusUrl: b.status_url ?? `https://queue.fal.run/fal-ai/veo3.1/lite/image-to-video/requests/${b.request_id}/status`,
+      statusUrl: b.status_url ?? `https://queue.fal.run/fal-ai/gemini-omni-flash/image-to-video/requests/${b.request_id}/status`,
       responseUrl: b.response_url ?? null,
       veoPrompt: videoPrompt,
       compositeUrl,

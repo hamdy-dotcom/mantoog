@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import { useStorePublic } from '@/components/store/StorePublicProvider'
 import ThemedStoreFront from '@/components/store/ThemedStoreFront'
+import { storeProductHref } from '@/lib/site-url'
 
 export default function StorePage() {
   const [store, setStore] = useState<any>(null)
@@ -257,7 +258,7 @@ export default function StorePage() {
                   style={{ animationDelay: `${idx * 0.08}s`, opacity: 0, animationFillMode: 'forwards' }}
                   onMouseEnter={() => setHoveredId(product.id)}
                   onMouseLeave={() => setHoveredId(null)}
-                  onClick={() => router.push(`/${params.storeSlug}/${product.id}`)}
+                  onClick={() => router.push(storeProductHref(params.storeSlug as string, product.id))}
                 >
                   <div style={{
                     background: isHovered ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',

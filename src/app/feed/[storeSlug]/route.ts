@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/tiktok/server'
-
-const BASE_URL = 'https://www.mantoog.com'
+import { getProductLandingUrl, getStoreShareUrl } from '@/lib/site-url'
 
 type RouteCtx = { params: Promise<{ storeSlug: string }> }
 
@@ -41,7 +40,7 @@ export async function GET(_request: Request, ctx: RouteCtx) {
   const storeName = store.name || store.slug
 
   const items = products.map(p => {
-    const productUrl = `${BASE_URL}/${store.slug}/${p.id}`
+    const productUrl = getProductLandingUrl(store.slug, p.id)
     const images = Array.isArray(p.images) ? p.images : []
     const imageUrl = images[0] || p.image_url || ''
     const price = p.price || 0
@@ -68,7 +67,7 @@ export async function GET(_request: Request, ctx: RouteCtx) {
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
   <channel>
     <title>${escapeXml(storeName)}</title>
-    <link>${escapeXml(`${BASE_URL}/${store.slug}`)}</link>
+    <link>${escapeXml(getStoreShareUrl(store.slug))}</link>
     <description>Products from ${escapeXml(storeName)}</description>
     ${items}
   </channel>

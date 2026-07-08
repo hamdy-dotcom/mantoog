@@ -18,26 +18,51 @@ export function getSiteOrigin(): string {
   return DEFAULT_ORIGIN
 }
 
-/** Display-friendly store URL without protocol, e.g. mantoog.com/my-store */
+/**
+ * Store-scoped origin using the slug as a subdomain, e.g.
+ * https://my-store.mantoog.com (falls back to the plain origin if no slug).
+ */
+export function getStoreOrigin(slug?: string | null): string {
+  const origin = getSiteOrigin()
+  const clean = slug?.replace(/^\/+|\/+$/g, '')
+  if (!clean) return origin
+  try {
+    const url = new URL(origin)
+    url.hostname = `${clean}.${url.hostname.replace(/^www\./i, '')}`
+    return url.origin
+  } catch {
+    return origin
+  }
+}
+
+/** Display-friendly store URL without protocol, e.g. my-store.mantoog.com */
 export function formatStoreUrlDisplay(slug?: string | null): string {
   try {
-    const { host } = new URL(getSiteOrigin())
-    return slug ? `${host}/${slug}` : host
+    return new URL(getStoreOrigin(slug)).host
   } catch {
-    const host = getSiteOrigin().replace(/^https?:\/\//i, '')
-    return slug ? `${host}/${slug}` : host
+    return getStoreOrigin(slug).replace(/^https?:\/\//i, '')
   }
 }
 
 /** Full shareable store URL with protocol for copying or linking. */
 export function getStoreShareUrl(slug?: string | null): string {
-  const origin = getSiteOrigin()
-  return slug ? `${origin}/${slug}` : origin
+  return getStoreOrigin(slug)
 }
 
 /** Public product landing page URL for ads and sharing (never localhost). */
 export function getProductLandingUrl(storeSlug: string, productId: string): string {
-  const slug = storeSlug.replace(/^\/+|\/+$/g, '')
   const id = productId.replace(/^\/+|\/+$/g, '')
-  return `${getSiteOrigin()}/${slug}/${id}`
+  return `${getStoreOrigin(storeSlug)}/product/${id}`
+}
+
+/**
+ * Client-only relative href to a product landing page. Returns `/product/:id`
+ * when the store is already being served from its subdomain, and the legacy
+ * `/:slug/:id` path otherwise — so in-store navigation works under both schemes.
+ */
+export function storeProductHref(storeSlug: string, productId: string): string {
+  const onStoreSubdomain =
+    typeof window !== 'undefined' &&
+    window.location.hostname.split('.')[0] === storeSlug
+  return onStoreSubdomain ? `/product/${productId}` : `/${storeSlug}/${productId}`
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
+import { getProductLandingUrl } from '@/lib/site-url'
 import Sidebar from '@/components/dashboard/Sidebar'
 import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import { getAuthenticatedUser, loadMerchantStore, signOutAndGoToLogin } from '@/lib/auth/client'
@@ -329,7 +330,7 @@ export default function EditProductPage() {
 
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => window.open(`/${store.slug}/${params.id}`, '_blank')}
+              onClick={() => window.open(getProductLandingUrl(store.slug, params.id as string), '_blank')}
               className="hidden sm:flex items-center gap-2 text-sm bg-[#1a1d24] border border-[#2a2d35] hover:border-[#3b82f6] text-[#8b8fa8] hover:text-white px-4 py-2 rounded-xl transition-all cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                 <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />

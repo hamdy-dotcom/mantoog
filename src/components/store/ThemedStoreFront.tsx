@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { getStoreTheme, StoreTheme } from '@/lib/store-themes/tokens'
+import { storeProductHref } from '@/lib/site-url'
 
 /* ── helpers ──────────────────────────────────────────────────────── */
 function disc(price: number, compare: number | null) {
@@ -355,8 +356,8 @@ export default function ThemedStoreFront({ store, products }: { store: any; prod
 
   const tagline = cust.tagline || store.tagline || (store.language === 'ar' ? 'اكتشف منتجات مميزة بأفضل الأسعار' : 'Discover premium products at the best prices')
   const firstProduct = products[0]
-  const handleShop = () => { if (firstProduct) router.push(`/${params.storeSlug}/${firstProduct.id}`) }
-  const goToProduct = (id: string) => router.push(`/${params.storeSlug}/${id}`)
+  const handleShop = () => { if (firstProduct) router.push(storeProductHref(params.storeSlug as string, firstProduct.id)) }
+  const goToProduct = (id: string) => router.push(storeProductHref(params.storeSlug as string, id))
 
   const social = cust.social || {}
   const hasSocial = social.instagram || social.tiktok || social.snapchat || social.twitter

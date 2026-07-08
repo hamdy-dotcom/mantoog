@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import * as XLSX from 'xlsx'
 import { ORDER_ATTRIBUTION_FIELDS, ORDER_ATTRIBUTION_LABELS } from '@/lib/analytics/attribution'
+import OrderDetailsModal from '@/components/OrderDetailsModal'
 
 const ADMIN_EMAILS = ['admin@mantoog.com']
 const ORDERS_PER_PAGE = 50
@@ -63,6 +64,7 @@ export default function AdminPage() {
   const [loading, setLoading]           = useState(true)
   const [authorized, setAuthorized]     = useState(false)
   const [activeTab, setActiveTab]       = useState('overview')
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [merchants, setMerchants]       = useState<any[]>([])
   const [orders, setOrders]             = useState<any[]>([])
   const [allProducts, setAllProducts]   = useState<any[]>([])
@@ -1151,7 +1153,7 @@ export default function AdminPage() {
                     </thead>
                     <tbody>
                       {pagedOrders.map(o => (
-                        <tr key={o.id} className="border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors">
+                        <tr key={o.id} onClick={() => setSelectedOrder(o)} className="border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors cursor-pointer">
                           <td className="px-4 py-3.5 text-xs text-[#8b8fa8] whitespace-nowrap">{o.stores?.name||'—'}</td>
                           <td className="px-4 py-3.5 text-xs text-[#8b8fa8] whitespace-nowrap max-w-[160px] truncate">
                             {o.products?.title||'—'}{o.upsell_item&&<span className="text-[#a78bfa]"> +{o.upsell_item.product_title}</span>}
@@ -1162,7 +1164,7 @@ export default function AdminPage() {
                           <td className="px-4 py-3.5 text-sm font-bold text-[#4ade80] whitespace-nowrap tabular-nums">{o.total_price} {o.stores?.currency||''}</td>
                           <td className="px-4 py-3.5"><span className={`text-[10px] font-semibold px-2 py-1 rounded-full whitespace-nowrap ${statusBadge(o.status)}`}>{o.status}</span></td>
                           <td className="px-4 py-3.5 text-xs text-[#4a4e60] whitespace-nowrap">{new Date(o.created_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
-                          <td className="px-4 py-3.5">{o.map_link ? <a href={o.map_link} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6]"><IconMap className="w-3.5 h-3.5" /></a> : <span className="text-[#2a2d35]">—</span>}</td>
+                          <td className="px-4 py-3.5">{o.map_link ? <a href={o.map_link} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[#3b82f6]"><IconMap className="w-3.5 h-3.5" /></a> : <span className="text-[#2a2d35]">—</span>}</td>
                           {ORDER_ATTRIBUTION_FIELDS.map(f => (
                             <td key={f} className="px-4 py-3.5 text-xs text-[#8b8fa8] max-w-[140px] truncate" title={o[f]??''}>{o[f]||'—'}</td>
                           ))}
@@ -1635,6 +1637,7 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+      <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} lang="en" />
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import { loadMerchantStore } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
 import { t } from '@/lib/i18n/translations'
+import OrderDetailsModal from '@/components/OrderDetailsModal'
 import * as XLSX from 'xlsx'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -56,6 +57,7 @@ export default function OrdersPage() {
   const { lang, dir } = useLang()
   const tr = t[lang]
   const [store, setStore] = useState<any>(null)
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null)
@@ -516,7 +518,8 @@ export default function OrdersPage() {
               return (
                 <div
                   key={order.id}
-                  className={`grid grid-cols-12 gap-3 px-5 py-4 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors items-center ${isExported ? 'opacity-60' : ''}`}
+                  onClick={() => setSelectedOrder(order)}
+                  className={`grid grid-cols-12 gap-3 px-5 py-4 border-b border-[#2a2d35] last:border-0 hover:bg-[#1f2229] transition-colors items-center cursor-pointer ${isExported ? 'opacity-60' : ''}`}
                 >
                   {/* Customer — yellow dot = not yet exported */}
                   <div className="col-span-2">
@@ -533,6 +536,7 @@ export default function OrdersPage() {
                   <div className="col-span-1">
                     {order.map_link ? (
                       <a href={order.map_link} target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
                         className="flex items-center gap-1 text-xs text-[#3b82f6] hover:text-white bg-[#1a3a5c] hover:bg-[#3b82f6] px-2 py-1.5 rounded-lg transition-colors font-medium whitespace-nowrap">
                         🗺️ {lang === 'ar' ? 'خريطة' : 'Map'}
                       </a>
@@ -593,6 +597,7 @@ export default function OrdersPage() {
                   <div className="col-span-2">
                     <select
                       value={order.status}
+                      onClick={e => e.stopPropagation()}
                       onChange={e => updateStatus(order.id, e.target.value)}
                       disabled={updatingId === order.id}
                       className={`text-xs font-medium px-2 py-1 rounded-lg border-0 cursor-pointer focus:outline-none ${STATUS_COLORS[order.status] || 'bg-[#1f2229] text-[#8b8fa8]'}`}
@@ -631,6 +636,7 @@ export default function OrdersPage() {
 
 
       </main>
+      <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} lang={lang} />
     </div>
   )
 }

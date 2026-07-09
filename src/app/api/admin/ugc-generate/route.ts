@@ -13,33 +13,40 @@ const FAL_NANO = 'https://queue.fal.run/fal-ai/nano-banana/edit'
 const FAL_VIDEO_I2V = 'https://queue.fal.run/fal-ai/gemini-omni-flash/image-to-video'
 const VIDEO_DURATION = 10 // seconds (Omni Flash supports 3–10)
 
-// Turns the scraped product photos into ONE clean 360° product reference sheet:
-// the product from every angle + accessories, with real dimension callouts.
-function three60Prompt(dimensions: string): string {
-  const dimLine = dimensions
-    ? ` In the lower-right area, add a small clean TECHNICAL DIMENSION DIAGRAM in the style of an e-commerce sizing graphic: thin grey measurement lines with arrow endpoints pointing across the product, each with a short label showing the real measurement in BOTH centimetres and inches (from: ${dimensions}) — e.g. height, width, thickness, and any length/circumference. Keep it minimal and precise, like a spec sheet.`
-    : ''
-  return `Create ONE clean e-commerce product reference image on a pure-white seamless background, laid out as a neat evenly-spaced GRID. The TOP section shows the main unit as a TRUE 360° turntable — 6 views, each a GENUINELY DIFFERENT rotation: (1) front, (2) left side profile, (3) right side profile, (4) back, (5) top-down, (6) a 45° three-quarter angle. CRITICAL: every view must be a clearly DIFFERENT angle — the spout/nozzle, handle and cord must point in different directions from view to view to prove the product is actually rotating. Do NOT repeat, mirror or duplicate the same angle; no two cells may look the same. Below the unit views, show EVERY included accessory, attachment, nozzle, brush, hose, pad, funnel, cup, adapter and tool bundled with the product, each laid out separately — include ALL parts visible anywhere across the reference photos, do NOT omit any; the bundle must look complete. Every item is the SAME one real product set; keep each item's exact shape, colour, proportions, materials, buttons and details identical to the reference photos, evenly lit with soft studio lighting, crisp focus, subtle soft shadows.${dimLine} No people, no text other than the dimension labels, no background props or clutter — only the rotated product views, its accessories, and the dimension callouts.`
-}
+const SYSTEM_PROMPT = `You are a TikTok ad creative director for the Saudi Arabian market. You receive a product's title, description, and several images. You produce TWO prompts for a two-step pipeline:
+- STEP 1 (compositing): an image model takes ONE product reference image + your imagePrompt and generates a photorealistic first frame of a Saudi person with the product.
+- STEP 2 (video): a video model animates that frame using your videoPrompt with Arabic voiceover.
 
-const SYSTEM_PROMPT = `You are a UGC ad creative director for the Saudi Arabian market. You receive a product's title, description, and product images. Based on them, write a SINGLE 10-second UGC ad video prompt with these exact specs every time:
+CHOOSE THE REFERENCE IMAGE (imageIndex):
+- Pick the image that shows the PRODUCT most clearly and completely (usually a clean, well-lit product shot). The compositing model copies the product from this image, so clarity of the product matters more than scenery. Return its 0-based index.
 
-- Length: 10 seconds only.
-- Format: 9:16 vertical, 1080×1920.
-- Style: authentic UGC, handheld.
-- NO text overlays anywhere on the video (and no logos, watermarks, usernames or app UI — a clean filmed frame).
-- Music: soft trendy beat, low under the voiceover.
-- MUST start with a strong creative hook in the first 2 seconds — a scroll-stopping pattern interrupt (a surprising line, a "stop!" moment, a bold question, or an unexpected visual). This hook is the most important part — never skip it.
-- A second-by-second visual breakdown (5 short shots: 1) the hook, 2) product reveal, 3) key benefit/feature, 4) lifestyle use, 5) final product shot).
-- A voiceover script in Saudi dialect (Arabic), punchy and natural, where the FIRST line is the hook. Keep it short enough to be spoken calmly and completely within 10 seconds. Add an English translation underneath each line (label it "EN:" — for the editor only, never spoken and never shown on screen).
-- Voiceover must end with a strong call to action ("order now" style).
+NEVER DESCRIBE THE PRODUCT'S APPEARANCE (in BOTH prompts):
+- The reference image already shows exactly what it looks like. Any words describing its appearance make the models reinvent it. Refer to it ONLY as "the product", "the device", or "it".
+- Do NOT write its color, shape, size, material, "handle", "tank", "grille", "blades", "buttons", "tower", "compact", "LED", brand, or any capacity/number. Zero physical adjectives.
+- FORBIDDEN phrases: "by its handle", "the 7-color LED", "the transparent water tank", "the fan blades", "the control buttons". Instead: "the product", "holding the product", "presses the product", "a soft glow from the product".
 
-Tailor the hook, visuals, and voiceover to whatever product is sent. Keep it concise and ready to hand to a video editor. Don't add anything to the video prompt beyond the prompt itself.
+FACIAL REALISM — CRITICAL (applies to BOTH prompts):
+- The person's face must ALWAYS look calm, natural, and relaxed. Normal, softly-open eyes with a relaxed gaze.
+- ABSOLUTELY NEVER: wide-open eyes, bulging eyes, popping or staring eyes, raised-high eyebrows, an exaggerated shocked/gasping face, or an over-excited cartoonish expression. This looks fake and ruins the ad.
+- The energy is confident, warm, and genuine — like a real person casually talking to their phone. A soft natural smile, not a big forced grin. Emotion is conveyed by tone of voice, not by widening the eyes.
 
-Separately, from the title/description, extract the product's REAL physical dimensions (the "dimensions" field) in BOTH metric and imperial where stated — e.g. "height 4.3 cm / 1.69 in, width 2.6 cm / 1.02 in, tank 1.6 L / 54 oz". If none are stated, return "".
+imagePrompt (the composite first frame — treat it as a full OPENING SCENE):
+- Pick a realistic setting that matches how the product is ACTUALLY USED, and build the whole scene there: a kitchen for a kitchen gadget, a driveway with a car for a car-cleaning tool, a bathroom for a grooming device, a living room for a home cooler, etc. A young Saudi person (woman in casual hijab and abaya, OR man in thobe) is in that setting with the product, with a CALM, RELAXED, natural expression and softly-open eyes (never wide-eyed or surprised).
+- Establish the ENVIRONMENT fully in this frame — include whatever context the action will need (e.g. if the product is used on a car, the car is already visible in the shot). This prevents the video from having to invent objects later.
+- Compose it as a real opening scene: a slightly wider, natural framing that shows the person, the product, and the setting — not just a tight close-up of the product in hands.
+- Keep the product IDENTICAL to the reference image — same shape, proportions, and details; do not alter it or add parts.
+- Photorealistic, authentic UGC phone-photo look, soft natural light, vertical 9:16 framing.
+
+videoPrompt (animates that first frame — a 10-second TikTok UGC ad). Follow this EXACT structure every time:
+- Length: 10 seconds. Format: 9:16 vertical. Style: authentic UGC, handheld phone footage. NO text overlays anywhere. Music: soft trendy beat, low under the voiceover.
+- MUST start with a strong creative hook in the first 2 seconds — a scroll-stopping pattern interrupt (a surprising line, a "stop!" moment, a bold question, or an unexpected visual). This hook is the most important part — never skip it. Deliver it with a calm, natural, relaxed face (never wide-eyed or shocked).
+- Give a second-by-second visual breakdown as 5 short shots: (1) the hook, (2) product reveal, (3) key benefit/feature in action, (4) lifestyle use, (5) final product shot.
+- Everything the video needs is ALREADY in the opening frame — animate only natural motion of what is present. Do NOT introduce new large objects; nothing pops in from off-screen. New elements may only enter by the person moving or a hand reaching in.
+- Voiceover script in Saudi dialect Arabic, punchy and natural, where the FIRST line is the hook. Write the exact Arabic words in Arabic script; under each Arabic line add its English translation in parentheses labelled "(EN: ...)" for the editor's reference ONLY — the English is never spoken and never shown on screen. The voiceover MUST end with a strong call to action (order-now style, e.g. "اطلبه الحين").
+- Any spray, mist, water, or air comes ONLY from the product, aimed where it naturally goes — NEVER from the person's mouth or nose. Mouth closed except when speaking; eyes relaxed and natural throughout.
 
 OUTPUT — return ONLY valid JSON, nothing else:
-{"dimensions": "<real dimensions or empty string>", "videoPrompt": "<the single 10-second UGC ad video prompt>"}`
+{"imageIndex": <number>, "imagePrompt": "<composite first-frame prompt>", "videoPrompt": "<10s UGC ad prompt: 5-shot breakdown + Saudi Arabic voiceover with (EN: ...) translations + CTA>"}`
 
 // Submit a fal queue job and poll it to completion; returns the result JSON.
 async function runFalJob(endpoint: string, body: object, falKey: string, maxMs: number): Promise<any> {
@@ -115,16 +122,18 @@ export async function POST(req: NextRequest) {
     source: { type: 'url' as const, url },
   }))
 
+  const shownImages = urls.slice(0, 4)
   const textBlock = {
     type: 'text' as const,
     text: `Product: ${title}
 ${description ? `Description: ${description.slice(0, 600)}` : ''}
 
-Write the 10-second UGC ad video prompt and extract the dimensions. Return only the JSON.`,
+Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the clearest product reference image, then write the imagePrompt and videoPrompt. Return only the JSON.`,
   }
 
+  let imagePrompt: string
   let videoPrompt: string
-  let dimensions = ''
+  let imageIndex = 0
   try {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
@@ -136,9 +145,11 @@ Write the 10-second UGC ad video prompt and extract the dimensions. Return only 
     if (!raw) throw new Error('Empty response from Claude')
     const json = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
     const parsed = JSON.parse(json)
+    imagePrompt = String(parsed.imagePrompt || '').trim()
     videoPrompt = String(parsed.videoPrompt || '').trim()
-    dimensions = String(parsed.dimensions || '').trim()
-    if (!videoPrompt) throw new Error('Missing videoPrompt in Claude JSON')
+    const idx = Number(parsed.imageIndex)
+    if (Number.isInteger(idx) && idx >= 0 && idx < shownImages.length) imageIndex = idx
+    if (!imagePrompt || !videoPrompt) throw new Error('Missing prompt in Claude JSON')
   } catch (e: any) {
     return NextResponse.json({ error: `Claude error: ${e.message}` }, { status: 502 })
   }
@@ -151,19 +162,19 @@ Write the 10-second UGC ad video prompt and extract the dimensions. Return only 
     return NextResponse.json({ error: 'Failed to proxy product images — cannot pass images to fal.ai', videoPrompt }, { status: 502 })
   }
 
-  // Step 3: Generate the ONE 360° product reference sheet from the scraped images (nano-banana).
-  // This single image is what we send to the video model — the video prompt builds the scene.
+  // Step 3: Generate the SINGLE first-frame image (person + real product) in one nano-banana call,
+  // fed ALL the product angles so the product is rendered accurately. No separate 360 sheet.
   let compositeUrl: string
   try {
     const result = await runFalJob(FAL_NANO, {
-      prompt: three60Prompt(dimensions),
+      prompt: imagePrompt,
       image_urls: proxied,
       num_images: 1,
     }, falKey, 55000)
     compositeUrl = result?.images?.[0]?.url ?? ''
-    if (!compositeUrl) throw new Error('no 360 image returned')
+    if (!compositeUrl) throw new Error('no image returned')
   } catch (e: any) {
-    return NextResponse.json({ error: `360 step: ${e.message}`, videoPrompt }, { status: 502 })
+    return NextResponse.json({ error: `image step: ${e.message}`, imagePrompt, videoPrompt }, { status: 502 })
   }
 
   // Step 4: Submit the composite to VEO3.1 image-to-video; client polls for the result.
@@ -200,7 +211,6 @@ Write the 10-second UGC ad video prompt and extract the dimensions. Return only 
       responseUrl: b.response_url ?? null,
       veoPrompt: videoPrompt,
       compositeUrl,
-      dimensions,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, videoPrompt }, { status: 502 })

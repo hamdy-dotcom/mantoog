@@ -13,6 +13,15 @@ const FAL_NANO = 'https://queue.fal.run/fal-ai/nano-banana/edit'
 const FAL_VIDEO_I2V = 'https://queue.fal.run/fal-ai/gemini-omni-flash/image-to-video'
 const VIDEO_DURATION = 10 // seconds (Omni Flash supports 3–10)
 
+// Turns the scraped product photos into ONE clean 360° product reference sheet:
+// the product from every angle + accessories, with real dimension callouts.
+function three60Prompt(dimensions: string): string {
+  const dimLine = dimensions
+    ? ` Include clean technical dimension callout lines with labels showing the product's real measurements (${dimensions}) beside the relevant views, like a dimension/spec sheet, so the true size and scale of the product are clear.`
+    : ''
+  return `Create ONE clean e-commerce product reference image on a plain pure-white background showing THIS exact product and ALL of its included parts and accessories from several angles (front, three-quarter, side, back and top) arranged neatly in a single frame — a 360-degree multi-view of one product. Keep every item's exact shape, colour, proportions, materials and details identical to the reference photos — it is ONE real product set shown from multiple angles, do not invent or omit items.${dimLine} Photorealistic studio product photography, soft even lighting, sharp focus, no people, no background props.`
+}
+
 const SYSTEM_PROMPT = `You are a TikTok ad creative director for the Saudi Arabian market. You receive a product's title, description, and several images. You produce TWO prompts for a two-step pipeline:
 - STEP 1 (compositing): an image model takes ONE product reference image + your imagePrompt and generates a photorealistic first frame of a Saudi person with the product.
 - STEP 2 (video): a video model animates that frame using your videoPrompt with Arabic voiceover.
@@ -45,8 +54,11 @@ videoPrompt (animates that first frame — a 10-second TikTok UGC ad). Follow th
 - Voiceover script in Saudi dialect Arabic, punchy and natural, where the FIRST line is the hook. Write the exact Arabic words in Arabic script; under each Arabic line add its English translation in parentheses labelled "(EN: ...)" for the editor's reference ONLY — the English is never spoken and never shown on screen. The voiceover MUST end with a strong call to action (order-now style, e.g. "اطلبه الحين").
 - Any spray, mist, water, or air comes ONLY from the product, aimed where it naturally goes — NEVER from the person's mouth or nose. Mouth closed except when speaking; eyes relaxed and natural throughout.
 
+PRODUCT DIMENSIONS (dimensions):
+- Extract the product's REAL physical dimensions/size from the title and description if stated — e.g. "20 × 15 × 30 cm", "1.6 L tank", "4.5 m cord", weight, etc. Return a short human-readable string listing them. If the source gives NO real dimensions, return an empty string "".
+
 OUTPUT — return ONLY valid JSON, nothing else:
-{"imageIndex": <number>, "imagePrompt": "<composite first-frame prompt>", "videoPrompt": "<10s UGC ad prompt: 5-shot breakdown + Saudi Arabic voiceover with (EN: ...) translations + CTA>"}`
+{"imageIndex": <number>, "dimensions": "<real product dimensions or empty string>", "imagePrompt": "<composite first-frame prompt>", "videoPrompt": "<10s UGC ad prompt: 5-shot breakdown + Saudi Arabic voiceover with (EN: ...) translations + CTA>"}`
 
 // Submit a fal queue job and poll it to completion; returns the result JSON.
 async function runFalJob(endpoint: string, body: object, falKey: string, maxMs: number): Promise<any> {
@@ -133,6 +145,7 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
 
   let imagePrompt: string
   let videoPrompt: string
+  let dimensions = ''
   let imageIndex = 0
   try {
     const response = await client.messages.create({
@@ -147,6 +160,7 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
     const parsed = JSON.parse(json)
     imagePrompt = String(parsed.imagePrompt || '').trim()
     videoPrompt = String(parsed.videoPrompt || '').trim()
+    dimensions = String(parsed.dimensions || '').trim()
     const idx = Number(parsed.imageIndex)
     if (Number.isInteger(idx) && idx >= 0 && idx < shownImages.length) imageIndex = idx
     if (!imagePrompt || !videoPrompt) throw new Error('Missing prompt in Claude JSON')
@@ -162,19 +176,19 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
     return NextResponse.json({ error: 'Failed to proxy product images — cannot pass images to fal.ai', videoPrompt }, { status: 502 })
   }
 
-  // Step 3: Generate the SINGLE first-frame image (person + real product) in one nano-banana call,
-  // fed ALL the product angles so the product is rendered accurately. No separate 360 sheet.
+  // Step 3: Generate the ONE 360° product reference sheet from the scraped images (nano-banana).
+  // This single image is what we send to the video model — the video prompt builds the scene.
   let compositeUrl: string
   try {
     const result = await runFalJob(FAL_NANO, {
-      prompt: imagePrompt,
+      prompt: three60Prompt(dimensions),
       image_urls: proxied,
       num_images: 1,
     }, falKey, 55000)
     compositeUrl = result?.images?.[0]?.url ?? ''
-    if (!compositeUrl) throw new Error('no image returned')
+    if (!compositeUrl) throw new Error('no 360 image returned')
   } catch (e: any) {
-    return NextResponse.json({ error: `image step: ${e.message}`, imagePrompt, videoPrompt }, { status: 502 })
+    return NextResponse.json({ error: `360 step: ${e.message}`, imagePrompt, videoPrompt }, { status: 502 })
   }
 
   // Step 4: Submit the composite to VEO3.1 image-to-video; client polls for the result.
@@ -211,6 +225,7 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
       responseUrl: b.response_url ?? null,
       veoPrompt: videoPrompt,
       compositeUrl,
+      dimensions,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, videoPrompt }, { status: 502 })

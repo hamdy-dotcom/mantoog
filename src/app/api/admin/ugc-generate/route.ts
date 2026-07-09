@@ -46,11 +46,13 @@ imagePrompt (the composite first frame — treat it as a full OPENING SCENE):
 - Keep the product IDENTICAL to the reference image — same shape, proportions, and details; do not alter it or add parts.
 - Photorealistic, authentic UGC phone-photo look, soft natural light, vertical 9:16 framing.
 
-videoPrompt (animates that first frame — a 10-second TikTok UGC ad). Follow this EXACT structure every time:
-- Length: 10 seconds. Format: 9:16 vertical. Style: authentic UGC, handheld phone footage. NO text overlays anywhere. Music: soft trendy beat, low under the voiceover.
+videoPrompt (animates that first frame — a 10-second vertical UGC ad). Follow this EXACT structure every time:
+- Length: 10 seconds. Format: 9:16 vertical. Style: authentic UGC, handheld phone footage. Music: soft trendy beat, low under the voiceover.
+- ABSOLUTELY NO on-screen graphics of any kind: no TikTok/Instagram/social-app logos, watermarks, usernames or @handles, no app UI, no captions or subtitles, no text overlays, no stickers. A completely clean frame — just the real filmed scene. (Do not even mention TikTok in the scene.)
 - MUST start with a strong creative hook in the first 2 seconds — a scroll-stopping pattern interrupt (a surprising line, a "stop!" moment, a bold question, or an unexpected visual). This hook is the most important part — never skip it. Deliver it with a calm, natural, relaxed face (never wide-eyed or shocked).
 - Give a second-by-second visual breakdown as 5 short shots: (1) the hook, (2) product reveal, (3) key benefit/feature in action, (4) lifestyle use, (5) final product shot.
 - Everything the video needs is ALREADY in the opening frame — animate only natural motion of what is present. Do NOT introduce new large objects; nothing pops in from off-screen. New elements may only enter by the person moving or a hand reaching in.
+- VOICEOVER TIMING IS CRITICAL: the whole spoken script must be short enough to be said calmly and completely within 10 seconds — keep it to about 20–26 Arabic words TOTAL across the whole ad (roughly 2 words per second). Do NOT cram or rush; every word must be spoken clearly at a natural pace. Pace it so the final call-to-action word finishes about half a second BEFORE the video ends — the voice must never be cut off, and lips must match the words (no skipped or swallowed words).
 - Voiceover script in Saudi dialect Arabic, punchy and natural, where the FIRST line is the hook. Write the exact Arabic words in Arabic script; under each Arabic line add its English translation in parentheses labelled "(EN: ...)" for the editor's reference ONLY — the English is never spoken and never shown on screen. The voiceover MUST end with a strong call to action (order-now style, e.g. "اطلبه الحين").
 - Any spray, mist, water, or air comes ONLY from the product, aimed where it naturally goes — NEVER from the person's mouth or nose. Mouth closed except when speaking; eyes relaxed and natural throughout.
 

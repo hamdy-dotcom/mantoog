@@ -17,9 +17,9 @@ const VIDEO_DURATION = 10 // seconds (Omni Flash supports 3–10)
 // the product from every angle + accessories, with real dimension callouts.
 function three60Prompt(dimensions: string): string {
   const dimLine = dimensions
-    ? ` Include clean technical dimension callout lines with labels showing the product's real measurements (${dimensions}) beside the relevant views, like a dimension/spec sheet, so the true size and scale of the product are clear.`
+    ? ` In the lower-right area, add a small clean TECHNICAL DIMENSION DIAGRAM in the style of an e-commerce sizing graphic: thin grey measurement lines with arrow endpoints pointing across the product, each with a short label showing the real measurement in BOTH centimetres and inches (from: ${dimensions}) — e.g. height, width, thickness, and any length/circumference. Keep it minimal and precise, like a spec sheet.`
     : ''
-  return `Create ONE clean e-commerce product reference image on a plain pure-white background showing THIS exact product and ALL of its included parts and accessories from several angles (front, three-quarter, side, back and top) arranged neatly in a single frame — a 360-degree multi-view of one product. Keep every item's exact shape, colour, proportions, materials and details identical to the reference photos — it is ONE real product set shown from multiple angles, do not invent or omit items.${dimLine} Photorealistic studio product photography, soft even lighting, sharp focus, no people, no background props.`
+  return `Create ONE clean e-commerce product reference image on a pure-white seamless background: a neat evenly-spaced GRID (rows and columns) showing THIS exact product photographed from MANY angles — front, back, left side, right side, top, bottom, and several three-quarter and rotated views — like a 360-degree turntable laid out in a single frame (aim for 8–9 views). Every view is the SAME one product; keep its exact shape, colour, proportions, materials, buttons and details identical to the reference photos, evenly lit with soft studio lighting, crisp focus, subtle soft shadows.${dimLine} No people, no text other than the dimension labels, no background props or clutter — only the product views and the dimension callouts.`
 }
 
 const SYSTEM_PROMPT = `You are a TikTok ad creative director for the Saudi Arabian market. You receive a product's title, description, and several images. You produce TWO prompts for a two-step pipeline:
@@ -55,7 +55,7 @@ videoPrompt (animates that first frame — a 10-second TikTok UGC ad). Follow th
 - Any spray, mist, water, or air comes ONLY from the product, aimed where it naturally goes — NEVER from the person's mouth or nose. Mouth closed except when speaking; eyes relaxed and natural throughout.
 
 PRODUCT DIMENSIONS (dimensions):
-- Extract the product's REAL physical dimensions/size from the title and description if stated — e.g. "20 × 15 × 30 cm", "1.6 L tank", "4.5 m cord", weight, etc. Return a short human-readable string listing them. If the source gives NO real dimensions, return an empty string "".
+- Extract the product's REAL physical dimensions/size from the title and description if stated. Return each labelled measurement in BOTH metric and imperial, converting accurately — e.g. "height 4.3 cm / 1.69 in, width 2.6 cm / 1.02 in, thickness 0.9 cm / 0.35 in, tank 1.6 L / 54 oz". Include length/cord/circumference/weight if given. If the source gives NO real dimensions, return an empty string "".
 
 OUTPUT — return ONLY valid JSON, nothing else:
 {"imageIndex": <number>, "dimensions": "<real product dimensions or empty string>", "imagePrompt": "<composite first-frame prompt>", "videoPrompt": "<10s UGC ad prompt: 5-shot breakdown + Saudi Arabic voiceover with (EN: ...) translations + CTA>"}`

@@ -8,10 +8,10 @@ export const maxDuration = 90
 // Composite-first pipeline:
 // 1) nano-banana (Gemini 2.5 Flash Image) composites a Saudi person holding the REAL product
 //    (product preserved from the reference image) → photorealistic first frame
-// 2) VEO3.1 Lite image-to-video animates that frame (8s + native audio + Arabic voiceover)
+// 2) Gemini Omni Flash image-to-video animates that frame (10s + native audio + Arabic voiceover)
 const FAL_NANO = 'https://queue.fal.run/fal-ai/nano-banana/edit'
-const FAL_VIDEO_I2V = 'https://queue.fal.run/fal-ai/veo3.1/lite/image-to-video'
-const VIDEO_DURATION = '8s' // VEO3.1 Lite supports 4s / 6s / 8s only
+const FAL_VIDEO_I2V = 'https://queue.fal.run/fal-ai/gemini-omni-flash/image-to-video'
+const VIDEO_DURATION = 10 // seconds (Omni Flash supports 3–10)
 
 const SYSTEM_PROMPT = `You are a TikTok ad creative director for the Saudi Arabian market. You receive a product's title, description, and several images. You produce TWO prompts for a two-step pipeline:
 - STEP 1 (compositing): an image model takes ONE product reference image + your imagePrompt and generates a photorealistic first frame of a Saudi person with the product.
@@ -186,9 +186,7 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
         prompt: videoPrompt,
         image_url: compositeUrl,
         aspect_ratio: '9:16',
-        resolution: '720p',
         duration: VIDEO_DURATION,
-        generate_audio: true,
       }),
       signal: AbortSignal.timeout(15000),
     })
@@ -209,7 +207,7 @@ Images are numbered 0-${shownImages.length - 1} in the order shown. Pick the cle
 
     return NextResponse.json({
       requestId: b.request_id as string,
-      statusUrl: b.status_url ?? `https://queue.fal.run/fal-ai/veo3.1/lite/image-to-video/requests/${b.request_id}/status`,
+      statusUrl: b.status_url ?? `https://queue.fal.run/fal-ai/gemini-omni-flash/image-to-video/requests/${b.request_id}/status`,
       responseUrl: b.response_url ?? null,
       veoPrompt: videoPrompt,
       compositeUrl,

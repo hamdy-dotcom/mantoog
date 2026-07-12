@@ -117,7 +117,7 @@ export default function SeedancePage() {
     <div className="min-h-screen bg-[#0f1117] text-white p-6">
       <div className="max-w-5xl mx-auto space-y-5">
         <div>
-          <h1 className="text-xl font-bold">Seedance 2 + ElevenLabs — 4 Creatives</h1>
+          <h1 className="text-xl font-bold">UGC Creatives</h1>
           <p className="text-sm text-[#8b8fa8] mt-1">Paste a product URL → 4 cinematic Seedance ads (15s, ambient) → add a Najdi voiceover per creative.</p>
         </div>
 

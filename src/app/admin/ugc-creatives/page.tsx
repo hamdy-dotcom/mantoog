@@ -64,10 +64,15 @@ export default function SeedancePage() {
     const trimmed = url.trim()
     if (!trimmed) return
     setStep('extracting'); setError(null); setCreatives([])
+    const safeJson = async (res: Response, label: string) => {
+      const txt = await res.text()
+      try { return JSON.parse(txt) }
+      catch { throw new Error(`${label} failed (${res.status}): ${txt.slice(0, 200)}`) }
+    }
     try {
       // 1) scrape
       const ex = await fetch('/api/products/fetch-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: trimmed }) })
-      const p = await ex.json()
+      const p = await safeJson(ex, 'Extract')
       if (!p.success) throw new Error(p.error || 'Failed to extract product')
       if (p.blocked) throw new Error('This site blocks scraping. Try another URL.')
       const images: string[] = (p.images || []).slice(0, 8)
@@ -75,7 +80,7 @@ export default function SeedancePage() {
       // 2) plan 4 creatives
       setStep('planning')
       const pl = await fetch('/api/admin/seedance-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: p.title, description: p.description, imageUrls: images.slice(0, 4) }) })
-      const plan = await pl.json()
+      const plan = await safeJson(pl, 'Planning')
       if (!pl.ok) throw new Error(plan.error || 'Planning failed')
       const list: Creative[] = (plan.creatives as any[]).slice(0, 4).map((c, i) => ({
         headline: c.headline || `Angle ${i + 1}`, gender: c.gender || '', seedancePrompt: c.seedancePrompt || '', voiceover: c.voiceover || '', translationEn: c.translationEn || '',

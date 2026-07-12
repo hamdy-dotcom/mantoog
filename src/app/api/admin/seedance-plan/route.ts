@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { assertAdmin } from '@/lib/admin/auth'
 
-export const maxDuration = 30
+export const maxDuration = 60
 
 // Encodes the friend's Seedance + ElevenLabs ad workflow. Produces 4 creatives
 // (4 angles), each with its own Seedance video prompt + a separate Najdi voiceover.

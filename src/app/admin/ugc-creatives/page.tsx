@@ -83,7 +83,7 @@ export default function SeedancePage() {
       const p = await safeJson(ex, 'Extract')
       if (!p.success) throw new Error(p.error || 'Failed to extract product')
       if (p.blocked) throw new Error('This site blocks scraping. Try another URL.')
-      const imgs: string[] = (p.images || []).slice(0, 8)
+      const imgs: string[] = (p.images || []).slice(0, 9)
       setProduct({ title: p.title || 'Untitled', description: p.description || '', images: imgs, price: p.price ?? null })
       setImages(imgs)
       setPriceInput(String(p.price ?? '').replace(/[^0-9.]/g, '') || '')
@@ -129,7 +129,7 @@ export default function SeedancePage() {
     if (!c || c.status === 'generating') return
     update(i, { status: 'generating', error: null })
     try {
-      const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrls: images.slice(0, 6), prompt: c.seedancePrompt }) })
+      const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrls: images.slice(0, 9), prompt: c.seedancePrompt }) })
       const gd = await g.json()
       if (!g.ok) throw new Error(gd.error || 'Seedance submit failed')
       update(i, { taskId: gd.taskId })

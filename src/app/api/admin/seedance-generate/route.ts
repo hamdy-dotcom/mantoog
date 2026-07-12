@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response
 
   const { imageUrls, prompt } = await req.json().catch(() => ({}))
-  const imgs = Array.isArray(imageUrls) ? imageUrls.filter(Boolean).slice(0, 6) : []
+  // Seedance media-to-video accepts up to 9 images — send them all.
+  const imgs = Array.isArray(imageUrls) ? imageUrls.filter(Boolean).slice(0, 9) : []
   if (!imgs.length || !prompt) return NextResponse.json({ error: 'imageUrls[] and prompt required' }, { status: 400 })
 
   const seedKey = process.env.SEEDANCE_API_KEY

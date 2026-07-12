@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 type Creative = {
+  headline?: string
   gender?: string
   seedancePrompt: string
   voiceover: string
@@ -77,23 +78,26 @@ export default function SeedancePage() {
       const plan = await pl.json()
       if (!pl.ok) throw new Error(plan.error || 'Planning failed')
       const list: Creative[] = (plan.creatives as any[]).slice(0, 4).map((c, i) => ({
-        gender: c.gender || '', seedancePrompt: c.seedancePrompt || '', voiceover: c.voiceover || '', translationEn: c.translationEn || '',
+        headline: c.headline || `Angle ${i + 1}`, gender: c.gender || '', seedancePrompt: c.seedancePrompt || '', voiceover: c.voiceover || '', translationEn: c.translationEn || '',
         imageUrl: images[i] || images[0] || '', status: 'pending',
       }))
       setCreatives(list)
       setStep('running')
-
-      // 3) kick off all 4 Seedance generations
-      list.forEach(async (c, i) => {
-        update(i, { status: 'generating' })
-        try {
-          const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: c.imageUrl, prompt: c.seedancePrompt }) })
-          const gd = await g.json()
-          if (!g.ok) throw new Error(gd.error || 'Seedance submit failed')
-          update(i, { taskId: gd.taskId })
-        } catch (e: any) { update(i, { status: 'error', error: e.message }) }
-      })
+      // Do NOT auto-generate — the user picks which angles to produce.
     } catch (e: any) { setError(e.message); setStep('error') }
+  }
+
+  // Generate the Seedance video for one chosen angle.
+  async function generateOne(i: number) {
+    const c = creatives[i]
+    if (!c || c.status === 'generating') return
+    update(i, { status: 'generating', error: null })
+    try {
+      const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: c.imageUrl, prompt: c.seedancePrompt }) })
+      const gd = await g.json()
+      if (!g.ok) throw new Error(gd.error || 'Seedance submit failed')
+      update(i, { taskId: gd.taskId })
+    } catch (e: any) { update(i, { status: 'error', error: e.message }) }
   }
 
   async function addVoiceover(i: number) {
@@ -151,21 +155,35 @@ export default function SeedancePage() {
                     {c.gender && <span className="text-[10px] normal-case font-medium text-[#a5b4fc] bg-[#6366f1]/15 px-1.5 py-0.5 rounded">{c.gender === 'female' ? '♀ female' : '♂ male'}</span>}
                   </span>
                   <span className="text-[11px] text-[#4a4d5a]">
-                    {c.status === 'generating' ? 'Generating…' : c.status === 'ready' ? 'Ready' : c.status === 'vo' ? 'Adding voice…' : c.status === 'final' ? 'Final ✓' : c.status === 'error' ? 'Error' : 'Queued'}
+                    {c.status === 'generating' ? 'Generating…' : c.status === 'ready' ? 'Ready' : c.status === 'vo' ? 'Adding voice…' : c.status === 'final' ? 'Final ✓' : c.status === 'error' ? 'Error' : 'Pick to generate'}
                   </span>
                 </div>
 
-                <div className="flex justify-center bg-black/30 rounded-lg" style={{ aspectRatio: '9/16', maxHeight: 320 }}>
+                {/* Headline (the angle) */}
+                <div className="text-sm font-semibold text-white leading-snug">{c.headline}</div>
+
+                <div className="flex justify-center bg-black/30 rounded-lg overflow-hidden" style={{ aspectRatio: '9/16', maxHeight: 320 }}>
                   {c.mergedUrl ? (
                     <video src={c.mergedUrl} controls loop playsInline className="h-full rounded-lg" />
                   ) : c.videoUrl ? (
                     <video src={c.videoUrl} controls loop playsInline muted className="h-full rounded-lg" />
                   ) : c.status === 'error' ? (
-                    <div className="flex items-center justify-center text-xs text-[#f87171] p-3 text-center">{c.error}</div>
-                  ) : (
-                    <div className="flex items-center justify-center w-full">
-                      <span className="w-6 h-6 rounded-full border-2 border-[#6366f1] border-t-transparent animate-spin" />
+                    <div className="flex flex-col items-center justify-center gap-2 p-3 text-center">
+                      <div className="text-xs text-[#f87171]">{c.error}</div>
+                      <button onClick={() => generateOne(i)} className="text-xs text-[#818cf8] hover:text-white underline cursor-pointer">Retry</button>
                     </div>
+                  ) : c.status === 'generating' ? (
+                    <div className="flex flex-col items-center justify-center gap-2 w-full text-[#8b8fa8]">
+                      <span className="w-6 h-6 rounded-full border-2 border-[#6366f1] border-t-transparent animate-spin" />
+                      <span className="text-[11px]">Generating… ~2-4 min</span>
+                    </div>
+                  ) : (
+                    <button onClick={() => generateOne(i)}
+                      className="flex flex-col items-center justify-center gap-2 w-full h-full text-[#8b8fa8] hover:text-white hover:bg-[#6366f1]/10 transition-colors cursor-pointer group">
+                      <span className="w-10 h-10 rounded-full bg-[#6366f1] group-hover:bg-[#5558e3] flex items-center justify-center text-white text-lg">▶</span>
+                      <span className="text-xs font-semibold">Generate this video</span>
+                      <span className="text-[10px] text-[#4a4d5a]">~235 credits</span>
+                    </button>
                   )}
                 </div>
 

@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
           generation_type: 'image-to-video',
           image_urls: [proxied],
           duration: 15,
-          resolution: '1080p',
+          resolution: '720p',
           aspect_ratio: '9:16',
           generate_audio: true,
         },

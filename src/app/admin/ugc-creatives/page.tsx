@@ -19,7 +19,9 @@ type Creative = {
   showBlocks?: boolean
 }
 
-type Step = 'idle' | 'extracting' | 'planning' | 'running' | 'error'
+type Product = { title: string; description: string; images: string[]; price: string | null }
+type ProductPage = { productId: string; landingUrl: string; caption: string; titleAr: string; price: number; compareAtPrice: number | null; currency: string }
+type Step = 'idle' | 'extracting' | 'pricing' | 'creating_page' | 'planning' | 'running' | 'error'
 
 export default function SeedancePage() {
   const router = useRouter()
@@ -28,6 +30,11 @@ export default function SeedancePage() {
   const [voiceId, setVoiceId] = useState('')
   const [step, setStep] = useState<Step>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [product, setProduct] = useState<Product | null>(null)
+  const [images, setImages] = useState<string[]>([])
+  const [priceInput, setPriceInput] = useState('')
+  const [discountInput, setDiscountInput] = useState('')
+  const [productPage, setProductPage] = useState<ProductPage | null>(null)
   const [creatives, setCreatives] = useState<Creative[]>([])
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -60,26 +67,51 @@ export default function SeedancePage() {
     return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }
   }, [creatives, update])
 
-  async function handleStart() {
+  const safeJson = async (res: Response, label: string) => {
+    const txt = await res.text()
+    try { return JSON.parse(txt) }
+    catch { throw new Error(`${label} failed (${res.status}): ${txt.slice(0, 200)}`) }
+  }
+
+  // Step 1: extract the product, then move to pricing.
+  async function handleExtract() {
     const trimmed = url.trim()
     if (!trimmed) return
-    setStep('extracting'); setError(null); setCreatives([])
-    const safeJson = async (res: Response, label: string) => {
-      const txt = await res.text()
-      try { return JSON.parse(txt) }
-      catch { throw new Error(`${label} failed (${res.status}): ${txt.slice(0, 200)}`) }
-    }
+    setStep('extracting'); setError(null); setCreatives([]); setProduct(null); setProductPage(null)
     try {
-      // 1) scrape
       const ex = await fetch('/api/products/fetch-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: trimmed }) })
       const p = await safeJson(ex, 'Extract')
       if (!p.success) throw new Error(p.error || 'Failed to extract product')
       if (p.blocked) throw new Error('This site blocks scraping. Try another URL.')
-      const images: string[] = (p.images || []).slice(0, 8)
+      const imgs: string[] = (p.images || []).slice(0, 8)
+      setProduct({ title: p.title || 'Untitled', description: p.description || '', images: imgs, price: p.price ?? null })
+      setImages(imgs)
+      setPriceInput(String(p.price ?? '').replace(/[^0-9.]/g, '') || '')
+      setDiscountInput('')
+      setStep('pricing')
+    } catch (e: any) { setError(e.message); setStep('error') }
+  }
 
-      // 2) plan 4 creatives
+  // Step 2: create the Arabic landing page (with price + discount), then plan the 4 angles.
+  async function handleContinue() {
+    if (!product) return
+    if (!priceInput || !(parseFloat(priceInput) > 0)) { setError('Enter a valid price'); return }
+    setStep('creating_page'); setError(null)
+    try {
+      const cp = await fetch('/api/admin/ugc-create-product', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: product.title, description: product.description, images: product.images, sourceUrl: url.trim(),
+          price: parseFloat(priceInput),
+          compareAtPrice: discountInput && parseFloat(discountInput) > 0 ? parseFloat(discountInput) : null,
+        }),
+      })
+      const page = await safeJson(cp, 'Landing page')
+      if (!cp.ok) throw new Error(page.error || 'Failed to create landing page')
+      setProductPage(page)
+
       setStep('planning')
-      const pl = await fetch('/api/admin/seedance-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: p.title, description: p.description, imageUrls: images.slice(0, 4) }) })
+      const pl = await fetch('/api/admin/seedance-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: product.title, description: product.description, imageUrls: images.slice(0, 4) }) })
       const plan = await safeJson(pl, 'Planning')
       if (!pl.ok) throw new Error(plan.error || 'Planning failed')
       const list: Creative[] = (plan.creatives as any[]).slice(0, 4).map((c, i) => ({
@@ -88,7 +120,6 @@ export default function SeedancePage() {
       }))
       setCreatives(list)
       setStep('running')
-      // Do NOT auto-generate — the user picks which angles to produce.
     } catch (e: any) { setError(e.message); setStep('error') }
   }
 
@@ -119,35 +150,77 @@ export default function SeedancePage() {
 
   if (!authed) return <div className="min-h-screen bg-[#0f1117] flex items-center justify-center"><div className="text-[#8b8fa8] text-sm">Loading...</div></div>
 
-  const busy = step === 'extracting' || step === 'planning'
-  const statusLabel = step === 'extracting' ? 'Extracting product…' : step === 'planning' ? 'Writing 4 creatives…' : ''
+  const busy = step === 'extracting' || step === 'creating_page' || step === 'planning'
+  const statusLabel = step === 'extracting' ? 'Extracting…' : step === 'creating_page' ? 'Building landing page…' : step === 'planning' ? 'Writing 4 angles…' : ''
 
   return (
     <div className="min-h-screen bg-[#0f1117] text-white p-6">
       <div className="max-w-5xl mx-auto space-y-5">
         <div>
           <h1 className="text-xl font-bold">UGC Creatives</h1>
-          <p className="text-sm text-[#8b8fa8] mt-1">Paste a product URL → 4 cinematic Seedance ads (15s, ambient) → add a Najdi voiceover per creative.</p>
+          <p className="text-sm text-[#8b8fa8] mt-1">Product URL → landing page → pick from 4 angle ideas → generate each as a Seedance ad + Najdi voiceover.</p>
         </div>
 
         <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 space-y-3">
           <div className="flex gap-2">
-            <input type="url" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && !busy && handleStart()}
+            <input type="url" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && !busy && step !== 'pricing' && handleExtract()}
               placeholder="https://www.amazon.sa/…" disabled={busy}
               className="flex-1 bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4d5a] outline-none focus:border-[#6366f1]" />
-            <button onClick={handleStart} disabled={busy || !url.trim()}
+            <button onClick={handleExtract} disabled={busy || !url.trim()}
               className="px-4 py-2 bg-[#6366f1] hover:bg-[#5558e3] disabled:opacity-40 text-white text-sm font-semibold rounded-lg cursor-pointer whitespace-nowrap">
-              {busy ? statusLabel : 'Generate 4'}
+              {busy ? statusLabel : 'Start'}
             </button>
           </div>
           <input value={voiceId} onChange={e => setVoiceId(e.target.value)} placeholder="Force a specific voice_id (optional — otherwise auto male/female per product)"
             className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-xs text-white placeholder-[#4a4d5a] outline-none focus:border-[#6366f1]" />
         </div>
 
+        {/* Product + pricing → landing page */}
+        {product && (step === 'pricing' || step === 'creating_page') && (
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 space-y-4">
+            <div className="flex gap-3">
+              {product.images[0] && <img src={product.images[0]} alt="" className="w-14 h-14 object-cover rounded-lg shrink-0 border border-[#2a2d35]" />}
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-white leading-tight">{product.title}</div>
+                {product.price && <div className="text-xs text-[#8b8fa8] mt-0.5">{product.price}</div>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-semibold text-[#8b8fa8] uppercase tracking-wider block mb-1">Selling price</label>
+                <input type="number" min="1" step="0.01" value={priceInput} onChange={e => setPriceInput(e.target.value)} placeholder="0.00"
+                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#6366f1]" />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-[#8b8fa8] uppercase tracking-wider block mb-1">Compare-at <span className="text-[#4a4d5a] normal-case">(optional)</span></label>
+                <input type="number" min="0" step="0.01" value={discountInput} onChange={e => setDiscountInput(e.target.value)} placeholder="0.00"
+                  className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#6366f1]" />
+              </div>
+            </div>
+            <button onClick={handleContinue} disabled={busy}
+              className="w-full py-2.5 bg-[#6366f1] hover:bg-[#5558e3] disabled:opacity-40 text-white text-sm font-semibold rounded-lg cursor-pointer">
+              {step === 'creating_page' ? 'Building landing page…' : step === 'planning' ? 'Writing angles…' : 'Create landing page & angles'}
+            </button>
+          </div>
+        )}
+
+        {/* Landing page result */}
+        {productPage && step === 'running' && (
+          <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4">
+            <div className="text-[11px] font-semibold text-[#8b8fa8] uppercase tracking-wider mb-1">Landing page</div>
+            <div className="text-sm text-white leading-snug mb-1" dir="rtl">{productPage.titleAr}</div>
+            <a href={productPage.landingUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#818cf8] hover:text-[#a5b4fc] break-all">{productPage.landingUrl}</a>
+          </div>
+        )}
+
         {step === 'error' && error && (
           <div className="bg-[#1a1d24] border border-[#5a1a1a] rounded-xl p-4">
             <pre className="text-xs text-[#f87171] whitespace-pre-wrap break-all">{error}</pre>
           </div>
+        )}
+
+        {step === 'running' && creatives.length > 0 && (
+          <div className="text-sm font-semibold text-white pt-1">Pick the angles you want to produce</div>
         )}
 
         {creatives.length > 0 && (

@@ -51,7 +51,8 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         text: voiceover,
         model_id: 'eleven_multilingual_v2',
-        voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.2, use_speaker_boost: true, speed: 1.05 },
+        // Matches the tuned ElevenLabs settings: faster, stable, high similarity, mild style, no speaker boost.
+        voice_settings: { stability: 0.5, similarity_boost: 0.9, style: 0.4, use_speaker_boost: false, speed: 1.1 },
       }),
       signal: AbortSignal.timeout(30000),
     })

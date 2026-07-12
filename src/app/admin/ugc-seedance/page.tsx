@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 type Creative = {
+  gender?: string
   seedancePrompt: string
   voiceover: string
   translationEn: string
@@ -76,7 +77,7 @@ export default function SeedancePage() {
       const plan = await pl.json()
       if (!pl.ok) throw new Error(plan.error || 'Planning failed')
       const list: Creative[] = (plan.creatives as any[]).slice(0, 4).map((c, i) => ({
-        seedancePrompt: c.seedancePrompt || '', voiceover: c.voiceover || '', translationEn: c.translationEn || '',
+        gender: c.gender || '', seedancePrompt: c.seedancePrompt || '', voiceover: c.voiceover || '', translationEn: c.translationEn || '',
         imageUrl: images[i] || images[0] || '', status: 'pending',
       }))
       setCreatives(list)
@@ -100,7 +101,7 @@ export default function SeedancePage() {
     if (!c.videoUrl) return
     update(i, { status: 'vo', error: null })
     try {
-      const res = await fetch('/api/admin/seedance-voiceover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: c.videoUrl, voiceover: c.voiceover, voiceId: voiceId.trim() || undefined }) })
+      const res = await fetch('/api/admin/seedance-voiceover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: c.videoUrl, voiceover: c.voiceover, gender: c.gender, voiceId: voiceId.trim() || undefined }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Voiceover failed')
       update(i, { status: 'final', mergedUrl: data.mergedUrl })
@@ -130,7 +131,7 @@ export default function SeedancePage() {
               {busy ? statusLabel : 'Generate 4'}
             </button>
           </div>
-          <input value={voiceId} onChange={e => setVoiceId(e.target.value)} placeholder="ElevenLabs voice_id (optional — Najdi voice)"
+          <input value={voiceId} onChange={e => setVoiceId(e.target.value)} placeholder="Force a specific voice_id (optional — otherwise auto male/female per product)"
             className="w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2 text-xs text-white placeholder-[#4a4d5a] outline-none focus:border-[#6366f1]" />
         </div>
 
@@ -145,7 +146,10 @@ export default function SeedancePage() {
             {creatives.map((c, i) => (
               <div key={i} className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#8b8fa8] uppercase tracking-wider">Creative {i + 1}</span>
+                  <span className="text-xs font-semibold text-[#8b8fa8] uppercase tracking-wider flex items-center gap-1.5">
+                    Creative {i + 1}
+                    {c.gender && <span className="text-[10px] normal-case font-medium text-[#a5b4fc] bg-[#6366f1]/15 px-1.5 py-0.5 rounded">{c.gender === 'female' ? '♀ female' : '♂ male'}</span>}
+                  </span>
                   <span className="text-[11px] text-[#4a4d5a]">
                     {c.status === 'generating' ? 'Generating…' : c.status === 'ready' ? 'Ready' : c.status === 'vo' ? 'Adding voice…' : c.status === 'final' ? 'Final ✓' : c.status === 'error' ? 'Error' : 'Queued'}
                   </span>

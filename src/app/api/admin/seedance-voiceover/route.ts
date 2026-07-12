@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const auth = await assertAdmin()
   if (!auth.ok) return auth.response
 
-  const { videoUrl, voiceover, voiceId } = await req.json().catch(() => ({}))
+  const { videoUrl, voiceover, voiceId, gender } = await req.json().catch(() => ({}))
   if (!videoUrl || !voiceover) return NextResponse.json({ error: 'videoUrl and voiceover required' }, { status: 400 })
 
   const elevenKey = process.env.ELEVENLABS_API_KEY
@@ -38,7 +38,9 @@ export async function POST(req: NextRequest) {
   const falKey = process.env.FAL_KEY
   if (!falKey) return NextResponse.json({ error: 'FAL_KEY not configured' }, { status: 500 })
 
-  const voice = String(voiceId || process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE)
+  // Pick the voice: explicit override → gender-based env voice → single default env → fallback
+  const genderVoice = gender === 'female' ? process.env.ELEVENLABS_VOICE_ID_FEMALE : gender === 'male' ? process.env.ELEVENLABS_VOICE_ID_MALE : ''
+  const voice = String(voiceId || genderVoice || process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE)
 
   // 1) ElevenLabs TTS → mp3
   let audioBuffer: Buffer

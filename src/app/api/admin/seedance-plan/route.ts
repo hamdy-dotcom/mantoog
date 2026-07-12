@@ -26,11 +26,16 @@ VOICEOVER (ElevenLabs, Arabic):
 - Provide it WITHOUT tashkeel.
 - End with a strong CTA (usually "اطلبها الحين لا يفوتك!").
 
+PRESENTER GENDER (per creative):
+- Choose the presenter gender that best SUITS the product: women's / beauty / abaya / kitchen-and-home products lean female; men's grooming / shemagh / car / tools lean male; neutral household products can be either. For neutral products, vary the gender across the 4 creatives.
+- The Seedance character's gender AND dress MUST match the chosen gender (male: Saudi thobe + shemagh/ghutra; female: Saudi black abaya), and the voiceover will be spoken in that gender's voice — keep them consistent.
+- Return the chosen gender as "male" or "female".
+
 Also give an English translation of each voiceover for reference.
 
 OUTPUT — return ONLY valid JSON, nothing else:
 {"creatives": [
-  {"seedancePrompt": "<full English Seedance prompt as one block>", "voiceover": "<Arabic Najdi VO, no tashkeel>", "translationEn": "<English translation of the VO>"},
+  {"gender": "male | female", "seedancePrompt": "<full English Seedance prompt as one block>", "voiceover": "<Arabic Najdi VO, no tashkeel>", "translationEn": "<English translation of the VO>"},
   ... exactly 4 items ...
 ]}`
 

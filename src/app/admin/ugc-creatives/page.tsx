@@ -32,6 +32,7 @@ export default function SeedancePage() {
   const [error, setError] = useState<string | null>(null)
   const [product, setProduct] = useState<Product | null>(null)
   const [images, setImages] = useState<string[]>([])
+  const [proxiedImages, setProxiedImages] = useState<string[]>([])
   const [priceInput, setPriceInput] = useState('')
   const [discountInput, setDiscountInput] = useState('')
   const [productPage, setProductPage] = useState<ProductPage | null>(null)
@@ -77,7 +78,7 @@ export default function SeedancePage() {
   async function handleExtract() {
     const trimmed = url.trim()
     if (!trimmed) return
-    setStep('extracting'); setError(null); setCreatives([]); setProduct(null); setProductPage(null)
+    setStep('extracting'); setError(null); setCreatives([]); setProduct(null); setProductPage(null); setProxiedImages([])
     try {
       const ex = await fetch('/api/products/fetch-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: trimmed }) })
       const p = await safeJson(ex, 'Extract')
@@ -110,6 +111,12 @@ export default function SeedancePage() {
       if (!cp.ok) throw new Error(page.error || 'Failed to create landing page')
       setProductPage(page)
 
+      // Proxy all product images ONCE — reused for every creative so generation is fast.
+      const px = await fetch('/api/admin/proxy-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrls: images.slice(0, 9) }) })
+      const pxData = await safeJson(px, 'Preparing images')
+      if (!px.ok) throw new Error(pxData.error || 'Failed to prepare images')
+      setProxiedImages(pxData.mediaUrls || [])
+
       setStep('planning')
       const pl = await fetch('/api/admin/seedance-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: product.title, description: product.description, imageUrls: images.slice(0, 4) }) })
       const plan = await safeJson(pl, 'Planning')
@@ -129,7 +136,7 @@ export default function SeedancePage() {
     if (!c || c.status === 'generating') return
     update(i, { status: 'generating', error: null })
     try {
-      const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrls: images.slice(0, 9), prompt: c.seedancePrompt }) })
+      const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaUrls: proxiedImages, imageUrls: images.slice(0, 9), prompt: c.seedancePrompt }) })
       const gd = await g.json()
       if (!g.ok) throw new Error(gd.error || 'Seedance submit failed')
       update(i, { taskId: gd.taskId })

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { assertAdmin } from '@/lib/admin/auth'
 import { supabaseAdmin } from '@/lib/tiktok/server'
 
-export const maxDuration = 30
+export const maxDuration = 60
 
 // Use the www host directly — the apex host 307-redirects and drops the auth header.
 const SEEDANCE_CREATE = 'https://www.seedance2ai.io/api/v1/video/seedance2'
@@ -27,17 +27,23 @@ export async function POST(req: NextRequest) {
   const auth = await assertAdmin()
   if (!auth.ok) return auth.response
 
-  const { imageUrls, prompt } = await req.json().catch(() => ({}))
-  // Seedance media-to-video accepts up to 9 images — send them all.
-  const imgs = Array.isArray(imageUrls) ? imageUrls.filter(Boolean).slice(0, 9) : []
-  if (!imgs.length || !prompt) return NextResponse.json({ error: 'imageUrls[] and prompt required' }, { status: 400 })
+  const { imageUrls, mediaUrls, prompt } = await req.json().catch(() => ({}))
+  if (!prompt) return NextResponse.json({ error: 'prompt required' }, { status: 400 })
 
   const seedKey = process.env.SEEDANCE_API_KEY
   if (!seedKey) return NextResponse.json({ error: 'SEEDANCE_API_KEY not configured' }, { status: 500 })
 
-  // Proxy every product image through Supabase (Seedance can't fetch Amazon CDN).
-  const proxied = (await Promise.all(imgs.map(u => proxyToSupabase(u)))).filter(Boolean) as string[]
-  if (!proxied.length) return NextResponse.json({ error: 'Failed to proxy product images' }, { status: 502 })
+  // Prefer already-proxied public URLs (fast path — no re-download). Seedance
+  // media-to-video accepts up to 9 images.
+  let proxied: string[]
+  if (Array.isArray(mediaUrls) && mediaUrls.filter(Boolean).length) {
+    proxied = (mediaUrls as string[]).filter(Boolean).slice(0, 9)
+  } else {
+    const imgs = Array.isArray(imageUrls) ? imageUrls.filter(Boolean).slice(0, 9) : []
+    if (!imgs.length) return NextResponse.json({ error: 'mediaUrls[] or imageUrls[] required' }, { status: 400 })
+    proxied = (await Promise.all(imgs.map(u => proxyToSupabase(u)))).filter(Boolean) as string[]
+  }
+  if (!proxied.length) return NextResponse.json({ error: 'No usable product images' }, { status: 502 })
 
   try {
     const res = await fetch(SEEDANCE_CREATE, {

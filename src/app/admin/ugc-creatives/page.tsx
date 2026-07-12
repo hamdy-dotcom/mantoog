@@ -260,7 +260,7 @@ export default function SeedancePage() {
                       className="flex flex-col items-center justify-center gap-2 w-full h-full text-[#8b8fa8] hover:text-white hover:bg-[#6366f1]/10 transition-colors cursor-pointer group">
                       <span className="w-10 h-10 rounded-full bg-[#6366f1] group-hover:bg-[#5558e3] flex items-center justify-center text-white text-lg">▶</span>
                       <span className="text-xs font-semibold">Generate this video</span>
-                      <span className="text-[10px] text-[#4a4d5a]">~235 credits</span>
+                      <span className="text-[10px] text-[#4a4d5a]">~180 credits</span>
                     </button>
                   )}
                 </div>

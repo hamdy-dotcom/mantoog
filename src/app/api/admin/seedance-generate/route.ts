@@ -41,12 +41,13 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${seedKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        mode: 'image-to-video',
-        quality_tier: 'standard',
+        mode: 'image-to-video',   // input type
+        quality_tier: 'mini',     // Seedance 2 Mini
+        channel: 'standard',      // Standard rendering mode (vs real/wild)
         prompt,
         image_url: proxied,
         duration: '15',
-        resolution: '720p',
+        resolution: '1080p',
         aspect_ratio: '9:16',
         generate_audio: true,
       }),

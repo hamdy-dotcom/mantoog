@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
         aspect_ratio: '9:16',
         generate_audio: true,
       }),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(55000),
     })
     const txt = await res.text()
     if (!res.ok) return NextResponse.json({ error: `Seedance ${res.status}: ${txt.slice(0, 300)}` }, { status: 502 })

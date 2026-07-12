@@ -4,7 +4,8 @@ import { supabaseAdmin } from '@/lib/tiktok/server'
 
 export const maxDuration = 30
 
-const SEEDANCE_CREATE = 'https://api.seedance2.ai/v1/videos/generations'
+// Use the www host directly — the apex host 307-redirects and drops the auth header.
+const SEEDANCE_CREATE = 'https://www.seedance2ai.io/api/v1/video/seedance2'
 
 async function proxyToSupabase(imageUrl: string): Promise<string | null> {
   try {
@@ -40,23 +41,21 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${seedKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'seedance-2-0',
-        input: {
-          prompt,
-          generation_type: 'image-to-video',
-          image_urls: [proxied],
-          duration: 15,
-          resolution: '720p',
-          aspect_ratio: '9:16',
-          generate_audio: true,
-        },
+        mode: 'image-to-video',
+        quality_tier: 'standard',
+        prompt,
+        image_url: proxied,
+        duration: '15',
+        resolution: '720p',
+        aspect_ratio: '9:16',
+        generate_audio: true,
       }),
       signal: AbortSignal.timeout(20000),
     })
     const txt = await res.text()
     if (!res.ok) return NextResponse.json({ error: `Seedance ${res.status}: ${txt.slice(0, 300)}` }, { status: 502 })
     const b = JSON.parse(txt)
-    const taskId = b.taskId ?? b.task_id ?? b.id
+    const taskId = b.id ?? b.taskId ?? b.task_id
     if (!taskId) return NextResponse.json({ error: `no taskId: ${txt.slice(0, 200)}` }, { status: 502 })
     return NextResponse.json({ taskId, firstFrame: proxied })
   } catch (e: any) {

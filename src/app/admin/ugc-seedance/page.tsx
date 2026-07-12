@@ -10,8 +10,7 @@ type Creative = {
   translationEn: string
   imageUrl: string
   status: 'pending' | 'generating' | 'ready' | 'vo' | 'final' | 'error'
-  statusUrl?: string | null
-  responseUrl?: string | null
+  taskId?: string | null
   videoUrl?: string | null
   mergedUrl?: string | null
   error?: string | null
@@ -41,17 +40,15 @@ export default function SeedancePage() {
 
   // Poll all generating creatives
   useEffect(() => {
-    const anyGenerating = creatives.some(c => c.status === 'generating' && c.statusUrl)
+    const anyGenerating = creatives.some(c => c.status === 'generating' && c.taskId)
     if (!anyGenerating) { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } return }
     if (pollRef.current) return
     pollRef.current = setInterval(async () => {
       const snapshot = creatives
       await Promise.all(snapshot.map(async (c, i) => {
-        if (c.status !== 'generating' || !c.statusUrl) return
+        if (c.status !== 'generating' || !c.taskId) return
         try {
-          const params = new URLSearchParams({ statusUrl: c.statusUrl })
-          if (c.responseUrl) params.set('responseUrl', c.responseUrl)
-          const res = await fetch(`/api/admin/ugc-status?${params}`)
+          const res = await fetch(`/api/admin/seedance-status?taskId=${c.taskId}`)
           const data = await res.json()
           if (data.status === 'completed') update(i, { status: 'ready', videoUrl: data.videoUrl })
           else if (data.status === 'failed') update(i, { status: 'error', error: data.error || 'failed' })
@@ -92,7 +89,7 @@ export default function SeedancePage() {
           const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: c.imageUrl, prompt: c.seedancePrompt }) })
           const gd = await g.json()
           if (!g.ok) throw new Error(gd.error || 'Seedance submit failed')
-          update(i, { statusUrl: gd.statusUrl, responseUrl: gd.responseUrl })
+          update(i, { taskId: gd.taskId })
         } catch (e: any) { update(i, { status: 'error', error: e.message }) }
       })
     } catch (e: any) { setError(e.message); setStep('error') }

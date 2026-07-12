@@ -27,25 +27,27 @@ export async function POST(req: NextRequest) {
   const auth = await assertAdmin()
   if (!auth.ok) return auth.response
 
-  const { imageUrl, prompt } = await req.json().catch(() => ({}))
-  if (!imageUrl || !prompt) return NextResponse.json({ error: 'imageUrl and prompt required' }, { status: 400 })
+  const { imageUrls, prompt } = await req.json().catch(() => ({}))
+  const imgs = Array.isArray(imageUrls) ? imageUrls.filter(Boolean).slice(0, 6) : []
+  if (!imgs.length || !prompt) return NextResponse.json({ error: 'imageUrls[] and prompt required' }, { status: 400 })
 
   const seedKey = process.env.SEEDANCE_API_KEY
   if (!seedKey) return NextResponse.json({ error: 'SEEDANCE_API_KEY not configured' }, { status: 500 })
 
-  const proxied = await proxyToSupabase(imageUrl)
-  if (!proxied) return NextResponse.json({ error: 'Failed to proxy angle image' }, { status: 502 })
+  // Proxy every product image through Supabase (Seedance can't fetch Amazon CDN).
+  const proxied = (await Promise.all(imgs.map(u => proxyToSupabase(u)))).filter(Boolean) as string[]
+  if (!proxied.length) return NextResponse.json({ error: 'Failed to proxy product images' }, { status: 502 })
 
   try {
     const res = await fetch(SEEDANCE_CREATE, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${seedKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        mode: 'image-to-video',   // input type
+        mode: 'media-to-video',   // multiple input images
         quality_tier: 'mini',     // Seedance 2 Mini
         channel: 'standard',      // Standard rendering mode (vs real/wild)
         prompt,
-        image_url: proxied,
+        media_urls: proxied,
         duration: '15',
         resolution: '1080p',
         aspect_ratio: '9:16',
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest) {
     const b = JSON.parse(txt)
     const taskId = b.id ?? b.taskId ?? b.task_id
     if (!taskId) return NextResponse.json({ error: `no taskId: ${txt.slice(0, 200)}` }, { status: 502 })
-    return NextResponse.json({ taskId, firstFrame: proxied })
+    return NextResponse.json({ taskId, firstFrame: proxied[0] })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 502 })
   }

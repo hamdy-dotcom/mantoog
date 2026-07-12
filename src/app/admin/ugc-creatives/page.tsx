@@ -129,7 +129,7 @@ export default function SeedancePage() {
     if (!c || c.status === 'generating') return
     update(i, { status: 'generating', error: null })
     try {
-      const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: c.imageUrl, prompt: c.seedancePrompt }) })
+      const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrls: images.slice(0, 6), prompt: c.seedancePrompt }) })
       const gd = await g.json()
       if (!g.ok) throw new Error(gd.error || 'Seedance submit failed')
       update(i, { taskId: gd.taskId })

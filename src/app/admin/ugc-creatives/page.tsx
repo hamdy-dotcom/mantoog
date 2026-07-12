@@ -176,7 +176,7 @@ export default function SeedancePage() {
         </div>
 
         {/* Product + pricing → landing page */}
-        {product && (step === 'pricing' || step === 'creating_page') && (
+        {product && (step === 'pricing' || step === 'creating_page' || step === 'planning') && (
           <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-4 space-y-4">
             <div className="flex gap-3">
               {product.images[0] && <img src={product.images[0]} alt="" className="w-14 h-14 object-cover rounded-lg shrink-0 border border-[#2a2d35]" />}

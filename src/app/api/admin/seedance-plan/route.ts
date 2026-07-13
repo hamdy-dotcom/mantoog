@@ -38,7 +38,7 @@ Write the seedancePrompt as ONE flowing block containing all sections above (you
 
 VOICEOVER (ElevenLabs, Arabic):
 - Saudi NAJDI dialect (not general Gulf) — use words like "الحين، عقب، زين، وش، تبغى، لا يفوتك".
-- The voiceover starts ~1.5 seconds into the 15-second video and must comfortably FILL the rest of it: about 30-36 words (~11-12 seconds of natural speech at speed ~1.05). Not a rushed one-liner — pace it to cover the clip, and make sure it finishes before the video ends.
+- The voiceover starts ~1.5 seconds into the 15-second video and MUST finish before the video ends. Keep it to about 24-28 words — roughly 9-11 seconds of natural speech at speed ~1.05. This is a hard limit: do NOT write a long paragraph that would overrun 11 seconds. Tight, punchy, and complete.
 - Provide it WITHOUT tashkeel.
 - End with a strong CTA (usually "اطلبها الحين لا يفوتك!").
 

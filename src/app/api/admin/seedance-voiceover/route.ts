@@ -13,9 +13,12 @@ export const maxDuration = 120
 // Multilingual fallback voice; override with a Saudi voice via ELEVENLABS_VOICE_ID or the request.
 const DEFAULT_VOICE = 'EXAVITQu4vr4xnSDxMaL'
 // The voiceover starts ~1.5s into the clip; the original ambient audio is kept but
-// ducked to 40% so the voice sits on top without deleting the video's own sound.
+// ducked to 30% so the voice sits on top without deleting the video's own sound.
 const VO_DELAY_MS = 1500
-const BG_VOLUME = 0.4
+const BG_VOLUME = 0.3
+// The voiceover must finish inside the 15s clip: starting at 1.5s, cap its spoken
+// length so it ends well before the end. If TTS runs longer, we speed it up to fit.
+const MAX_VO_SEC = 11.5
 
 function runFfmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -25,6 +28,21 @@ function runFfmpeg(args: string[]): Promise<void> {
     p.stderr.on('data', d => { err += d.toString() })
     p.on('error', reject)
     p.on('close', code => code === 0 ? resolve() : reject(new Error(err.slice(-600) || `ffmpeg exit ${code}`)))
+  })
+}
+
+// Read a media file's duration in seconds (ffmpeg prints it to stderr even with no output).
+function probeDuration(file: string): Promise<number | null> {
+  return new Promise(resolve => {
+    if (!ffmpegPath) return resolve(null)
+    const p = spawn(ffmpegPath, ['-i', file])
+    let err = ''
+    p.stderr.on('data', d => { err += d.toString() })
+    p.on('error', () => resolve(null))
+    p.on('close', () => {
+      const m = err.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/)
+      resolve(m ? (+m[1] * 3600 + +m[2] * 60 + +m[3]) : null)
+    })
   })
 }
 
@@ -87,7 +105,14 @@ export async function POST(req: NextRequest) {
     await writeFile(inVideo, videoBuffer)
     await writeFile(inVo, audioBuffer)
 
-    // Primary: original audio ducked to 40% + VO delayed, mixed, video copied (full length kept).
+    // If the VO is longer than the window, speed it up (atempo) so it finishes inside the clip.
+    const voDur = await probeDuration(inVo)
+    const tempo = voDur && voDur > MAX_VO_SEC ? Math.min(voDur / MAX_VO_SEC, 1.5) : 1
+    const voChain = tempo > 1.001
+      ? `atempo=${tempo.toFixed(3)},adelay=delays=${VO_DELAY_MS}:all=1`
+      : `adelay=delays=${VO_DELAY_MS}:all=1`
+
+    // Primary: original audio ducked to 30% + VO (fitted + delayed), mixed, video copied (full length kept).
     const mixArgs = (filter: string) => [
       '-y', '-i', inVideo, '-i', inVo,
       '-filter_complex', filter,
@@ -95,12 +120,12 @@ export async function POST(req: NextRequest) {
       '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart',
       outFile,
     ]
-    const primary = `[0:a]volume=${BG_VOLUME}[bg];[1:a]adelay=delays=${VO_DELAY_MS}:all=1[vo];[bg][vo]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]`
+    const primary = `[0:a]volume=${BG_VOLUME}[bg];[1:a]${voChain}[vo];[bg][vo]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]`
     try {
       await runFfmpeg(mixArgs(primary))
     } catch {
-      // Fallback: the source clip had no audio track — just delay the VO over the (silent) video.
-      const fallback = `[1:a]adelay=delays=${VO_DELAY_MS}:all=1[a]`
+      // Fallback: the source clip had no audio track — just fit + delay the VO over the (silent) video.
+      const fallback = `[1:a]${voChain}[a]`
       await runFfmpeg(mixArgs(fallback))
     }
 

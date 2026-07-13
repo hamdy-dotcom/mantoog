@@ -13,9 +13,9 @@ export const maxDuration = 120
 // Multilingual fallback voice; override with a Saudi voice via ELEVENLABS_VOICE_ID or the request.
 const DEFAULT_VOICE = 'EXAVITQu4vr4xnSDxMaL'
 // The voiceover starts ~1.5s into the clip; the original ambient audio is kept but
-// ducked low (10%) so the voice clearly dominates without deleting the video's own sound.
+// ducked to 25% so the voice dominates without deleting the video's own sound.
 const VO_DELAY_MS = 1500
-const BG_VOLUME = 0.1
+const BG_VOLUME = 0.25
 // The voiceover must finish inside the 15s clip: starting at 1.5s, cap its spoken
 // length so it ends well before the end. If TTS runs longer, we speed it up to fit.
 const MAX_VO_SEC = 11.5
@@ -72,8 +72,9 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         text: voiceover,
         model_id: 'eleven_multilingual_v2',
-        // Natural, stable pacing so the script fills the clip without sounding rushed.
-        voice_settings: { stability: 0.5, similarity_boost: 0.9, style: 0.4, use_speaker_boost: false, speed: 1.05 },
+        // Tuned for a natural, real human delivery: higher stability + fidelity, low
+        // "style" exaggeration, speaker boost on, natural (1.0) pace.
+        voice_settings: { stability: 0.6, similarity_boost: 0.95, style: 0.15, use_speaker_boost: true, speed: 1.0 },
       }),
       signal: AbortSignal.timeout(30000),
     })

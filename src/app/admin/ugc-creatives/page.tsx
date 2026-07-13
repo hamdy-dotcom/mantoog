@@ -576,7 +576,7 @@ export default function SeedancePage() {
                       {/* expanded: video + Saudi voiceover */}
                       {expanded && (
                         <div className="border-t border-white/5 p-4 flex flex-col sm:flex-row gap-4">
-                          <div className="shrink-0 mx-auto sm:mx-0 rounded-xl overflow-hidden bg-black/50 border border-white/5" style={{ width: 150, aspectRatio: '9/16' }}>
+                          <div className="shrink-0 mx-auto sm:mx-0 w-[220px] sm:w-[280px] rounded-xl overflow-hidden bg-black/50 border border-white/5" style={{ aspectRatio: '9/16' }}>
                             {c.mergedUrl ? (
                               <video src={c.mergedUrl} controls loop playsInline className="h-full w-full object-cover" />
                             ) : c.videoUrl ? (

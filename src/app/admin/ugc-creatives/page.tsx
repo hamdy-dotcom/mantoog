@@ -272,7 +272,7 @@ export default function SeedancePage() {
     : (step === 'creating_page' || step === 'landing') ? 3
     : step === 'pricing' ? 2 : 1
   const transitioning = step === 'creating_page' || step === 'planning'
-  const statusLabel = step === 'extracting' ? 'نقرأ المنتج…' : step === 'creating_page' ? 'نبني صفحة الهبوط…' : step === 'planning' ? 'نكتب ١٠ زوايا إعلانية…' : ''
+  const statusLabel = step === 'extracting' ? 'نقرأ تفاصيل منتجك…' : step === 'creating_page' ? 'نجهّز صفحة الهبوط…' : step === 'planning' ? 'نحلّل منتجك ونبتكر ١٠ زوايا إعلانية' : ''
   const readyCount = creatives.filter(c => c.videoUrl || c.mergedUrl).length
   // A step is reachable if its data already exists (used for the clickable rail).
   const canGoTo = (n: number) => n === 1 || (n === 2 && !!product) || (n === 3 && !!productPage) || (n === 4 && creatives.length > 0) || (n === 5 && readyCount > 0)
@@ -350,7 +350,7 @@ export default function SeedancePage() {
               من رابط منتجك إلى<br className="hidden sm:block" /> <span className="bg-gradient-to-l from-[#818cf8] via-[#c084fc] to-[#fb7185] bg-clip-text text-transparent">٤ زوايا إعلانية جاهزة</span>
             </h1>
             <p className="mt-4 text-[15px] sm:text-lg text-[#9aa0b4] max-w-xl leading-relaxed">
-              الصق رابط المنتج، ونبني لك صفحة هبوط، ثم نكتب ٤ زوايا إعلانية بفيديوهات سينمائية وتعليق صوتي عربي سعودي — جاهزة للإطلاق على TikTok.
+              الصق رابط المنتج، ونبني لك صفحة هبوط، ثم نحلّل منتجك ونبتكر ١٠ زوايا إعلانية بفيديوهات سينمائية وتعليق صوتي عربي سعودي — جاهزة للإطلاق على TikTok.
             </p>
 
             <div className="mt-9 w-full max-w-xl">
@@ -717,7 +717,7 @@ export default function SeedancePage() {
               {[0, 1, 2].map(d => <span key={d} className="ugc-dot h-3 w-3 rounded-full bg-gradient-to-br from-[#6366f1] to-[#e11d48]" style={{ animationDelay: `${d * 0.18}s` }} />)}
             </div>
             <h3 className="font-display text-2xl sm:text-3xl font-semibold">{statusLabel}</h3>
-            <p className="mt-2 text-[14px] text-[#9aa0b4]">{step === 'planning' ? 'نكتب ٤ زوايا إعلانية مختلفة…' : 'نجهّز المنتج والصور…'}</p>
+            <p className="mt-2 text-[14px] text-[#9aa0b4]">{step === 'planning' ? 'ندرس المنتج ونصمم لكل زاوية فكرة ومشهدًا وتعليقًا صوتيًا مختلفًا…' : 'نرتّب الصور والتفاصيل والسعر…'}</p>
           </div>
         </div>
       )}

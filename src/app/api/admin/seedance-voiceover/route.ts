@@ -1,31 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { assertAdmin } from '@/lib/admin/auth'
 import { supabaseAdmin } from '@/lib/tiktok/server'
+import { spawn } from 'child_process'
+import { writeFile, readFile, rm, mkdtemp } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import ffmpegPath from 'ffmpeg-static'
 
-export const maxDuration = 90
+export const runtime = 'nodejs'
+export const maxDuration = 120
 
-const FAL_MERGE = 'https://queue.fal.run/fal-ai/ffmpeg-api/merge-audio-video'
-// Multilingual fallback voice; override with a Najdi voice via ELEVENLABS_VOICE_ID or the request.
+// Multilingual fallback voice; override with a Saudi voice via ELEVENLABS_VOICE_ID or the request.
 const DEFAULT_VOICE = 'EXAVITQu4vr4xnSDxMaL'
+// The voiceover starts ~1.5s into the clip; the original ambient audio is kept but
+// ducked to 40% so the voice sits on top without deleting the video's own sound.
+const VO_DELAY_MS = 1500
+const BG_VOLUME = 0.4
 
-async function pollFal(statusUrl: string, responseUrl: string, falKey: string, maxMs: number): Promise<any> {
-  const start = Date.now()
-  while (Date.now() - start < maxMs) {
-    await new Promise(r => setTimeout(r, 2000))
-    const st = await fetch(statusUrl, { headers: { 'Authorization': `Key ${falKey}` }, signal: AbortSignal.timeout(10000) })
-    const sb = await st.json().catch(() => ({}))
-    if (sb?.status === 'COMPLETED') {
-      const r = await fetch(responseUrl, { headers: { 'Authorization': `Key ${falKey}` }, signal: AbortSignal.timeout(10000) })
-      const rt = await r.text()
-      if (!r.ok) throw new Error(`merge result ${r.status}: ${rt.slice(0, 200)}`)
-      return JSON.parse(rt)
-    }
-    if (sb?.status === 'FAILED' || sb?.status === 'ERROR') throw new Error('merge job failed')
-  }
-  throw new Error('merge timed out')
+function runFfmpeg(args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!ffmpegPath) return reject(new Error('ffmpeg binary unavailable'))
+    const p = spawn(ffmpegPath, args)
+    let err = ''
+    p.stderr.on('data', d => { err += d.toString() })
+    p.on('error', reject)
+    p.on('close', code => code === 0 ? resolve() : reject(new Error(err.slice(-600) || `ffmpeg exit ${code}`)))
+  })
 }
 
-// ElevenLabs TTS (Najdi VO) -> upload -> fal merge onto the Seedance video.
+// ElevenLabs TTS (Saudi VO) -> mix onto the Seedance video with ffmpeg:
+// keep the full video length, duck the original audio to 40%, delay the VO ~1.5s.
 export async function POST(req: NextRequest) {
   const auth = await assertAdmin()
   if (!auth.ok) return auth.response
@@ -35,8 +39,7 @@ export async function POST(req: NextRequest) {
 
   const elevenKey = process.env.ELEVENLABS_API_KEY
   if (!elevenKey) return NextResponse.json({ error: 'ELEVENLABS_API_KEY not configured — add it to enable voiceover', needsElevenKey: true }, { status: 400 })
-  const falKey = process.env.FAL_KEY
-  if (!falKey) return NextResponse.json({ error: 'FAL_KEY not configured' }, { status: 500 })
+  if (!ffmpegPath) return NextResponse.json({ error: 'ffmpeg not available on the server' }, { status: 500 })
 
   // Pick the voice: explicit override → gender-based env voice → single default env → fallback
   const genderVoice = gender === 'female' ? process.env.ELEVENLABS_VOICE_ID_FEMALE : gender === 'male' ? process.env.ELEVENLABS_VOICE_ID_MALE : ''
@@ -51,8 +54,8 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         text: voiceover,
         model_id: 'eleven_multilingual_v2',
-        // Matches the tuned ElevenLabs settings: faster, stable, high similarity, mild style, no speaker boost.
-        voice_settings: { stability: 0.5, similarity_boost: 0.9, style: 0.4, use_speaker_boost: false, speed: 1.1 },
+        // Natural, stable pacing so the script fills the clip without sounding rushed.
+        voice_settings: { stability: 0.5, similarity_boost: 0.9, style: 0.4, use_speaker_boost: false, speed: 1.05 },
       }),
       signal: AbortSignal.timeout(30000),
     })
@@ -65,31 +68,53 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `ElevenLabs error: ${e.message}` }, { status: 502 })
   }
 
-  // 2) Upload the audio so fal can fetch it
-  const path = `ugc-temp/vo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp3`
-  const up = await supabaseAdmin.storage.from('store-assets').upload(path, audioBuffer, { contentType: 'audio/mpeg', upsert: true })
-  if (up.error) return NextResponse.json({ error: `audio upload: ${up.error.message}` }, { status: 502 })
-  const audioUrl = supabaseAdmin.storage.from('store-assets').getPublicUrl(path).data.publicUrl
-
-  // 3) Merge VO onto the Seedance video via fal ffmpeg
+  // 2) Download the Seedance video
+  let videoBuffer: Buffer
   try {
-    const res = await fetch(FAL_MERGE, {
-      method: 'POST',
-      headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ video_url: videoUrl, audio_url: audioUrl }),
-      signal: AbortSignal.timeout(15000),
-    })
-    const txt = await res.text()
-    if (!res.ok) return NextResponse.json({ error: `merge submit ${res.status}: ${txt.slice(0, 200)}`, audioUrl }, { status: 502 })
-    const b = JSON.parse(txt)
-    const statusUrl = b.status_url
-    const responseUrl = b.response_url
-    if (!statusUrl || !responseUrl) return NextResponse.json({ error: 'no merge status url', audioUrl }, { status: 502 })
-    const result = await pollFal(statusUrl, responseUrl, falKey, 70000)
-    const mergedUrl = result?.video?.url ?? result?.video_url ?? result?.url ?? result?.output?.url ?? ''
-    if (!mergedUrl) return NextResponse.json({ error: `merge: no output url. keys: ${Object.keys(result || {}).join(',')}`, audioUrl }, { status: 502 })
-    return NextResponse.json({ mergedUrl, audioUrl })
+    const v = await fetch(videoUrl, { signal: AbortSignal.timeout(45000) })
+    if (!v.ok) return NextResponse.json({ error: `Could not fetch video (${v.status})` }, { status: 502 })
+    videoBuffer = Buffer.from(await v.arrayBuffer())
   } catch (e: any) {
-    return NextResponse.json({ error: `merge error: ${e.message}`, audioUrl }, { status: 502 })
+    return NextResponse.json({ error: `video download error: ${e.message}` }, { status: 502 })
+  }
+
+  // 3) ffmpeg mix in a temp dir
+  const dir = await mkdtemp(join(tmpdir(), 'vo-'))
+  const inVideo = join(dir, 'in.mp4')
+  const inVo = join(dir, 'vo.mp3')
+  const outFile = join(dir, 'out.mp4')
+  try {
+    await writeFile(inVideo, videoBuffer)
+    await writeFile(inVo, audioBuffer)
+
+    // Primary: original audio ducked to 40% + VO delayed, mixed, video copied (full length kept).
+    const mixArgs = (filter: string) => [
+      '-y', '-i', inVideo, '-i', inVo,
+      '-filter_complex', filter,
+      '-map', '0:v', '-map', '[a]',
+      '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart',
+      outFile,
+    ]
+    const primary = `[0:a]volume=${BG_VOLUME}[bg];[1:a]adelay=delays=${VO_DELAY_MS}:all=1[vo];[bg][vo]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]`
+    try {
+      await runFfmpeg(mixArgs(primary))
+    } catch {
+      // Fallback: the source clip had no audio track — just delay the VO over the (silent) video.
+      const fallback = `[1:a]adelay=delays=${VO_DELAY_MS}:all=1[a]`
+      await runFfmpeg(mixArgs(fallback))
+    }
+
+    const merged = await readFile(outFile)
+
+    // 4) Upload the merged video
+    const path = `ugc-temp/merged-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp4`
+    const up = await supabaseAdmin.storage.from('store-assets').upload(path, merged, { contentType: 'video/mp4', upsert: true })
+    if (up.error) return NextResponse.json({ error: `merged upload: ${up.error.message}` }, { status: 502 })
+    const mergedUrl = supabaseAdmin.storage.from('store-assets').getPublicUrl(path).data.publicUrl
+    return NextResponse.json({ mergedUrl })
+  } catch (e: any) {
+    return NextResponse.json({ error: `mix error: ${e.message}` }, { status: 502 })
+  } finally {
+    rm(dir, { recursive: true, force: true }).catch(() => {})
   }
 }

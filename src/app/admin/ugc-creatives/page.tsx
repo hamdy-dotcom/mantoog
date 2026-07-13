@@ -19,7 +19,7 @@ type Creative = {
   showBlocks?: boolean
 }
 
-type Product = { title: string; description: string; images: string[]; price: string | null }
+type Product = { title: string; titleAr?: string; description: string; images: string[]; price: string | null }
 type ProductPage = { productId: string; landingUrl: string; caption: string; titleAr: string; price: number; compareAtPrice: number | null; currency: string }
 type Step = 'idle' | 'extracting' | 'pricing' | 'creating_page' | 'planning' | 'running' | 'error'
 
@@ -102,11 +102,16 @@ export default function SeedancePage() {
       if (!p.success) throw new Error(p.error || 'تعذّر قراءة المنتج')
       if (p.blocked) throw new Error('هذا الموقع يمنع الاستخراج. جرّب رابطًا آخر.')
       const imgs: string[] = (p.images || []).slice(0, 9)
-      setProduct({ title: p.title || 'بدون عنوان', description: p.description || '', images: imgs, price: p.price ?? null })
+      const title: string = p.title || 'بدون عنوان'
+      setProduct({ title, description: p.description || '', images: imgs, price: p.price ?? null })
       setImages(imgs)
       setPriceInput(String(p.price ?? '').replace(/[^0-9.]/g, '') || '')
       setDiscountInput('')
       setStep('pricing')
+      // Translate the scraped title to Arabic for display (non-blocking).
+      fetch('/api/admin/translate-title', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: title }) })
+        .then(r => r.json()).then(d => { if (d?.titleAr) setProduct(prev => prev ? { ...prev, titleAr: d.titleAr } : prev) })
+        .catch(() => {})
     } catch (e: any) { setError(e.message); setStep('error') }
   }
 
@@ -311,7 +316,8 @@ export default function SeedancePage() {
                       ))}
                     </div>
                   )}
-                  <div className="mt-4 text-[15px] font-bold leading-snug">{product.title}</div>
+                  <div className="mt-4 text-[15px] font-bold leading-snug">{product.titleAr || product.title}</div>
+                  {product.titleAr && <div className="mt-1 text-[11px] text-[#5a5f72] leading-snug" dir="ltr">{product.title}</div>}
                   <div className="mt-1 text-[12px] text-[#6b7080]">{toAr(product.images.length)} صورة · تُرسل إلى Seedance</div>
                 </div>
 

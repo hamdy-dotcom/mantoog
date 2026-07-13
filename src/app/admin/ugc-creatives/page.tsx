@@ -88,11 +88,14 @@ export default function SeedancePage() {
     setCreatives(prev => prev.map((c, idx) => idx === i ? { ...c, ...patch } : c))
   }, [])
 
-  // Poll all generating creatives
+  // Poll all generating creatives. Seedance allows only 30 req/60s per account, so we
+  // scale the interval by how many are generating to keep status polling ~24 req/min
+  // and leave headroom for new "generate" calls (which would otherwise get 429'd).
   useEffect(() => {
-    const anyGenerating = creatives.some(c => c.status === 'generating' && c.taskId)
-    if (!anyGenerating) { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } return }
+    const generating = creatives.filter(c => c.status === 'generating' && c.taskId)
+    if (!generating.length) { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } return }
     if (pollRef.current) return
+    const intervalMs = Math.max(7000, generating.length * 2500)
     pollRef.current = setInterval(async () => {
       const snapshot = creatives
       await Promise.all(snapshot.map(async (c, i) => {
@@ -104,7 +107,7 @@ export default function SeedancePage() {
           else if (data.status === 'failed') update(i, { status: 'error', error: data.error || 'failed' })
         } catch { /* keep polling */ }
       }))
-    }, 4000)
+    }, intervalMs)
     return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }
   }, [creatives, update])
 
@@ -192,8 +195,10 @@ export default function SeedancePage() {
     update(i, { status: 'generating', error: null })
     try {
       const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaUrls: proxiedImages, imageUrls: images.slice(0, 9), prompt: c.seedancePrompt }) })
-      const gd = await g.json()
-      if (!g.ok) throw new Error(gd.error || 'فشل إرسال الطلب إلى Seedance')
+      const txt = await g.text()
+      let gd: any = {}
+      try { gd = JSON.parse(txt) } catch { gd = { error: txt.slice(0, 200) || `HTTP ${g.status}` } }
+      if (!g.ok) throw new Error(gd.error || `فشل الإرسال (HTTP ${g.status})`)
       update(i, { taskId: gd.taskId })
     } catch (e: any) { update(i, { status: 'error', error: e.message }) }
   }
@@ -554,9 +559,9 @@ export default function SeedancePage() {
                                 <span className={`h-1.5 w-1.5 rounded-full ${female ? 'bg-[#fb7185]' : 'bg-[#a5b4fc]'}`} />{female ? 'أنثى' : 'ذكر'}
                               </span>
                             )}
-                            {c.status === 'error' && <span className="text-[11px] text-[#fb7185]">تعذّر الإنشاء — جرّب مرة ثانية</span>}
                             {c.status === 'final' && <span className="text-[11px] font-bold text-[#4ade80]">جاهز بالصوت السعودي</span>}
                           </div>
+                          {c.status === 'error' && <p className="mt-1.5 text-[11px] text-[#fb7185] leading-snug">تعذّر الإنشاء — اضغط «إعادة» للمحاولة مرة ثانية</p>}
                         </div>
                         <div className="shrink-0 flex flex-col items-stretch gap-1">
                           {c.status === 'pending' ? (

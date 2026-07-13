@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { assertAdmin } from '@/lib/admin/auth'
 import { supabaseAdmin } from '@/lib/tiktok/server'
 
-export const maxDuration = 60
+export const maxDuration = 90
 
 // Use the www host directly — the apex host 307-redirects and drops the auth header.
 const SEEDANCE_CREATE = 'https://www.seedance2ai.io/api/v1/video/seedance2'
@@ -45,30 +45,49 @@ export async function POST(req: NextRequest) {
   }
   if (!proxied.length) return NextResponse.json({ error: 'No usable product images' }, { status: 502 })
 
-  try {
-    const res = await fetch(SEEDANCE_CREATE, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${seedKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mode: 'media-to-video',   // multiple input images
-        quality_tier: 'mini',     // Seedance 2 Mini
-        channel: 'standard',      // Standard rendering mode (vs real/wild)
-        prompt,
-        media_urls: proxied,
-        duration: '15',
-        resolution: '1080p',
-        aspect_ratio: '9:16',
-        generate_audio: true,
-      }),
-      signal: AbortSignal.timeout(55000),
-    })
-    const txt = await res.text()
-    if (!res.ok) return NextResponse.json({ error: `Seedance ${res.status}: ${txt.slice(0, 300)}` }, { status: 502 })
-    const b = JSON.parse(txt)
-    const taskId = b.id ?? b.taskId ?? b.task_id
-    if (!taskId) return NextResponse.json({ error: `no taskId: ${txt.slice(0, 200)}` }, { status: 502 })
-    return NextResponse.json({ taskId, firstFrame: proxied[0] })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 502 })
+  const body = JSON.stringify({
+    mode: 'media-to-video',   // multiple input images
+    quality_tier: 'mini',     // Seedance 2 Mini
+    channel: 'standard',      // Standard rendering mode (vs real/wild)
+    prompt: String(prompt).slice(0, 9500), // API max is 10k chars
+    media_urls: proxied,
+    duration: '15',
+    resolution: '1080p',
+    aspect_ratio: '9:16',
+    generate_audio: true,
+  })
+
+  // Seedance allows 30 req/60s per account; heavy status polling can trip a 429 on
+  // create. A 429 means NO task was created, so it's safe to wait and retry without
+  // double-charging. (Timeouts are ambiguous → we do NOT retry those.)
+  let lastErr = 'Seedance request failed'
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      const res = await fetch(SEEDANCE_CREATE, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${seedKey}`, 'Content-Type': 'application/json' },
+        body,
+        signal: AbortSignal.timeout(55000),
+      })
+      const txt = await res.text()
+      if (res.ok) {
+        const b = JSON.parse(txt)
+        const taskId = b.id ?? b.taskId ?? b.task_id
+        if (taskId) return NextResponse.json({ taskId, firstFrame: proxied[0] })
+        return NextResponse.json({ error: `no taskId: ${txt.slice(0, 200)}` }, { status: 502 })
+      }
+      lastErr = `Seedance ${res.status}: ${txt.slice(0, 200)}`
+      if (res.status === 429 && attempt < 4) {
+        const ra = parseInt(res.headers.get('retry-after') || '', 10)
+        const waitMs = Math.min((Number.isFinite(ra) && ra > 0 ? ra : attempt * 4) * 1000, 12000)
+        await new Promise(r => setTimeout(r, waitMs))
+        continue
+      }
+      return NextResponse.json({ error: lastErr }, { status: 502 })
+    } catch (e: any) {
+      // timeout/network: the task may have been created — don't retry (avoid a double charge)
+      return NextResponse.json({ error: e.message }, { status: 502 })
+    }
   }
+  return NextResponse.json({ error: lastErr }, { status: 502 })
 }

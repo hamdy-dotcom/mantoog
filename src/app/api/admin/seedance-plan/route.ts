@@ -38,10 +38,9 @@ Write the seedancePrompt as ONE flowing block containing all sections above (you
 
 VOICEOVER (ElevenLabs, Arabic):
 - Saudi NAJDI dialect (not general Gulf) — use words like "الحين، عقب، زين، وش، تبغى".
-- Sound like a REAL person talking naturally to a friend — conversational, warm, believable, NOT a robotic or over-hyped ad announcer. Natural phrasing and rhythm.
-- The voiceover starts ~1.5 seconds into the 15-second video and MUST finish before the video ends. Keep it to about 22-26 words — roughly 9-11 seconds of natural speech. This is a hard limit: do NOT write a long paragraph that would overrun 11 seconds. Tight, natural, and complete.
+- The voiceover starts ~1.5 seconds into the 15-second video and MUST finish before the video ends. Make it about 28-32 words — roughly 10-12 seconds of natural speech at speed ~1.05. It MUST FILL this length: do NOT make it short (never under ~10 seconds) and do NOT overrun the video. Punchy, engaging, and complete.
 - Provide it WITHOUT tashkeel.
-- End with a short, natural CTA such as "اطلبها الحين" / "اطلبيها الحين" (match the presenter gender). Do NOT use the phrase "لا يفوتك".
+- End with a strong CTA such as "اطلبها الحين" / "اطلبيها الحين" (match the presenter gender). Do NOT use the phrase "لا يفوتك".
 
 PRESENTER GENDER:
 - Choose the presenter gender that best SUITS the product: women's / beauty / abaya / kitchen-and-home lean female; men's grooming / shemagh / car / tools lean male; neutral products can be either.

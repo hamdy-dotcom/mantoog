@@ -18,7 +18,7 @@ const VO_DELAY_MS = 1500
 const BG_VOLUME = 0.25
 // The voiceover must finish inside the 15s clip: starting at 1.5s, cap its spoken
 // length so it ends well before the end. If TTS runs longer, we speed it up to fit.
-const MAX_VO_SEC = 11.5
+const MAX_VO_SEC = 12.5
 
 function runFfmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -72,9 +72,8 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         text: voiceover,
         model_id: 'eleven_multilingual_v2',
-        // Tuned for a natural, real human delivery: higher stability + fidelity, low
-        // "style" exaggeration, speaker boost on, natural (1.0) pace.
-        voice_settings: { stability: 0.6, similarity_boost: 0.95, style: 0.15, use_speaker_boost: true, speed: 1.0 },
+        // Original tuned delivery (restored — sounded better than the "flatter" variant).
+        voice_settings: { stability: 0.5, similarity_boost: 0.9, style: 0.4, use_speaker_boost: false, speed: 1.05 },
       }),
       signal: AbortSignal.timeout(30000),
     })

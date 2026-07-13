@@ -23,6 +23,9 @@ type Product = { title: string; description: string; images: string[]; price: st
 type ProductPage = { productId: string; landingUrl: string; caption: string; titleAr: string; price: number; compareAtPrice: number | null; currency: string }
 type Step = 'idle' | 'extracting' | 'pricing' | 'creating_page' | 'planning' | 'running' | 'error'
 
+// Arabic-Indic numerals for display counts.
+const toAr = (n: number | string) => String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[+d])
+
 // ── tiny inline icons (no emoji-as-icon) ──────────────────────────────
 const Ico = {
   spark: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2.6l1.7 4.4a4 4 0 0 0 2.3 2.3L20.4 11l-4.4 1.7a4 4 0 0 0-2.3 2.3L12 19.4l-1.7-4.4a4 4 0 0 0-2.3-2.3L3.6 11l4.4-1.7a4 4 0 0 0 2.3-2.3L12 2.6z" /><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7L19 15z" opacity=".8" /></svg>),
@@ -34,7 +37,7 @@ const Ico = {
   mic: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v4" /></svg>),
 }
 
-const STEPS = [{ n: 1, label: 'Link' }, { n: 2, label: 'Details' }, { n: 3, label: 'Create' }]
+const STEPS = [{ n: 1, label: 'الرابط' }, { n: 2, label: 'التفاصيل' }, { n: 3, label: 'الإنشاء' }]
 
 export default function SeedancePage() {
   const router = useRouter()
@@ -85,7 +88,7 @@ export default function SeedancePage() {
   const safeJson = async (res: Response, label: string) => {
     const txt = await res.text()
     try { return JSON.parse(txt) }
-    catch { throw new Error(`${label} failed (${res.status}): ${txt.slice(0, 200)}`) }
+    catch { throw new Error(`${label} (${res.status}): ${txt.slice(0, 200)}`) }
   }
 
   // Step 1: extract the product, then move to pricing.
@@ -95,11 +98,11 @@ export default function SeedancePage() {
     setStep('extracting'); setError(null); setCreatives([]); setProduct(null); setProductPage(null); setProxiedImages([])
     try {
       const ex = await fetch('/api/products/fetch-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: trimmed }) })
-      const p = await safeJson(ex, 'Extract')
-      if (!p.success) throw new Error(p.error || 'Failed to extract product')
-      if (p.blocked) throw new Error('This site blocks scraping. Try another URL.')
+      const p = await safeJson(ex, 'فشل قراءة المنتج')
+      if (!p.success) throw new Error(p.error || 'تعذّر قراءة المنتج')
+      if (p.blocked) throw new Error('هذا الموقع يمنع الاستخراج. جرّب رابطًا آخر.')
       const imgs: string[] = (p.images || []).slice(0, 9)
-      setProduct({ title: p.title || 'Untitled', description: p.description || '', images: imgs, price: p.price ?? null })
+      setProduct({ title: p.title || 'بدون عنوان', description: p.description || '', images: imgs, price: p.price ?? null })
       setImages(imgs)
       setPriceInput(String(p.price ?? '').replace(/[^0-9.]/g, '') || '')
       setDiscountInput('')
@@ -110,7 +113,7 @@ export default function SeedancePage() {
   // Step 2: create the Arabic landing page (with price + discount), then plan the 4 angles.
   async function handleContinue() {
     if (!product) return
-    if (!priceInput || !(parseFloat(priceInput) > 0)) { setError('Enter a valid price'); return }
+    if (!priceInput || !(parseFloat(priceInput) > 0)) { setError('أدخل سعرًا صحيحًا'); return }
     setStep('creating_page'); setError(null)
     try {
       const cp = await fetch('/api/admin/ugc-create-product', {
@@ -121,22 +124,22 @@ export default function SeedancePage() {
           compareAtPrice: discountInput && parseFloat(discountInput) > 0 ? parseFloat(discountInput) : null,
         }),
       })
-      const page = await safeJson(cp, 'Landing page')
-      if (!cp.ok) throw new Error(page.error || 'Failed to create landing page')
+      const page = await safeJson(cp, 'فشل إنشاء صفحة الهبوط')
+      if (!cp.ok) throw new Error(page.error || 'تعذّر إنشاء صفحة الهبوط')
       setProductPage(page)
 
       // Proxy all product images ONCE — reused for every creative so generation is fast.
       const px = await fetch('/api/admin/proxy-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrls: images.slice(0, 9) }) })
-      const pxData = await safeJson(px, 'Preparing images')
-      if (!px.ok) throw new Error(pxData.error || 'Failed to prepare images')
+      const pxData = await safeJson(px, 'فشل تجهيز الصور')
+      if (!px.ok) throw new Error(pxData.error || 'تعذّر تجهيز الصور')
       setProxiedImages(pxData.mediaUrls || [])
 
       setStep('planning')
       const pl = await fetch('/api/admin/seedance-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: product.title, description: product.description, imageUrls: images.slice(0, 4) }) })
-      const plan = await safeJson(pl, 'Planning')
-      if (!pl.ok) throw new Error(plan.error || 'Planning failed')
+      const plan = await safeJson(pl, 'فشل كتابة الزوايا')
+      if (!pl.ok) throw new Error(plan.error || 'تعذّرت كتابة الزوايا')
       const list: Creative[] = (plan.creatives as any[]).slice(0, 4).map((c, i) => ({
-        headline: c.headline || `Angle ${i + 1}`, gender: c.gender || '', seedancePrompt: c.seedancePrompt || '', voiceover: c.voiceover || '', translationEn: c.translationEn || '',
+        headline: c.headline || `الزاوية ${i + 1}`, gender: c.gender || '', seedancePrompt: c.seedancePrompt || '', voiceover: c.voiceover || '', translationEn: c.translationEn || '',
         imageUrl: images[i] || images[0] || '', status: 'pending',
       }))
       setCreatives(list)
@@ -152,7 +155,7 @@ export default function SeedancePage() {
     try {
       const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaUrls: proxiedImages, imageUrls: images.slice(0, 9), prompt: c.seedancePrompt }) })
       const gd = await g.json()
-      if (!g.ok) throw new Error(gd.error || 'Seedance submit failed')
+      if (!g.ok) throw new Error(gd.error || 'فشل إرسال الطلب إلى Seedance')
       update(i, { taskId: gd.taskId })
     } catch (e: any) { update(i, { status: 'error', error: e.message }) }
   }
@@ -164,7 +167,7 @@ export default function SeedancePage() {
     try {
       const res = await fetch('/api/admin/seedance-voiceover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: c.videoUrl, voiceover: c.voiceover, gender: c.gender, voiceId: voiceId.trim() || undefined }) })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Voiceover failed')
+      if (!res.ok) throw new Error(data.error || 'فشلت إضافة الصوت')
       update(i, { status: 'final', mergedUrl: data.mergedUrl })
     } catch (e: any) { update(i, { status: 'ready', error: e.message }) }
   }
@@ -175,19 +178,20 @@ export default function SeedancePage() {
     setProductPage(null); setCreatives([]); setPriceInput(''); setDiscountInput('')
   }
 
-  if (!authed) return <div className="min-h-screen bg-[#08080f] flex items-center justify-center"><div className="text-[#8b8fa8] text-sm">Loading…</div></div>
+  if (!authed) return <div className="min-h-screen bg-[#08080f] flex items-center justify-center"><div className="text-[#8b8fa8] text-sm">جاري التحميل…</div></div>
 
   const wizardStep = step === 'running' ? 3 : (step === 'pricing' || step === 'creating_page' || step === 'planning') ? 2 : 1
   const transitioning = step === 'creating_page' || step === 'planning'
-  const statusLabel = step === 'extracting' ? 'Reading the product…' : step === 'creating_page' ? 'Building your landing page…' : step === 'planning' ? 'Writing 4 ad angles…' : ''
+  const statusLabel = step === 'extracting' ? 'نقرأ المنتج…' : step === 'creating_page' ? 'نبني صفحة الهبوط…' : step === 'planning' ? 'نكتب ٤ زوايا إعلانية…' : ''
   const doneCount = creatives.filter(c => c.status === 'final').length
 
   return (
-    <div className="ugc-root relative min-h-screen overflow-x-hidden bg-[#08080f] text-[#f8fafc]">
+    <div dir="rtl" className="ugc-root relative min-h-screen overflow-x-hidden bg-[#08080f] text-[#f8fafc]">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap');
-        .ugc-root{font-family:'Nunito',system-ui,sans-serif}
-        .font-display{font-family:'Fredoka','Nunito',system-ui,sans-serif;letter-spacing:-.02em}
+        @import url('https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400..700&family=Tajawal:wght@400;500;700;800&display=swap');
+        .ugc-root{font-family:'Tajawal',system-ui,sans-serif}
+        .font-display{font-family:'Baloo Bhaijaan 2','Tajawal',system-ui,sans-serif}
+        .flip-x{transform:scaleX(-1)}
         @keyframes ugcBlob{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(6%,-8%) scale(1.12)}66%{transform:translate(-6%,6%) scale(.92)}}
         @keyframes ugcRise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
         @keyframes ugcPulse{0%,100%{opacity:.5;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}
@@ -209,7 +213,7 @@ export default function SeedancePage() {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <button onClick={resetAll} className="flex items-center gap-2 cursor-pointer group">
             <span className="grid place-items-center h-8 w-8 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#e11d48] text-white">{Ico.spark('h-4 w-4')}</span>
-            <span className="font-display text-[15px] font-semibold text-white group-hover:opacity-80 transition-opacity">UGC Studio</span>
+            <span className="font-display text-[15px] font-semibold text-white group-hover:opacity-80 transition-opacity">استوديو الإعلانات</span>
           </button>
           <nav className="flex items-center gap-1.5 sm:gap-3">
             {STEPS.map((s, idx) => {
@@ -221,7 +225,7 @@ export default function SeedancePage() {
                       state === 'done' ? 'bg-[#6366f1] text-white'
                       : state === 'active' ? 'bg-white text-[#08080f] ring-4 ring-[#6366f1]/30'
                       : 'bg-white/8 text-[#6b7080]'}`}>
-                      {state === 'done' ? Ico.check('h-3.5 w-3.5') : s.n}
+                      {state === 'done' ? Ico.check('h-3.5 w-3.5') : toAr(s.n)}
                     </span>
                     <span className={`text-[13px] font-semibold hidden sm:block transition-colors ${state === 'todo' ? 'text-[#6b7080]' : 'text-white'}`}>{s.label}</span>
                   </div>
@@ -240,45 +244,45 @@ export default function SeedancePage() {
         {wizardStep === 1 && (
           <section key="s1" className="ugc-rise min-h-[100svh] flex flex-col items-center justify-center px-6 pt-16 text-center">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[12px] font-semibold text-[#a5b4fc]">
-              {Ico.spark('h-3.5 w-3.5')} AI UGC Studio
+              {Ico.spark('h-3.5 w-3.5')} استوديو الإعلانات بالذكاء الاصطناعي
             </span>
-            <h1 className="font-display mt-5 text-4xl sm:text-6xl font-semibold leading-[1.05] max-w-3xl">
-              Turn any product link into<br className="hidden sm:block" /> <span className="bg-gradient-to-r from-[#818cf8] via-[#c084fc] to-[#fb7185] bg-clip-text text-transparent">4 scroll-stopping ads</span>
+            <h1 className="font-display mt-5 text-4xl sm:text-6xl font-semibold leading-[1.15] max-w-3xl">
+              حوّل رابط أي منتج إلى<br className="hidden sm:block" /> <span className="bg-gradient-to-l from-[#818cf8] via-[#c084fc] to-[#fb7185] bg-clip-text text-transparent">٤ إعلانات توقف التمرير</span>
             </h1>
             <p className="mt-4 text-[15px] sm:text-lg text-[#9aa0b4] max-w-xl leading-relaxed">
-              Paste a product URL. We build the landing page, then write four cinematic angles you can bring to life with a Najdi voiceover.
+              الصق رابط المنتج، ونبني لك صفحة الهبوط، ثم نكتب أربع زوايا سينمائية تقدر تحوّلها لفيديو بصوت نجدي.
             </p>
 
             <div className="mt-9 w-full max-w-xl">
               <div className="flex flex-col sm:flex-row gap-2.5 rounded-2xl sm:rounded-full bg-white/5 border border-white/10 p-2 focus-within:border-[#6366f1]/60 transition-colors">
-                <input type="url" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && step !== 'extracting' && handleExtract()}
+                <input type="url" dir="ltr" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && step !== 'extracting' && handleExtract()}
                   placeholder="https://www.amazon.sa/…" disabled={step === 'extracting'} autoFocus
-                  className="flex-1 bg-transparent px-4 py-3 text-[15px] text-white placeholder-[#5a5f72] outline-none min-w-0" />
+                  className="flex-1 bg-transparent px-4 py-3 text-[15px] text-white placeholder-[#5a5f72] outline-none min-w-0 text-left" />
                 <button onClick={handleExtract} disabled={step === 'extracting' || !url.trim()}
-                  className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl sm:rounded-full bg-gradient-to-r from-[#6366f1] to-[#e11d48] px-6 py-3 text-[15px] font-bold text-white shadow-lg shadow-[#6366f1]/25 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all">
+                  className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl sm:rounded-full bg-gradient-to-l from-[#6366f1] to-[#e11d48] px-6 py-3 text-[15px] font-bold text-white shadow-lg shadow-[#6366f1]/25 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all">
                   {step === 'extracting'
                     ? (<><span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> {statusLabel}</>)
-                    : (<>Create ads {Ico.arrow('h-4 w-4')}</>)}
+                    : (<>أنشئ الإعلانات {Ico.arrow('h-4 w-4 flip-x')}</>)}
                 </button>
               </div>
 
               <button onClick={() => setShowAdvanced(v => !v)} className="mt-4 text-[12px] text-[#6b7080] hover:text-[#9aa0b4] cursor-pointer transition-colors">
-                {showAdvanced ? 'Hide advanced' : 'Advanced options'}
+                {showAdvanced ? 'إخفاء الخيارات' : 'خيارات متقدمة'}
               </button>
               {showAdvanced && (
-                <input value={voiceId} onChange={e => setVoiceId(e.target.value)} placeholder="Force a specific voice_id (optional — otherwise auto male/female per product)"
-                  className="mt-2 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-[13px] text-white placeholder-[#5a5f72] outline-none focus:border-[#6366f1]/60" />
+                <input value={voiceId} dir="ltr" onChange={e => setVoiceId(e.target.value)} placeholder="voice_id محدد (اختياري — وإلا يُختار ذكر/أنثى تلقائيًا حسب المنتج)"
+                  className="mt-2 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-[13px] text-white placeholder-[#5a5f72] outline-none focus:border-[#6366f1]/60 text-left" />
               )}
             </div>
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-2.5">
-              {['15s cinematic', '9:16 vertical', 'Najdi voiceover', 'Saudi UGC'].map(t => (
+              {['١٥ ثانية سينمائي', 'عمودي ٩:١٦', 'صوت نجدي', 'محتوى سعودي'].map(t => (
                 <span key={t} className="rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-[12px] font-semibold text-[#9aa0b4]">{t}</span>
               ))}
             </div>
 
             {step === 'error' && error && (
-              <div className="mt-6 max-w-xl rounded-xl border border-[#e11d48]/30 bg-[#e11d48]/10 px-4 py-3 text-[13px] text-[#fb7185] text-left">{error}</div>
+              <div className="mt-6 max-w-xl rounded-xl border border-[#e11d48]/30 bg-[#e11d48]/10 px-4 py-3 text-[13px] text-[#fb7185]">{error}</div>
             )}
           </section>
         )}
@@ -288,8 +292,8 @@ export default function SeedancePage() {
           <section key="s2" className="ugc-rise min-h-[100svh] flex flex-col justify-center px-6 pt-24 pb-16">
             <div className="max-w-5xl w-full mx-auto">
               <div className="text-center mb-8">
-                <h2 className="font-display text-3xl sm:text-4xl font-semibold">Set your price</h2>
-                <p className="mt-2 text-[15px] text-[#9aa0b4]">Confirm the product and pricing — this builds your Arabic landing page.</p>
+                <h2 className="font-display text-3xl sm:text-4xl font-semibold">حدّد السعر</h2>
+                <p className="mt-2 text-[15px] text-[#9aa0b4]">أكّد المنتج والسعر — منها نبني صفحة الهبوط.</p>
               </div>
 
               <div className="grid md:grid-cols-2 gap-5">
@@ -298,7 +302,7 @@ export default function SeedancePage() {
                   <div className="aspect-square w-full rounded-2xl overflow-hidden bg-black/40 border border-white/5 grid place-items-center">
                     {product.images[0]
                       ? <img src={product.images[0]} alt={product.title} className="h-full w-full object-contain" />
-                      : <span className="text-[#5a5f72] text-sm">No image</span>}
+                      : <span className="text-[#5a5f72] text-sm">لا توجد صورة</span>}
                   </div>
                   {product.images.length > 1 && (
                     <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -308,39 +312,39 @@ export default function SeedancePage() {
                     </div>
                   )}
                   <div className="mt-4 text-[15px] font-bold leading-snug">{product.title}</div>
-                  <div className="mt-1 text-[12px] text-[#6b7080]">{product.images.length} image{product.images.length !== 1 ? 's' : ''} · sent to Seedance</div>
+                  <div className="mt-1 text-[12px] text-[#6b7080]">{toAr(product.images.length)} صورة · تُرسل إلى Seedance</div>
                 </div>
 
                 {/* pricing form */}
                 <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 flex flex-col">
                   <div className="space-y-5 flex-1">
                     <div>
-                      <label className="block text-[12px] font-bold uppercase tracking-wider text-[#9aa0b4] mb-2">Selling price</label>
+                      <label className="block text-[12px] font-bold text-[#9aa0b4] mb-2">سعر البيع</label>
                       <div className="flex items-center rounded-xl bg-black/30 border border-white/10 focus-within:border-[#6366f1]/60 transition-colors">
-                        <input type="number" min="1" step="0.01" value={priceInput} onChange={e => setPriceInput(e.target.value)} placeholder="0.00"
-                          className="flex-1 bg-transparent px-4 py-3.5 text-lg font-bold text-white outline-none min-w-0" />
-                        <span className="pr-4 text-[13px] font-semibold text-[#6b7080]">SAR</span>
+                        <input type="number" dir="ltr" min="1" step="0.01" value={priceInput} onChange={e => setPriceInput(e.target.value)} placeholder="0.00"
+                          className="flex-1 bg-transparent px-4 py-3.5 text-lg font-bold text-white outline-none min-w-0 text-right" />
+                        <span className="px-4 text-[13px] font-semibold text-[#6b7080]">ر.س</span>
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[12px] font-bold uppercase tracking-wider text-[#9aa0b4] mb-2">Compare-at <span className="text-[#5a5f72] font-medium normal-case tracking-normal">· optional</span></label>
+                      <label className="block text-[12px] font-bold text-[#9aa0b4] mb-2">السعر قبل الخصم <span className="text-[#5a5f72] font-medium">· اختياري</span></label>
                       <div className="flex items-center rounded-xl bg-black/30 border border-white/10 focus-within:border-[#6366f1]/60 transition-colors">
-                        <input type="number" min="0" step="0.01" value={discountInput} onChange={e => setDiscountInput(e.target.value)} placeholder="0.00"
-                          className="flex-1 bg-transparent px-4 py-3.5 text-lg font-bold text-white outline-none min-w-0" />
-                        <span className="pr-4 text-[13px] font-semibold text-[#6b7080]">SAR</span>
+                        <input type="number" dir="ltr" min="0" step="0.01" value={discountInput} onChange={e => setDiscountInput(e.target.value)} placeholder="0.00"
+                          className="flex-1 bg-transparent px-4 py-3.5 text-lg font-bold text-white outline-none min-w-0 text-right" />
+                        <span className="px-4 text-[13px] font-semibold text-[#6b7080]">ر.س</span>
                       </div>
-                      <p className="mt-1.5 text-[12px] text-[#6b7080]">Shown struck-through to signal a discount.</p>
+                      <p className="mt-1.5 text-[12px] text-[#6b7080]">يظهر مشطوبًا للدلالة على وجود خصم.</p>
                     </div>
                     {step === 'error' && error && <div className="rounded-xl border border-[#e11d48]/30 bg-[#e11d48]/10 px-4 py-2.5 text-[13px] text-[#fb7185]">{error}</div>}
                   </div>
 
                   <div className="mt-6 flex items-center gap-3">
                     <button onClick={resetAll} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-4 py-3 text-[14px] font-semibold text-[#9aa0b4] hover:text-white hover:border-white/20 cursor-pointer transition-colors">
-                      {Ico.back('h-4 w-4')} Back
+                      {Ico.back('h-4 w-4 flip-x')} رجوع
                     </button>
                     <button onClick={handleContinue}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6366f1] to-[#e11d48] px-6 py-3.5 text-[15px] font-bold text-white shadow-lg shadow-[#6366f1]/25 hover:brightness-110 cursor-pointer transition-all">
-                      Create my ads {Ico.arrow('h-4 w-4')}
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-l from-[#6366f1] to-[#e11d48] px-6 py-3.5 text-[15px] font-bold text-white shadow-lg shadow-[#6366f1]/25 hover:brightness-110 cursor-pointer transition-all">
+                      أنشئ إعلاناتي {Ico.arrow('h-4 w-4 flip-x')}
                     </button>
                   </div>
                 </div>
@@ -355,13 +359,13 @@ export default function SeedancePage() {
             <div className="max-w-6xl mx-auto">
               <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
                 <div>
-                  <h2 className="font-display text-3xl sm:text-4xl font-semibold">Pick an angle to bring to life</h2>
-                  <p className="mt-2 text-[15px] text-[#9aa0b4]">{doneCount > 0 ? `${doneCount} of ${creatives.length} finished with voiceover.` : 'Each angle is a standalone 15s ad. Generate any you like.'}</p>
+                  <h2 className="font-display text-3xl sm:text-4xl font-semibold">اختر زاوية لتحويلها لفيديو</h2>
+                  <p className="mt-2 text-[15px] text-[#9aa0b4]">{doneCount > 0 ? `اكتمل ${toAr(doneCount)} من ${toAr(creatives.length)} مع الصوت.` : 'كل زاوية إعلان مستقل مدته ١٥ ثانية — أنشئ أي واحد تحب.'}</p>
                 </div>
                 {productPage && (
                   <a href={productPage.landingUrl} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-[13px] font-semibold text-[#a5b4fc] hover:bg-white/10 hover:text-white cursor-pointer transition-colors">
-                    {Ico.ext('h-4 w-4')} View landing page
+                    {Ico.ext('h-4 w-4')} عرض صفحة الهبوط
                   </a>
                 )}
               </div>
@@ -369,22 +373,22 @@ export default function SeedancePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {creatives.map((c, i) => {
                   const female = c.gender === 'female'
-                  const statusText = c.status === 'generating' ? 'Generating' : c.status === 'ready' ? 'Ready' : c.status === 'vo' ? 'Adding voice' : c.status === 'final' ? 'Final' : c.status === 'error' ? 'Error' : 'Ready to generate'
+                  const statusText = c.status === 'generating' ? 'يُنشأ' : c.status === 'ready' ? 'جاهز' : c.status === 'vo' ? 'إضافة الصوت' : c.status === 'final' ? 'نهائي' : c.status === 'error' ? 'خطأ' : 'جاهز للإنشاء'
                   return (
                     <div key={i} className="group rounded-3xl border border-white/10 bg-white/[0.035] hover:border-white/20 transition-colors overflow-hidden flex flex-col">
                       <div className="p-6 pb-4">
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#6b7080]">Angle {i + 1}</span>
+                          <span className="text-[11px] font-bold text-[#6b7080]">الزاوية {toAr(i + 1)}</span>
                           <div className="flex items-center gap-2">
                             {c.gender && (
                               <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${female ? 'bg-[#e11d48]/15 text-[#fb7185]' : 'bg-[#6366f1]/15 text-[#a5b4fc]'}`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${female ? 'bg-[#fb7185]' : 'bg-[#a5b4fc]'}`} />{female ? 'Female' : 'Male'}
+                                <span className={`h-1.5 w-1.5 rounded-full ${female ? 'bg-[#fb7185]' : 'bg-[#a5b4fc]'}`} />{female ? 'أنثى' : 'ذكر'}
                               </span>
                             )}
                             <span className={`text-[11px] font-bold ${c.status === 'final' ? 'text-[#4ade80]' : c.status === 'error' ? 'text-[#fb7185]' : 'text-[#6b7080]'}`}>{statusText}</span>
                           </div>
                         </div>
-                        <h3 className="font-display mt-2 text-xl font-semibold leading-snug text-white">{c.headline}</h3>
+                        <h3 className="font-display mt-2 text-xl font-semibold leading-snug text-white" dir="auto">{c.headline}</h3>
                       </div>
 
                       {/* video stage */}
@@ -396,20 +400,20 @@ export default function SeedancePage() {
                             <video src={c.videoUrl} controls loop playsInline muted className="h-full rounded-2xl" />
                           ) : c.status === 'error' ? (
                             <div className="flex flex-col items-center justify-center gap-3 p-5 text-center">
-                              <div className="text-[12px] text-[#fb7185] leading-relaxed">{c.error}</div>
-                              <button onClick={() => generateOne(i)} className="rounded-full bg-white/10 hover:bg-white/20 px-4 py-1.5 text-[12px] font-semibold text-white cursor-pointer transition-colors">Retry</button>
+                              <div className="text-[12px] text-[#fb7185] leading-relaxed" dir="auto">{c.error}</div>
+                              <button onClick={() => generateOne(i)} className="rounded-full bg-white/10 hover:bg-white/20 px-4 py-1.5 text-[12px] font-semibold text-white cursor-pointer transition-colors">إعادة المحاولة</button>
                             </div>
                           ) : c.status === 'generating' ? (
                             <div className="flex flex-col items-center justify-center gap-3 w-full text-[#9aa0b4]">
                               <span className="h-8 w-8 rounded-full border-2 border-[#6366f1] border-t-transparent animate-spin" />
-                              <span className="text-[12px] font-semibold">Rendering… ~2–4 min</span>
+                              <span className="text-[12px] font-semibold">جاري الإنشاء… ~٢-٤ دقائق</span>
                             </div>
                           ) : (
                             <button onClick={() => generateOne(i)}
                               className="flex flex-col items-center justify-center gap-3 w-full h-full text-[#9aa0b4] hover:text-white hover:bg-[#6366f1]/10 transition-colors cursor-pointer">
-                              <span className="grid place-items-center h-14 w-14 rounded-full bg-gradient-to-br from-[#6366f1] to-[#e11d48] text-white shadow-lg shadow-[#6366f1]/30">{Ico.play('h-6 w-6 translate-x-0.5')}</span>
-                              <span className="text-[13px] font-bold">Generate this video</span>
-                              <span className="text-[11px] text-[#5a5f72]">~180 credits · 15s</span>
+                              <span className="grid place-items-center h-14 w-14 rounded-full bg-gradient-to-br from-[#6366f1] to-[#e11d48] text-white shadow-lg shadow-[#6366f1]/30">{Ico.play('h-6 w-6')}</span>
+                              <span className="text-[13px] font-bold">أنشئ هذا الفيديو</span>
+                              <span className="text-[11px] text-[#5a5f72]">~١٨٠ رصيد · ١٥ ثانية</span>
                             </button>
                           )}
                         </div>
@@ -419,21 +423,21 @@ export default function SeedancePage() {
                         {(c.status === 'ready' || c.status === 'final' || c.status === 'vo') && (
                           <button onClick={() => addVoiceover(i)} disabled={c.status === 'vo'}
                             className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-white/8 hover:bg-white/14 disabled:opacity-40 py-3 text-[13px] font-bold text-white cursor-pointer transition-colors">
-                            {c.status === 'vo' ? (<><span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Adding voiceover…</>) : (<>{Ico.mic('h-4 w-4')} {c.status === 'final' ? 'Re-generate voiceover' : 'Add Najdi voiceover'}</>)}
+                            {c.status === 'vo' ? (<><span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> جاري إضافة الصوت…</>) : (<>{Ico.mic('h-4 w-4')} {c.status === 'final' ? 'إعادة إنشاء الصوت' : 'أضف صوت نجدي'}</>)}
                           </button>
                         )}
-                        {c.status === 'ready' && c.error && <p className="text-[12px] text-[#fb7185]">{c.error}</p>}
+                        {c.status === 'ready' && c.error && <p className="text-[12px] text-[#fb7185]" dir="auto">{c.error}</p>}
 
                         <div className="rounded-2xl bg-black/25 border border-white/5 p-4">
-                          <div className="text-[11px] font-bold uppercase tracking-wider text-[#6b7080] mb-2">Voiceover · Najdi</div>
-                          <div className="text-[14px] text-white leading-relaxed" dir="rtl">{c.voiceover}</div>
-                          <div className="text-[12px] text-[#6b7080] mt-2 leading-relaxed">{c.translationEn}</div>
+                          <div className="text-[11px] font-bold text-[#6b7080] mb-2">الصوت · نجدي</div>
+                          <div className="text-[14px] text-white leading-relaxed">{c.voiceover}</div>
+                          <div className="text-[12px] text-[#6b7080] mt-2 leading-relaxed" dir="ltr">{c.translationEn}</div>
                         </div>
 
-                        <button onClick={() => update(i, { showBlocks: !c.showBlocks })} className="text-[12px] font-semibold text-[#818cf8] hover:text-[#a5b4fc] cursor-pointer transition-colors text-left">
-                          {c.showBlocks ? 'Hide' : 'Show'} Seedance prompt
+                        <button onClick={() => update(i, { showBlocks: !c.showBlocks })} className="text-[12px] font-semibold text-[#818cf8] hover:text-[#a5b4fc] cursor-pointer transition-colors text-right">
+                          {c.showBlocks ? 'إخفاء' : 'عرض'} برومبت Seedance
                         </button>
-                        {c.showBlocks && <div className="rounded-xl bg-black/40 border border-white/5 p-3 text-[12px] text-[#9aa0b4] whitespace-pre-wrap leading-relaxed max-h-56 overflow-auto">{c.seedancePrompt}</div>}
+                        {c.showBlocks && <div className="rounded-xl bg-black/40 border border-white/5 p-3 text-[12px] text-[#9aa0b4] whitespace-pre-wrap leading-relaxed max-h-56 overflow-auto" dir="ltr">{c.seedancePrompt}</div>}
                       </div>
                     </div>
                   )
@@ -452,7 +456,7 @@ export default function SeedancePage() {
               {[0, 1, 2].map(d => <span key={d} className="ugc-dot h-3 w-3 rounded-full bg-gradient-to-br from-[#6366f1] to-[#e11d48]" style={{ animationDelay: `${d * 0.18}s` }} />)}
             </div>
             <h3 className="font-display text-2xl sm:text-3xl font-semibold">{statusLabel}</h3>
-            <p className="mt-2 text-[14px] text-[#9aa0b4]">{step === 'planning' ? 'Claude is scripting 4 distinct hooks…' : 'Setting up your product & proxying images…'}</p>
+            <p className="mt-2 text-[14px] text-[#9aa0b4]">{step === 'planning' ? 'كلود يكتب ٤ هوكات مختلفة…' : 'نجهّز المنتج والصور…'}</p>
           </div>
         </div>
       )}

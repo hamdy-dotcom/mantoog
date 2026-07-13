@@ -172,7 +172,8 @@ export default function SeedancePage() {
     if (!product) return
     setStep('planning'); setError(null)
     try {
-      const pl = await fetch('/api/admin/seedance-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: product.title, description: product.description, imageUrls: images.slice(0, 4) }) })
+      const planImages = (proxiedImages.length ? proxiedImages : images).slice(0, 3)
+      const pl = await fetch('/api/admin/seedance-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: product.title, description: product.description, imageUrls: planImages }) })
       const plan = await safeJson(pl, 'فشل كتابة الزوايا')
       if (!pl.ok) throw new Error(plan.error || 'تعذّرت كتابة الزوايا')
       const list: Creative[] = (plan.creatives as any[]).slice(0, 4).map((c, i) => ({

@@ -61,13 +61,13 @@ export async function POST(req: NextRequest) {
   // create. A 429 means NO task was created, so it's safe to wait and retry without
   // double-charging. (Timeouts are ambiguous → we do NOT retry those.)
   let lastErr = 'Seedance request failed'
-  for (let attempt = 1; attempt <= 4; attempt++) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const res = await fetch(SEEDANCE_CREATE, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${seedKey}`, 'Content-Type': 'application/json' },
         body,
-        signal: AbortSignal.timeout(55000),
+        signal: AbortSignal.timeout(50000),
       })
       const txt = await res.text()
       if (res.ok) {
@@ -77,9 +77,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `no taskId: ${txt.slice(0, 200)}` }, { status: 502 })
       }
       lastErr = `Seedance ${res.status}: ${txt.slice(0, 200)}`
-      if (res.status === 429 && attempt < 4) {
+      if (res.status === 429 && attempt < 3) {
+        // Honour the account's Retry-After (observed ~36s) so the retry actually clears the window.
         const ra = parseInt(res.headers.get('retry-after') || '', 10)
-        const waitMs = Math.min((Number.isFinite(ra) && ra > 0 ? ra : attempt * 4) * 1000, 12000)
+        const waitMs = Math.min((Number.isFinite(ra) && ra > 0 ? ra + 1 : attempt * 6) * 1000, 38000)
         await new Promise(r => setTimeout(r, waitMs))
         continue
       }

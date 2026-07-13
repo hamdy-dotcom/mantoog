@@ -88,17 +88,15 @@ export default function SeedancePage() {
     setCreatives(prev => prev.map((c, idx) => idx === i ? { ...c, ...patch } : c))
   }, [])
 
-  // Poll all generating creatives. Seedance allows only 30 req/60s per account, so we
-  // scale the interval by how many are generating to keep status polling ~24 req/min
-  // and leave headroom for new "generate" calls (which would otherwise get 429'd).
+  // Poll generating creatives. Seedance throttles at ~30 requests / 60s per account, so
+  // we poll SLOWLY and scale the interval with how many videos are in flight — keeping
+  // total status requests to ~12/min and leaving plenty of budget for new generations.
   useEffect(() => {
     const generating = creatives.filter(c => c.status === 'generating' && c.taskId)
-    if (!generating.length) { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } return }
-    if (pollRef.current) return
-    const intervalMs = Math.max(7000, generating.length * 2500)
-    pollRef.current = setInterval(async () => {
-      const snapshot = creatives
-      await Promise.all(snapshot.map(async (c, i) => {
+    if (!generating.length) return
+    const intervalMs = Math.max(10000, generating.length * 5000)
+    const id = setInterval(async () => {
+      await Promise.all(creatives.map(async (c, i) => {
         if (c.status !== 'generating' || !c.taskId) return
         try {
           const res = await fetch(`/api/admin/seedance-status?taskId=${c.taskId}`)
@@ -108,7 +106,8 @@ export default function SeedancePage() {
         } catch { /* keep polling */ }
       }))
     }, intervalMs)
-    return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }
+    pollRef.current = id
+    return () => clearInterval(id)
   }, [creatives, update])
 
   const safeJson = async (res: Response, label: string) => {

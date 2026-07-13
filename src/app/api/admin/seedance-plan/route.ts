@@ -46,19 +46,28 @@ PRESENTER GENDER:
 - Choose the presenter gender that best SUITS the product: women's / beauty / abaya / kitchen-and-home lean female; men's grooming / shemagh / car / tools lean male; neutral products can be either.
 - The Seedance character's gender AND dress MUST match the chosen gender, and the voiceover will be spoken in that gender's voice. Return the chosen gender as "male" or "female".
 
-Also give a short punchy HEADLINE (4-8 words, English) summarizing the angle/hook, and an English translation of the voiceover.
+Also give:
+- summaryAr: ONE short Arabic (Saudi) sentence, about 6-12 words, describing THIS angle/concept so the user can pick it from a list (e.g. "تبدأ بمشكلة الصباح ثم يظهر المنتج كحل سريع"). Describe the ANGLE/idea, NOT the voiceover, and write it in Arabic only.
+- headline: a short English label (4-8 words) for internal reference.
+- translationEn: an English translation of the voiceover.
 
 OUTPUT — return ONLY valid JSON for ONE creative, nothing else:
-{"headline": "<short English angle headline>", "gender": "male | female", "seedancePrompt": "<full detailed English Seedance prompt as one block, following the 9-section structure above>", "voiceover": "<Arabic Najdi VO, no tashkeel>", "translationEn": "<English translation of the VO>"}
+{"summaryAr": "<short Arabic angle description>", "headline": "<short English angle headline>", "gender": "male | female", "seedancePrompt": "<full detailed English Seedance prompt as one block, following the 9-section structure above>", "voiceover": "<Arabic Najdi VO, no tashkeel>", "translationEn": "<English translation of the VO>"}
 
 IMPORTANT: Return STRICTLY VALID JSON. Do NOT use double-quote (") characters inside any string value — use single quotes (') instead if you need quotation. No trailing commas, no markdown fences, no text outside the JSON object.`
 
-// Four distinct creative angles — keeps the set diverse even though each is generated independently.
+// Ten distinct creative angles — keeps the set diverse even though each is generated independently.
 const ANGLES = [
   { key: 'pain', brief: 'ANGLE: PAIN-POINT HOOK. Open on a relatable everyday frustration/problem this product solves; the first 2-3s show the pain, then the product as the fix.' },
   { key: 'transformation', brief: 'ANGLE: TRANSFORMATION / BEFORE→AFTER. Hook with a bold, satisfying result or reveal of what the product does — a visible before-and-after.' },
   { key: 'social', brief: 'ANGLE: SOCIAL PROOF / TREND. The whole town is buying it ("الكل يطلبه") — a trending must-have. Hook with curiosity and FOMO.' },
   { key: 'lifestyle', brief: 'ANGLE: LIFESTYLE. Aspirational everyday use in a beautiful modern Saudi home/setting. Hook with a desirable, cozy lifestyle moment.' },
+  { key: 'demo', brief: 'ANGLE: PRODUCT DEMO. Show exactly how it works step by step; hook with a satisfying "watch this" reveal of the mechanism/result.' },
+  { key: 'unboxing', brief: 'ANGLE: UNBOXING / FIRST IMPRESSION. The excitement of opening it and using it for the first time; hook with the reveal from the box.' },
+  { key: 'comparison', brief: 'ANGLE: OLD WAY vs NEW WAY. Contrast the frustrating old method against the easy new one; hook on how ridiculous the old way is.' },
+  { key: 'gift', brief: 'ANGLE: PERFECT GIFT. Frame it as an ideal gift for a loved one or occasion; hook with the joy of gifting or receiving it.' },
+  { key: 'testimonial', brief: 'ANGLE: RELATABLE REVIEW. A candid, authentic "I tried it and..." recommendation vibe; hook with an honest personal reaction.' },
+  { key: 'benefit', brief: 'ANGLE: SURPRISING BENEFIT. A "did you know" spotlight on a standout feature/benefit people miss; hook with a surprising claim.' },
 ]
 
 export async function POST(req: NextRequest) {
@@ -94,7 +103,7 @@ export async function POST(req: NextRequest) {
     const c = JSON.parse(json)
     if (!c?.seedancePrompt || !c?.voiceover) return null
     return {
-      headline: c.headline || '', gender: c.gender || '', seedancePrompt: c.seedancePrompt,
+      summaryAr: c.summaryAr || '', headline: c.headline || '', gender: c.gender || '', seedancePrompt: c.seedancePrompt,
       voiceover: c.voiceover, translationEn: c.translationEn || '',
     }
   }

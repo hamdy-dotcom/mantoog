@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 type Creative = {
+  summaryAr?: string
   headline?: string
   gender?: string
   seedancePrompt: string
@@ -176,7 +177,8 @@ export default function SeedancePage() {
       const pl = await fetch('/api/admin/seedance-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: product.title, description: product.description, imageUrls: planImages }) })
       const plan = await safeJson(pl, 'فشل كتابة الزوايا')
       if (!pl.ok) throw new Error(plan.error || 'تعذّرت كتابة الزوايا')
-      const list: Creative[] = (plan.creatives as any[]).slice(0, 4).map((c, i) => ({
+      const list: Creative[] = (plan.creatives as any[]).slice(0, 10).map((c, i) => ({
+        summaryAr: c.summaryAr || c.headline || `زاوية إعلانية رقم ${i + 1}`,
         headline: c.headline || `الزاوية ${i + 1}`, gender: c.gender || '', seedancePrompt: c.seedancePrompt || '', voiceover: c.voiceover || '', translationEn: c.translationEn || '',
         imageUrl: images[i] || images[0] || '', status: 'pending',
       }))
@@ -252,6 +254,16 @@ export default function SeedancePage() {
     setLaunchResult(null); setLaunchIndex(0); setShowPixelModal(false); setPixelInput(''); setPixelError(null)
   }
 
+  // Revisit a previous step (only ones whose content already exists).
+  function goToStep(n: number) {
+    setError(null)
+    if (n === 1) setStep('idle')
+    else if (n === 2 && product) setStep('pricing')
+    else if (n === 3 && productPage) setStep('landing')
+    else if (n === 4 && creatives.length) setStep('running')
+    else if (n === 5 && creatives.some(c => c.videoUrl || c.mergedUrl)) setStep('launch')
+  }
+
   if (!authed) return <div className="min-h-screen bg-[#08080f] flex items-center justify-center"><div className="text-[#8b8fa8] text-sm">جاري التحميل…</div></div>
 
   const wizardStep =
@@ -260,8 +272,10 @@ export default function SeedancePage() {
     : (step === 'creating_page' || step === 'landing') ? 3
     : step === 'pricing' ? 2 : 1
   const transitioning = step === 'creating_page' || step === 'planning'
-  const statusLabel = step === 'extracting' ? 'نقرأ المنتج…' : step === 'creating_page' ? 'نبني صفحة الهبوط…' : step === 'planning' ? 'نكتب ٤ زوايا إعلانية…' : ''
+  const statusLabel = step === 'extracting' ? 'نقرأ المنتج…' : step === 'creating_page' ? 'نبني صفحة الهبوط…' : step === 'planning' ? 'نكتب ١٠ زوايا إعلانية…' : ''
   const readyCount = creatives.filter(c => c.videoUrl || c.mergedUrl).length
+  // A step is reachable if its data already exists (used for the clickable rail).
+  const canGoTo = (n: number) => n === 1 || (n === 2 && !!product) || (n === 3 && !!productPage) || (n === 4 && creatives.length > 0) || (n === 5 && readyCount > 0)
 
   // Which finished creative will be launched.
   const effIdx = (creatives[launchIndex]?.mergedUrl || creatives[launchIndex]?.videoUrl)
@@ -302,17 +316,19 @@ export default function SeedancePage() {
           <nav className="flex items-center gap-1 sm:gap-2.5">
             {STEPS.map((s, idx) => {
               const state = wizardStep > s.n ? 'done' : wizardStep === s.n ? 'active' : 'todo'
+              const navigable = s.n !== wizardStep && canGoTo(s.n)
               return (
                 <div key={s.n} className="flex items-center gap-1 sm:gap-2.5">
-                  <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => navigable && goToStep(s.n)} disabled={!navigable} title={navigable ? s.label : undefined}
+                    className={`flex items-center gap-2 rounded-full transition-opacity ${navigable ? 'cursor-pointer hover:opacity-100 opacity-90' : state === 'active' ? '' : 'cursor-default'}`}>
                     <span className={`grid place-items-center h-7 w-7 rounded-full text-[12px] font-bold transition-all duration-300 ${
-                      state === 'done' ? 'bg-[#6366f1] text-white'
+                      state === 'done' ? `bg-[#6366f1] text-white ${navigable ? 'ring-2 ring-transparent hover:ring-[#818cf8]/60' : ''}`
                       : state === 'active' ? 'bg-white text-[#08080f] ring-4 ring-[#6366f1]/30'
                       : 'bg-white/8 text-[#6b7080]'}`}>
                       {state === 'done' ? Ico.check('h-3.5 w-3.5') : toAr(s.n)}
                     </span>
                     <span className={`text-[13px] font-semibold hidden md:block transition-colors ${state === 'todo' ? 'text-[#6b7080]' : 'text-white'}`}>{s.label}</span>
-                  </div>
+                  </button>
                   {idx < STEPS.length - 1 && <span className={`h-px w-4 sm:w-7 rounded transition-colors duration-300 ${wizardStep > s.n ? 'bg-[#6366f1]' : 'bg-white/10'}`} />}
                 </div>
               )
@@ -502,11 +518,11 @@ export default function SeedancePage() {
         {/* STEP 4 — CREATE (ANGLES) */}
         {wizardStep === 4 && (
           <section key="s4" className="ugc-rise min-h-[100svh] px-6 pt-24 pb-20">
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-4xl mx-auto">
               <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
                 <div>
-                  <h2 className="font-display text-3xl sm:text-4xl font-semibold">اختر زاوية لتحويلها إلى إعلان</h2>
-                  <p className="mt-2 text-[15px] text-[#9aa0b4]">{readyCount > 0 ? `${toAr(readyCount)} من ${toAr(creatives.length)} جاهزة.` : '٤ زوايا إعلانية — كل واحدة إعلان مستقل ١٥ ثانية بصوت عربي سعودي.'}</p>
+                  <h2 className="font-display text-3xl sm:text-4xl font-semibold">اختر الزوايا التي تعجبك</h2>
+                  <p className="mt-2 text-[15px] text-[#9aa0b4]">{readyCount > 0 ? `أنشأت ${toAr(readyCount)} من ${toAr(creatives.length)} زاوية.` : `${toAr(creatives.length)} زاوية إعلانية — اقرأ الوصف واضغط «أنشئ الفيديو» لأي واحدة تعجبك.`}</p>
                 </div>
                 {productPage && (
                   <a href={productPage.landingUrl} target="_blank" rel="noopener noreferrer"
@@ -516,75 +532,81 @@ export default function SeedancePage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
                 {creatives.map((c, i) => {
                   const female = c.gender === 'female'
-                  const statusText = c.status === 'generating' ? 'يُنشأ' : c.status === 'ready' ? 'جاهز' : c.status === 'vo' ? 'إضافة الصوت' : c.status === 'final' ? 'نهائي' : c.status === 'error' ? 'خطأ' : 'جاهز للإنشاء'
+                  const hasVideo = !!(c.videoUrl || c.mergedUrl)
+                  const expanded = c.status === 'generating' || hasVideo
                   return (
-                    <div key={i} className="group rounded-3xl border border-white/10 bg-white/[0.035] hover:border-white/20 transition-colors overflow-hidden flex flex-col">
-                      <div className="p-6 pb-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-[11px] font-bold text-[#6b7080]">الزاوية {toAr(i + 1)}</span>
-                          <div className="flex items-center gap-2">
+                    <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.035] hover:border-white/15 transition-colors overflow-hidden">
+                      {/* summary row: Arabic description + create button */}
+                      <div className="flex items-center gap-3 sm:gap-4 p-4">
+                        <span className="shrink-0 grid place-items-center h-9 w-9 rounded-full bg-gradient-to-br from-[#6366f1] to-[#e11d48] text-white text-[13px] font-bold">{toAr(i + 1)}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-semibold leading-snug text-white">{c.summaryAr}</p>
+                          <div className="flex items-center gap-2 mt-1.5">
                             {c.gender && (
-                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${female ? 'bg-[#e11d48]/15 text-[#fb7185]' : 'bg-[#6366f1]/15 text-[#a5b4fc]'}`}>
+                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${female ? 'bg-[#e11d48]/15 text-[#fb7185]' : 'bg-[#6366f1]/15 text-[#a5b4fc]'}`}>
                                 <span className={`h-1.5 w-1.5 rounded-full ${female ? 'bg-[#fb7185]' : 'bg-[#a5b4fc]'}`} />{female ? 'أنثى' : 'ذكر'}
                               </span>
                             )}
-                            <span className={`text-[11px] font-bold ${c.status === 'final' ? 'text-[#4ade80]' : c.status === 'error' ? 'text-[#fb7185]' : 'text-[#6b7080]'}`}>{statusText}</span>
+                            {c.status === 'error' && <span className="text-[11px] text-[#fb7185]">تعذّر الإنشاء — جرّب مرة ثانية</span>}
+                            {c.status === 'final' && <span className="text-[11px] font-bold text-[#4ade80]">جاهز بالصوت السعودي</span>}
                           </div>
                         </div>
-                        <h3 className="font-display mt-2 text-xl font-semibold leading-snug text-white" dir="auto">{c.headline}</h3>
-                      </div>
-
-                      {/* video stage */}
-                      <div className="px-6">
-                        <div className="mx-auto flex justify-center rounded-2xl overflow-hidden bg-black/50 border border-white/5" style={{ aspectRatio: '9/16', maxHeight: 440 }}>
-                          {c.mergedUrl ? (
-                            <video src={c.mergedUrl} controls loop playsInline className="h-full rounded-2xl" />
-                          ) : c.videoUrl ? (
-                            <video src={c.videoUrl} controls loop playsInline muted className="h-full rounded-2xl" />
-                          ) : c.status === 'error' ? (
-                            <div className="flex flex-col items-center justify-center gap-3 p-5 text-center">
-                              <div className="text-[12px] text-[#fb7185] leading-relaxed" dir="auto">{c.error}</div>
-                              <button onClick={() => generateOne(i)} className="rounded-full bg-white/10 hover:bg-white/20 px-4 py-1.5 text-[12px] font-semibold text-white cursor-pointer transition-colors">إعادة المحاولة</button>
-                            </div>
-                          ) : c.status === 'generating' ? (
-                            <div className="flex flex-col items-center justify-center gap-3 w-full text-[#9aa0b4]">
-                              <span className="h-8 w-8 rounded-full border-2 border-[#6366f1] border-t-transparent animate-spin" />
-                              <span className="text-[12px] font-semibold">جاري الإنشاء… ~٢-٤ دقائق</span>
-                            </div>
-                          ) : (
+                        <div className="shrink-0 flex flex-col items-stretch gap-1">
+                          {c.status === 'pending' ? (
                             <button onClick={() => generateOne(i)}
-                              className="flex flex-col items-center justify-center gap-3 w-full h-full text-[#9aa0b4] hover:text-white hover:bg-[#6366f1]/10 transition-colors cursor-pointer">
-                              <span className="grid place-items-center h-14 w-14 rounded-full bg-gradient-to-br from-[#6366f1] to-[#e11d48] text-white shadow-lg shadow-[#6366f1]/30">{Ico.play('h-6 w-6')}</span>
-                              <span className="text-[13px] font-bold">أنشئ هذا الفيديو</span>
-                              <span className="text-[11px] text-[#5a5f72]">~١٨٠ رصيد · ١٥ ثانية</span>
+                              className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-l from-[#6366f1] to-[#e11d48] px-4 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-[#6366f1]/25 hover:brightness-110 cursor-pointer transition-all">
+                              {Ico.play('h-3.5 w-3.5')} أنشئ الفيديو
                             </button>
+                          ) : c.status === 'generating' ? (
+                            <span className="inline-flex items-center justify-center gap-2 rounded-full bg-white/8 px-4 py-2.5 text-[13px] font-bold text-[#9aa0b4]">
+                              <span className="h-3.5 w-3.5 rounded-full border-2 border-[#6366f1] border-t-transparent animate-spin" /> جاري الإنشاء
+                            </span>
+                          ) : c.status === 'error' ? (
+                            <button onClick={() => generateOne(i)} className="rounded-full bg-white/10 hover:bg-white/20 px-5 py-2.5 text-[13px] font-bold text-white cursor-pointer transition-colors">إعادة</button>
+                          ) : (
+                            <span className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#4ade80]/12 px-3.5 py-2.5 text-[12px] font-bold text-[#4ade80]">{Ico.check('h-3.5 w-3.5')} جاهز</span>
                           )}
+                          {c.status === 'pending' && <span className="text-[10px] text-[#5a5f72] text-center">~١٨٠ رصيد · ١٥ ث</span>}
                         </div>
                       </div>
 
-                      <div className="p-6 pt-4 space-y-4 flex-1 flex flex-col">
-                        {(c.status === 'ready' || c.status === 'final' || c.status === 'vo') && (
-                          <button onClick={() => addVoiceover(i)} disabled={c.status === 'vo'}
-                            className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-white/8 hover:bg-white/14 disabled:opacity-40 py-3 text-[13px] font-bold text-white cursor-pointer transition-colors">
-                            {c.status === 'vo' ? (<><span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> جاري إضافة الصوت…</>) : (<>{Ico.mic('h-4 w-4')} {c.status === 'final' ? 'إعادة إنشاء الصوت السعودي' : 'أضف صوت سعودي'}</>)}
-                          </button>
-                        )}
-                        {c.status === 'ready' && c.error && <p className="text-[12px] text-[#fb7185]" dir="auto">{c.error}</p>}
-
-                        <div className="rounded-2xl bg-black/25 border border-white/5 p-4">
-                          <div className="text-[11px] font-bold text-[#6b7080] mb-2">التعليق الصوتي · عربي سعودي</div>
-                          <div className="text-[14px] text-white leading-relaxed">{c.voiceover}</div>
-                          <div className="text-[12px] text-[#6b7080] mt-2 leading-relaxed" dir="ltr">{c.translationEn}</div>
+                      {/* expanded: video + Saudi voiceover */}
+                      {expanded && (
+                        <div className="border-t border-white/5 p-4 flex flex-col sm:flex-row gap-4">
+                          <div className="shrink-0 mx-auto sm:mx-0 rounded-xl overflow-hidden bg-black/50 border border-white/5" style={{ width: 150, aspectRatio: '9/16' }}>
+                            {c.mergedUrl ? (
+                              <video src={c.mergedUrl} controls loop playsInline className="h-full w-full object-cover" />
+                            ) : c.videoUrl ? (
+                              <video src={c.videoUrl} controls loop playsInline muted className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-[#9aa0b4] text-center px-2">
+                                <span className="h-7 w-7 rounded-full border-2 border-[#6366f1] border-t-transparent animate-spin" />
+                                <span className="text-[11px] font-semibold">جاري الإنشاء…<br />~٢-٤ دقائق</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-3">
+                            {hasVideo && (
+                              <button onClick={() => addVoiceover(i)} disabled={c.status === 'vo'}
+                                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-white/8 hover:bg-white/14 disabled:opacity-40 py-2.5 text-[13px] font-bold text-white cursor-pointer transition-colors">
+                                {c.status === 'vo' ? (<><span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> جاري إضافة الصوت…</>) : (<>{Ico.mic('h-4 w-4')} {c.status === 'final' ? 'إعادة إنشاء الصوت السعودي' : 'أضف صوت سعودي'}</>)}
+                              </button>
+                            )}
+                            {c.status === 'ready' && c.error && <p className="text-[12px] text-[#fb7185]" dir="auto">{c.error}</p>}
+                            <div className="rounded-xl bg-black/25 border border-white/5 p-3">
+                              <div className="text-[10px] font-bold text-[#6b7080] mb-1.5">التعليق الصوتي · عربي سعودي</div>
+                              <div className="text-[13px] text-white leading-relaxed">{c.voiceover}</div>
+                            </div>
+                            <button onClick={() => update(i, { showBlocks: !c.showBlocks })} className="text-[12px] font-semibold text-[#818cf8] hover:text-[#a5b4fc] cursor-pointer transition-colors">
+                              {c.showBlocks ? 'إخفاء' : 'عرض'} برومبت Seedance
+                            </button>
+                            {c.showBlocks && <div className="rounded-lg bg-black/40 border border-white/5 p-3 text-[11px] text-[#9aa0b4] whitespace-pre-wrap leading-relaxed max-h-56 overflow-auto" dir="ltr">{c.seedancePrompt}</div>}
+                          </div>
                         </div>
-
-                        <button onClick={() => update(i, { showBlocks: !c.showBlocks })} className="text-[12px] font-semibold text-[#818cf8] hover:text-[#a5b4fc] cursor-pointer transition-colors text-right">
-                          {c.showBlocks ? 'إخفاء' : 'عرض'} برومبت Seedance
-                        </button>
-                        {c.showBlocks && <div className="rounded-xl bg-black/40 border border-white/5 p-3 text-[12px] text-[#9aa0b4] whitespace-pre-wrap leading-relaxed max-h-56 overflow-auto" dir="ltr">{c.seedancePrompt}</div>}
-                      </div>
+                      )}
                     </div>
                   )
                 })}

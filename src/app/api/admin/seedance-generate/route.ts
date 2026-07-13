@@ -45,12 +45,12 @@ export async function POST(req: NextRequest) {
   }
   if (!proxied.length) return NextResponse.json({ error: 'No usable product images' }, { status: 502 })
 
-  const body = JSON.stringify({
+  const buildBody = (urls: string[]) => JSON.stringify({
     mode: 'media-to-video',   // multiple input images
     quality_tier: 'mini',     // Seedance 2 Mini
     channel: 'standard',      // Standard rendering mode (vs real/wild)
     prompt: String(prompt).slice(0, 9500), // API max is 10k chars
-    media_urls: proxied,
+    media_urls: urls,
     duration: '15',
     resolution: '1080p',
     aspect_ratio: '9:16',
@@ -60,28 +60,39 @@ export async function POST(req: NextRequest) {
   // Seedance allows 30 req/60s per account; heavy status polling can trip a 429 on
   // create. A 429 means NO task was created, so it's safe to wait and retry without
   // double-charging. (Timeouts are ambiguous → we do NOT retry those.)
+  // If a specific product image is rejected (unsupported/unfetchable), we fall back
+  // to just the main image — which is a clean JPEG and works for any product.
+  let urls = proxied
+  let reducedToMain = false
   let lastErr = 'Seedance request failed'
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 4; attempt++) {
     try {
       const res = await fetch(SEEDANCE_CREATE, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${seedKey}`, 'Content-Type': 'application/json' },
-        body,
+        body: buildBody(urls),
         signal: AbortSignal.timeout(50000),
       })
       const txt = await res.text()
       if (res.ok) {
         const b = JSON.parse(txt)
         const taskId = b.id ?? b.taskId ?? b.task_id
-        if (taskId) return NextResponse.json({ taskId, firstFrame: proxied[0] })
+        if (taskId) return NextResponse.json({ taskId, firstFrame: urls[0] })
         return NextResponse.json({ error: `no taskId: ${txt.slice(0, 200)}` }, { status: 502 })
       }
       lastErr = `Seedance ${res.status}: ${txt.slice(0, 200)}`
-      if (res.status === 429 && attempt < 3) {
+      if (res.status === 429 && attempt < 4) {
         // Honour the account's Retry-After (observed ~36s) so the retry actually clears the window.
         const ra = parseInt(res.headers.get('retry-after') || '', 10)
         const waitMs = Math.min((Number.isFinite(ra) && ra > 0 ? ra + 1 : attempt * 6) * 1000, 38000)
         await new Promise(r => setTimeout(r, waitMs))
+        continue
+      }
+      // A rejected image (unsupported type / download failed) fails the whole request —
+      // retry once with only the main product image, which is reliable for any product.
+      if (res.status === 400 && !reducedToMain && urls.length > 1 && /media|image|download|url|unsupported|resource/i.test(txt)) {
+        urls = urls.slice(0, 1)
+        reducedToMain = true
         continue
       }
       return NextResponse.json({ error: lastErr }, { status: 502 })

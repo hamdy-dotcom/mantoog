@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["ffmpeg-static"],
   outputFileTracingIncludes: {
     "/api/admin/seedance-voiceover": ["./node_modules/ffmpeg-static/ffmpeg"],
+    "/api/admin/proxy-images": ["./node_modules/ffmpeg-static/ffmpeg"],
   },
 };
 

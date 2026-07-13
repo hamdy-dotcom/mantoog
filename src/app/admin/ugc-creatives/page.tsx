@@ -59,8 +59,6 @@ export default function SeedancePage() {
   const router = useRouter()
   const [authed, setAuthed] = useState(false)
   const [url, setUrl] = useState('')
-  const [voiceId, setVoiceId] = useState('')
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [step, setStep] = useState<Step>('idle')
   const [error, setError] = useState<string | null>(null)
   const [product, setProduct] = useState<Product | null>(null)
@@ -205,7 +203,7 @@ export default function SeedancePage() {
     if (!c.videoUrl) return
     update(i, { status: 'vo', error: null })
     try {
-      const res = await fetch('/api/admin/seedance-voiceover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: c.videoUrl, voiceover: c.voiceover, gender: c.gender, voiceId: voiceId.trim() || undefined }) })
+      const res = await fetch('/api/admin/seedance-voiceover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: c.videoUrl, voiceover: c.voiceover, gender: c.gender }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'فشلت إضافة الصوت')
       update(i, { status: 'final', mergedUrl: data.mergedUrl })
@@ -347,7 +345,7 @@ export default function SeedancePage() {
               {Ico.spark('h-3.5 w-3.5')} استوديو الإعلانات بالذكاء الاصطناعي
             </span>
             <h1 className="font-display mt-5 text-4xl sm:text-6xl font-semibold leading-[1.15] max-w-3xl">
-              من رابط منتجك إلى<br className="hidden sm:block" /> <span className="bg-gradient-to-l from-[#818cf8] via-[#c084fc] to-[#fb7185] bg-clip-text text-transparent">٤ زوايا إعلانية جاهزة</span>
+              من رابط منتجك إلى<br className="hidden sm:block" /> <span className="bg-gradient-to-l from-[#818cf8] via-[#c084fc] to-[#fb7185] bg-clip-text text-transparent">١٠ إعلانات جاهزة</span>
             </h1>
             <p className="mt-4 text-[15px] sm:text-lg text-[#9aa0b4] max-w-xl leading-relaxed">
               الصق رابط المنتج، ونبني لك صفحة هبوط، ثم نحلّل منتجك ونبتكر ١٠ زوايا إعلانية بفيديوهات سينمائية وتعليق صوتي عربي سعودي — جاهزة للإطلاق على TikTok.
@@ -365,21 +363,27 @@ export default function SeedancePage() {
                     : (<>أنشئ الإعلانات {Ico.arrow('h-4 w-4 flip-x')}</>)}
                 </button>
               </div>
-
-              <button onClick={() => setShowAdvanced(v => !v)} className="mt-4 text-[12px] text-[#6b7080] hover:text-[#9aa0b4] cursor-pointer transition-colors">
-                {showAdvanced ? 'إخفاء الخيارات' : 'خيارات متقدمة'}
-              </button>
-              {showAdvanced && (
-                <input value={voiceId} dir="ltr" onChange={e => setVoiceId(e.target.value)} placeholder="voice_id محدد (اختياري — وإلا يُختار ذكر/أنثى تلقائيًا حسب المنتج)"
-                  className="mt-2 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-[13px] text-white placeholder-[#5a5f72] outline-none focus:border-[#6366f1]/60 text-left" />
-              )}
             </div>
 
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-2.5">
-              {['٤ زوايا إعلانية', 'فيديوهات سينمائية', 'صوت عربي سعودي', '١٥ ثانية · عمودي ٩:١٦'].map(t => (
-                <span key={t} className="rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-[12px] font-semibold text-[#9aa0b4]">{t}</span>
+            {/* how it works — the full pipeline at a glance */}
+            <div className="mt-12 flex flex-wrap items-center justify-center gap-x-2 gap-y-3">
+              {[
+                { n: '١', t: 'الصق رابط المنتج' },
+                { n: '٢', t: 'نبتكر ١٠ زوايا إعلانية' },
+                { n: '٣', t: 'فيديو + صوت سعودي' },
+                { n: '٤', t: 'إطلاق على TikTok' },
+              ].map((s, i, arr) => (
+                <div key={s.n} className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-2">
+                    <span className="grid place-items-center h-5 w-5 rounded-full bg-gradient-to-br from-[#6366f1] to-[#e11d48] text-white text-[10px] font-bold">{s.n}</span>
+                    <span className="text-[13px] font-semibold text-[#c9cdda]">{s.t}</span>
+                  </div>
+                  {i < arr.length - 1 && <span className="text-[#5a5f72]">{Ico.arrow('h-3.5 w-3.5 flip-x')}</span>}
+                </div>
               ))}
             </div>
+
+            <p className="mt-5 text-[12px] text-[#5a5f72]">كل فيديو ١٥ ثانية · عمودي ٩:١٦ · بصوت عربي سعودي طبيعي</p>
 
             {error && (
               <div className="mt-6 max-w-xl rounded-xl border border-[#e11d48]/30 bg-[#e11d48]/10 px-4 py-3 text-[13px] text-[#fb7185]">{error}</div>

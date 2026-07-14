@@ -145,13 +145,15 @@ export async function generateGeniusLanding(
   const ref = p.images[0]
   const ref2 = p.images[1] || ref
   const briefs: any[] = (art.imageBriefs || [])
-  const generated: any[] = []
-  for (let i = 0; i < briefs.length; i++) {
-    const b = briefs[i]
-    const url = await editImage(keys.seedance, i % 2 === 0 ? ref : ref2, b.editPrompt)
-    if (url) generated.push({ slot: b.slot, use: b.use, caption: b.caption || '', url })
-  }
-  const cutPng = await makeCutout(keys.seedance, ref)
+  // Generate all scene images + the cutout CONCURRENTLY (nano-banana allows ~30/min,
+  // so ~7 parallel is fine) — turns a ~2min sequential phase into ~25s.
+  const [genResults, cutPng] = await Promise.all([
+    Promise.all(briefs.map((b, i) =>
+      editImage(keys.seedance, i % 2 === 0 ? ref : ref2, b.editPrompt)
+        .then(url => (url ? { slot: b.slot, use: b.use, caption: b.caption || '', url } : null)))),
+    makeCutout(keys.seedance, ref),
+  ])
+  const generated = genResults.filter(Boolean)
   const cutoutUrl = cutPng ? await uploadCutout(cutPng) : ref
   const html = await buildHtml(client, p, art, generated, cutoutUrl)
   return { html }

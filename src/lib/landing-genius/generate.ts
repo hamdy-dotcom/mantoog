@@ -134,19 +134,18 @@ async function buildHtml(client: Anthropic, p: GeniusProduct, art: any, generate
   return html.replace(/^```html?\s*/i, '').replace(/```\s*$/, '').trim()
 }
 
-// ── Orchestrator: returns { html } + writes the cutout via the provided uploader ─
-export async function generateGeniusLanding(
+// ── STAGE 1 (prepare): art direction + all images + cutout (~60s). No Claude re-skin. ─
+export async function prepareAssets(
   p: GeniusProduct,
   keys: { anthropic: string; seedance: string },
   uploadCutout: (png: Buffer) => Promise<string>,
-): Promise<{ html: string }> {
+): Promise<{ art: any; generated: any[]; cutoutUrl: string }> {
   const client = new Anthropic({ apiKey: keys.anthropic })
   const art = await artDirect(client, p)
   const ref = p.images[0]
   const ref2 = p.images[1] || ref
   const briefs: any[] = (art.imageBriefs || [])
-  // Generate all scene images + the cutout CONCURRENTLY (nano-banana allows ~30/min,
-  // so ~7 parallel is fine) — turns a ~2min sequential phase into ~25s.
+  // All scene images + the cutout CONCURRENTLY (nano-banana allows ~30/min).
   const [genResults, cutPng] = await Promise.all([
     Promise.all(briefs.map((b, i) =>
       editImage(keys.seedance, i % 2 === 0 ? ref : ref2, b.editPrompt)
@@ -155,6 +154,14 @@ export async function generateGeniusLanding(
   ])
   const generated = genResults.filter(Boolean)
   const cutoutUrl = cutPng ? await uploadCutout(cutPng) : ref
-  const html = await buildHtml(client, p, art, generated, cutoutUrl)
-  return { html }
+  return { art, generated, cutoutUrl }
+}
+
+// ── STAGE 2 (finish): re-skin the template into the final HTML (~200s). ────────
+export async function assembleHtml(
+  p: GeniusProduct, art: any, generated: any[], cutoutUrl: string,
+  keys: { anthropic: string },
+): Promise<string> {
+  const client = new Anthropic({ apiKey: keys.anthropic })
+  return buildHtml(client, p, art, generated, cutoutUrl)
 }

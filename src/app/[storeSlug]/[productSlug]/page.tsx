@@ -787,6 +787,36 @@ export default function LandingPage() {
     return { reviews, reviewCount }
   }
 
+  // AI Genius premium landing — self-contained generated HTML, isolated in an iframe.
+  // LANDING_CONFIG is injected live from the product/offers so it stays editable, and
+  // the checkout drawer's order is routed into Mantoog's own handleSubmit.
+  if (landingPage?.landing_type === 'custom_html' && landingPage?.custom_html) {
+    const cfg = {
+      productName: product?.title,
+      price: parseFloat(product?.price || 0),
+      currency: store?.currency || 'ريال',
+      showQuantity: !!store?.show_quantity,
+      showNote: !!store?.show_note,
+      shipping: shippingCost || 0,
+      offers: (activeOffers || []).map((o: any) => ({ id: o.id, quantity: o.quantity, price: o.price })),
+      bump: null,
+    }
+    const injected = String(landingPage.custom_html).replace('<head>', `<head><script>window.LANDING_CONFIG=${JSON.stringify(cfg)};</script>`)
+    return (
+      <iframe
+        title={product?.title || 'landing'}
+        srcDoc={injected}
+        style={{ border: 'none', width: '100%', height: '100vh', display: 'block' }}
+        onLoad={(e) => {
+          try {
+            const w = (e.currentTarget as HTMLIFrameElement).contentWindow as any
+            if (w) w.onLandingOrder = (order: any) => handleSubmit({ name: order.name, phone: order.phone, address: order.address, note: order.note, qty: order.qty })
+          } catch { /* cross-origin never happens for srcDoc */ }
+        }}
+      />
+    )
+  }
+
   // Store theme product page — merchant chose "يتبع قالب المتجر"
   if (store?.theme === 'store_theme' && store?.store_theme) {
     return (

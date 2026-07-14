@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/admin/seedance-voiceover": ["./node_modules/ffmpeg-static/ffmpeg"],
     "/api/admin/proxy-images": ["./node_modules/ffmpeg-static/ffmpeg"],
+    "/api/ai/landing-genius": ["./node_modules/ffmpeg-static/ffmpeg", "./src/lib/landing-genius/template.html"],
   },
 };
 

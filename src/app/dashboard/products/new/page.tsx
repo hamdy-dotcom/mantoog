@@ -46,6 +46,11 @@ export default function NewProductPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  const GENIUS_COST = 200
+  const [landingStyle, setLandingStyle] = useState<'standard' | 'genius'>('standard')
+  const [credits, setCredits] = useState<number | null>(null)
+  const [geniusBusy, setGeniusBusy] = useState(false)
+
   useEffect(() => {
     const getStore = async () => {
       const ctx = await loadMerchantStore(supabase, router, '*')
@@ -53,6 +58,12 @@ export default function NewProductPage() {
       setStore(ctx.store)
     }
     getStore()
+    ;(async () => {
+      const u = await getAuthenticatedUser(supabase)
+      if (!u) return
+      const { data } = await supabase.from('order_credits').select('credits_total, credits_used').eq('merchant_id', u.id)
+      if (data) setCredits(data.reduce((s: number, r: any) => s + (Number(r.credits_total) - Number(r.credits_used)), 0))
+    })()
   }, [])
 
   const getOriginalPrice = () => {
@@ -349,6 +360,29 @@ export default function NewProductPage() {
       })
     }
 
+    // Premium AI Genius landing — generate a bespoke self-contained page (200 credits)
+    if (product && landingStyle === 'genius') {
+      setGeniusBusy(true)
+      try {
+        const res = await fetch('/api/ai/landing-genius', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: product.id,
+            title: aiContent.product_name || manualName,
+            price: finalPrice,
+            compareAtPrice: finalCompare || null,
+            description: aiContent.description_long,
+            features: Array.isArray(aiContent.benefits) ? aiContent.benefits : [],
+            images: finalImages,
+          }),
+        })
+        const d = await res.json().catch(() => ({}))
+        if (!res.ok) { setError(d.error || 'تعذّر إنشاء صفحة الهبوط المميزة'); setSaving(false); setGeniusBusy(false); return }
+      } catch (e: any) {
+        setError('تعذّر إنشاء الصفحة المميزة: ' + e.message); setSaving(false); setGeniusBusy(false); return
+      }
+    }
+
     router.push('/dashboard/products')
   }
 
@@ -371,6 +405,18 @@ export default function NewProductPage() {
   return (
     <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
       <Sidebar store={store} />
+
+      {geniusBusy && (
+        <div className="fixed inset-0 z-50 bg-[#0f1117]/95 backdrop-blur flex items-center justify-center">
+          <div className="text-center max-w-sm px-6">
+            <div className="mx-auto mb-5 flex items-center justify-center gap-2">
+              {[0, 1, 2].map(i => <span key={i} className="w-3 h-3 rounded-full bg-gradient-to-br from-[#a855f7] to-[#ec4899] animate-pulse" style={{ animationDelay: `${i * 0.15}s` }} />)}
+            </div>
+            <h3 className="text-white font-bold text-lg mb-2">جاري إنشاء صفحتك المميّزة…</h3>
+            <p className="text-[#8b8fa8] text-sm leading-relaxed">نحلّل منتجك، ننشئ صوراً احترافية بالذكاء الاصطناعي، ثم نصمّم الصفحة كاملة. تستغرق ٣–٤ دقائق — لا تُغلق الصفحة.</p>
+          </div>
+        </div>
+      )}
 
       <main className={`${DASHBOARD_MAIN_CLASS} flex flex-col items-center`}>
         <div className="mb-8 flex items-center gap-4">
@@ -792,6 +838,35 @@ export default function NewProductPage() {
 
         {step === 'preview' && aiContent && (
           <div className="space-y-5 w-full max-w-5xl">
+
+            {/* ── Choose what to build ── */}
+            <div>
+              <div className="text-white font-semibold text-sm mb-2.5">اختر تصميم صفحة الهبوط</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button type="button" onClick={() => setLandingStyle('standard')}
+                  className={`text-right rounded-xl border p-4 transition-colors ${landingStyle === 'standard' ? 'border-[#3b82f6] bg-[#12233d]' : 'border-[#2a2d35] bg-[#1a1d24] hover:border-[#3b82f6]/50'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-semibold text-sm">الصفحة القياسية</span>
+                    <span className="text-[#4ade80] text-xs font-bold">مجانية</span>
+                  </div>
+                  <p className="text-[#8b8fa8] text-xs mt-1.5 leading-relaxed">القالب الجاهز — سريع ويظهر فوراً.</p>
+                </button>
+                <button type="button" onClick={() => setLandingStyle('genius')}
+                  className="relative text-right rounded-xl p-4 transition-all overflow-hidden"
+                  style={landingStyle === 'genius'
+                    ? { background: 'linear-gradient(#160f22,#160f22) padding-box, linear-gradient(135deg,#a855f7,#ec4899) border-box', border: '1.6px solid transparent' }
+                    : { background: '#1a1d24', border: '1px solid #2a2d35' }}>
+                  <span className="absolute top-0 left-0 bg-gradient-to-l from-[#a855f7] to-[#ec4899] text-white text-[10px] font-bold px-2 py-0.5 rounded-br-lg">✨ الأكثر تميّزاً</span>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <span className="text-white font-bold text-sm">استوديو الإعلانات AI</span>
+                    <span className="text-[#e9d5ff] text-[11px] font-extrabold bg-[#a855f7]/25 px-2 py-0.5 rounded-full whitespace-nowrap">٢٠٠ رصيد / تصميم</span>
+                  </div>
+                  <p className="text-[#c4b5fd] text-xs mt-1.5 leading-relaxed">صفحة سينمائية مصممة خصيصاً لمنتجك: صور احترافية بالذكاء الاصطناعي + هوية وألوان ونصوص بيعية + شيك آوت مدمج بالعروض.</p>
+                  <div className="mt-2 text-[11px] text-[#8b8fa8]">رصيدك: <span className="text-white font-bold">{credits ?? '…'}</span> رصيد{credits != null && credits < GENIUS_COST && <span className="text-[#f87171]"> — غير كافٍ</span>}</div>
+                </button>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between">
               <div className="bg-[#14321f] border border-[#4ade80]/20 rounded-lg px-4 py-3 flex items-center gap-2">
                 <span className="text-[#4ade80]">✓</span>
@@ -806,10 +881,10 @@ export default function NewProductPage() {
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={saving}
-                  className="bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
+                  disabled={saving || (landingStyle === 'genius' && credits != null && credits < GENIUS_COST)}
+                  className={`disabled:opacity-40 text-white text-sm font-semibold px-6 py-2 rounded-lg transition-all ${landingStyle === 'genius' ? 'bg-gradient-to-l from-[#a855f7] to-[#ec4899] hover:brightness-110' : 'bg-[#3b82f6] hover:bg-[#2563eb]'}`}
                 >
-                  {saving ? tr.saving : tr.savePublish}
+                  {saving ? tr.saving : landingStyle === 'genius' ? '✨ أنشئ الصفحة المميزة (٢٠٠ رصيد)' : tr.savePublish}
                 </button>
               </div>
             </div>

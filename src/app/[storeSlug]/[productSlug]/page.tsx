@@ -472,6 +472,7 @@ export default function LandingPage() {
       quantity: 1,
     } : null
     let orderOk = false
+    let dbOrderId: string | null = null
     try {
       const response = await fetch('/api/orders/create', {
         method: 'POST',
@@ -504,16 +505,22 @@ export default function LandingPage() {
       })
       const result = await response.json()
       orderOk = response.ok && result.success
-      if (orderOk && result.orderId) setLastOrderId(result.orderId)
+      if (orderOk && result.orderId) {
+        dbOrderId = String(result.orderId)
+        setLastOrderId(result.orderId)
+      }
     } catch {
       orderOk = false
     }
     setSubmitting(false)
     if (orderOk) {
       if (typeof window !== 'undefined') {
-        const orderId = typeof crypto !== 'undefined' && crypto.randomUUID
+        // Prefer the real DB order id so the browser pixel and the server-side
+        // Snapchat CAPI event share one dedup id (Snap merges them into a single
+        // high-quality event instead of double-counting).
+        const orderId = dbOrderId || (typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
-          : String(Date.now())
+          : String(Date.now()))
 
         if ((window as any).fbq) {
           (window as any).fbq('track', 'Purchase', {
@@ -545,7 +552,7 @@ export default function LandingPage() {
                 u.parentNode.insertBefore(r,u);
               }(window,document,'https://sc-static.net/scevent.min.js');
               ${snapIds.map((id: string) => `snaptr('init', '${id.replace(/'/g, "\\'")}');
-              snaptr('track', 'PURCHASE', { price: ${orderTotal}, currency: '${store.currency || 'SAR'}', transaction_id: '${orderId}' });`).join('\n              ')}
+              snaptr('track', 'PURCHASE', { price: ${orderTotal}, currency: '${store.currency || 'SAR'}', transaction_id: '${orderId}', client_dedup_id: '${orderId}' });`).join('\n              ')}
             `
             document.head.appendChild(script)
           }

@@ -4,6 +4,7 @@ import { getClientIp, getIpCountry } from '@/lib/analytics/server'
 import type { OrderAttributionPayload } from '@/lib/analytics/attribution'
 import { sendCreditsWarningEmail } from '@/lib/email/credits-warning'
 import { orderLimiter, checkLimit } from '@/lib/ratelimit'
+import { sendSnapPurchase } from '@/lib/snapchat/capi'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,6 +35,7 @@ function parseAttribution(raw: unknown): OrderAttributionPayload {
     utm_term: nullableString(data.utm_term),
     ttclid: nullableString(data.ttclid),
     fbclid: nullableString(data.fbclid),
+    sccid: nullableString(data.sccid),
     referrer: nullableString(data.referrer),
     landing_page: nullableString(data.landing_page),
     session_seconds: nullableNumber(data.session_seconds),
@@ -54,7 +56,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { attribution: rawAttribution, ...orderFields } = body ?? {}
-    const attribution = parseAttribution(rawAttribution)
+    // Keep sccid out of the DB insert so order creation never depends on a new
+    // column — it's used transiently for the Snap CAPI call below.
+    const { sccid: sccidValue, ...attribution } = parseAttribution(rawAttribution)
 
     // Validate required IDs
     if (!orderFields.store_id || !orderFields.merchant_id || !orderFields.product_id) {
@@ -71,7 +75,7 @@ export async function POST(request: NextRequest) {
           .single(),
         supabase
           .from('stores')
-          .select('id, merchant_id, shipping_type, static_shipping_cost, currency')
+          .select('id, merchant_id, shipping_type, static_shipping_cost, currency, snapchat_pixel_id')
           .eq('id', orderFields.store_id)
           .single(),
       ])
@@ -157,6 +161,43 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+
+    // Snapchat Conversions API (server-side Purchase). Non-blocking on failure —
+    // never let a CAPI hiccup break order creation. Deduplicated against the
+    // browser Snap Pixel via a shared event_id (the DB order id). Uses the
+    // customer's REAL ip + user-agent from this request (not the server's).
+    const orderId = orderData?.id ? String(orderData.id) : null
+    const snapPixelId = (store.snapchat_pixel_id ?? '').split(',').map((s: string) => s.trim()).filter(Boolean)[0]
+    if (orderId && snapPixelId) {
+      try {
+        const { data: snap } = await supabase
+          .from('snapchat_capi')
+          .select('capi_token, enabled, test_event_code')
+          .eq('store_id', orderFields.store_id)
+          .maybeSingle()
+        if (snap?.enabled && snap.capi_token) {
+          await sendSnapPurchase({
+            pixelId: snapPixelId,
+            token: snap.capi_token,
+            eventId: orderId,
+            value: computedTotal,
+            currency: store.currency,
+            orderId,
+            numItems: qty,
+            customerName: orderFields.customer_name,
+            customerPhone: orderFields.customer_phone,
+            country: orderFields.address_country,
+            clientIp: getClientIp(request),
+            userAgent: request.headers.get('user-agent'),
+            sccid: sccidValue ?? null,
+            eventSourceUrl: attribution.landing_page ?? null,
+            testEventCode: snap.test_event_code ?? null,
+          })
+        }
+      } catch {
+        // swallow — CAPI is best-effort and must never fail the order
+      }
     }
 
     // Mark any matching abandoned checkout as recovered (fire-and-forget)

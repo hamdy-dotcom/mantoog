@@ -107,6 +107,13 @@ export default function SettingsPage() {
   const [snapchatPixelInput, setSnapchatPixelInput] = useState('')
   const [googleAdsConversionId, setGoogleAdsConversionId] = useState('')
   const [googleAdsConversionLabel, setGoogleAdsConversionLabel] = useState('')
+  // Snapchat Conversion API (server-side) — token handled via a dedicated server
+  // route, never through the client save path. We track status, not the token.
+  const [snapCapiEnabled, setSnapCapiEnabled] = useState(false)
+  const [snapCapiHasToken, setSnapCapiHasToken] = useState(false)
+  const [snapCapiToken, setSnapCapiToken] = useState('')
+  const [snapCapiSaving, setSnapCapiSaving] = useState(false)
+  const [snapCapiSaved, setSnapCapiSaved] = useState(false)
   const [addressMode, setAddressMode] = useState<'text' | 'map'>('text')
   const [locationRequired, setLocationRequired] = useState(false)
   const [showQuantity, setShowQuantity] = useState(false)
@@ -178,6 +185,12 @@ export default function SettingsPage() {
       setSnapchatPixelId(store.snapchat_pixel_id || '')
       setGoogleAdsConversionId(store.google_ads_conversion_id || '')
       setGoogleAdsConversionLabel(store.google_ads_conversion_label || '')
+
+      // Snapchat CAPI status comes from a server route (token stays server-side).
+      fetch('/api/dashboard/snap-capi')
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => { if (d) { setSnapCapiEnabled(!!d.enabled); setSnapCapiHasToken(!!d.hasToken) } })
+        .catch(() => {})
       setAddressMode(store.address_mode || (store.enable_location ? 'map' : 'text'))
       setLocationRequired(store.location_required || false)
       setShowQuantity(store.show_quantity || false)
@@ -209,6 +222,30 @@ export default function SettingsPage() {
     if (!file) return
     setLogoFile(file)
     setLogoPreview(URL.createObjectURL(file))
+  }
+
+  const saveSnapCapi = async () => {
+    setSnapCapiSaving(true)
+    setSnapCapiSaved(false)
+    try {
+      const res = await fetch('/api/dashboard/snap-capi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: snapCapiEnabled, capiToken: snapCapiToken.trim() || undefined }),
+      })
+      const d = await res.json().catch(() => null)
+      if (res.ok && d) {
+        setSnapCapiEnabled(!!d.enabled)
+        setSnapCapiHasToken(!!d.hasToken)
+        setSnapCapiToken('')
+        setSnapCapiSaved(true)
+        setTimeout(() => setSnapCapiSaved(false), 2500)
+      }
+    } catch {
+      // best-effort; leave UI state as-is
+    } finally {
+      setSnapCapiSaving(false)
+    }
   }
 
   const handleSave = async () => {
@@ -1078,6 +1115,70 @@ export default function SettingsPage() {
                       ? 'اضغط Enter أو فاصلة لإضافة Pixel ID آخر — احصل عليه من: Snapchat Ads Manager → Events Manager → Pixels'
                       : 'Press Enter or comma to add another ID — Get from: Snapchat Ads Manager → Events Manager → Pixels'}
                   </p>
+                </div>
+              </div>
+
+              {/* Snapchat Conversion API (server-side) */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-[#fffc00]/10 border border-[#fffc00]/30 rounded-xl flex items-center justify-center text-lg">🛰️</div>
+                  <div>
+                    <div className="text-white font-medium">{lang === 'ar' ? 'Snapchat Conversion API' : 'Snapchat Conversion API'}</div>
+                    <div className="text-xs text-[#8b8fa8]">{lang === 'ar' ? 'أحداث من الخادم — جودة أعلى' : 'Server-side events — higher quality'}</div>
+                  </div>
+                  {snapCapiEnabled && snapCapiHasToken && (
+                    <span className="mr-auto text-xs bg-[#14321f] text-[#4ade80] border border-[#4ade80]/20 px-2.5 py-1 rounded-full">
+                      ✓ {lang === 'ar' ? 'مفعّل' : 'Active'}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-[#8b8fa8] leading-relaxed mb-4">
+                  {lang === 'ar'
+                    ? 'يرسل أحداث الشراء مباشرة من خادم Mantoog إلى Snapchat (لا يوقفها مانع الإعلانات)، مع بيانات العميل المشفّرة من الشيك أوت لرفع جودة الأحداث وتحسين توصيل الإعلان. يعمل مع Snapchat Pixel أعلاه ويُلغى التكرار تلقائيًا.'
+                    : 'Sends Purchase events straight from Mantoog’s server to Snapchat (ad blockers can’t stop it), with the hashed checkout data to raise Event Quality and improve ad delivery. Works alongside the Snapchat Pixel above and deduplicates automatically.'}
+                </p>
+
+                <div className="mb-4">
+                  <label className="text-xs font-medium text-[#8b8fa8] uppercase tracking-wider">
+                    {lang === 'ar' ? 'رمز الـ API (Pixel Token)' : 'CAPI Token (Pixel Token)'}
+                  </label>
+                  <input
+                    type="password"
+                    value={snapCapiToken}
+                    onChange={e => setSnapCapiToken(e.target.value)}
+                    autoComplete="off"
+                    placeholder={snapCapiHasToken
+                      ? (lang === 'ar' ? '•••••••• محفوظ — الصق رمزًا جديدًا للتغيير' : '•••••••• saved — paste a new token to change')
+                      : (lang === 'ar' ? 'الصق الرمز من Snapchat' : 'Paste the token from Snapchat')}
+                    className="mt-1.5 w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#fffc00]/50 transition-colors font-mono"
+                  />
+                  <p className="text-xs text-[#4a4e60] mt-1.5">
+                    {lang === 'ar'
+                      ? 'من: Snapchat Events Manager → Pixel → Conversions API → إنشاء رمز. يتطلب Pixel ID أعلاه.'
+                      : 'From: Snapchat Events Manager → Pixel → Conversions API → Generate token. Requires the Pixel ID above.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <button
+                      type="button"
+                      onClick={() => setSnapCapiEnabled(v => !v)}
+                      className={`relative w-10 h-6 rounded-full transition-colors ${snapCapiEnabled ? 'bg-[#4ade80]' : 'bg-[#2a2d35]'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${snapCapiEnabled ? 'translate-x-4' : ''}`} />
+                    </button>
+                    <span className="text-sm text-white">{lang === 'ar' ? 'تفعيل الإرسال من الخادم' : 'Enable server-side sending'}</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={saveSnapCapi}
+                    disabled={snapCapiSaving}
+                    className="text-sm font-medium bg-[#fffc00]/10 hover:bg-[#fffc00]/20 border border-[#fffc00]/30 text-[#fef08a] px-4 py-2 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {snapCapiSaving ? (lang === 'ar' ? 'جارٍ الحفظ…' : 'Saving…') : snapCapiSaved ? (lang === 'ar' ? '✓ تم' : '✓ Saved') : (lang === 'ar' ? 'حفظ' : 'Save')}
+                  </button>
                 </div>
               </div>
 

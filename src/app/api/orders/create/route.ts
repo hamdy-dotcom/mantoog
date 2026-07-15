@@ -168,7 +168,12 @@ export async function POST(request: NextRequest) {
     // browser Snap Pixel via a shared event_id (the DB order id). Uses the
     // customer's REAL ip + user-agent from this request (not the server's).
     const orderId = orderData?.id ? String(orderData.id) : null
-    const snapPixelId = (store.snapchat_pixel_id ?? '').split(',').map((s: string) => s.trim()).filter(Boolean)[0]
+    // Snap Pixel IDs are UUIDs. The pixel-id field is a free multi-tag input, so
+    // guard against stray non-UUID entries (e.g. an email typed by mistake)
+    // being used as the CAPI pixel id and misrouting the request.
+    const snapIds = (store.snapchat_pixel_id ?? '').split(',').map((s: string) => s.trim()).filter(Boolean)
+    const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+    const snapPixelId = snapIds.find(isUuid) ?? snapIds.find((id: string) => !id.includes('@'))
     if (orderId && snapPixelId) {
       try {
         const { data: snap } = await supabase

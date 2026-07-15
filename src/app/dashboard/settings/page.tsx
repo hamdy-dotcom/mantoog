@@ -114,6 +114,7 @@ export default function SettingsPage() {
   const [snapCapiToken, setSnapCapiToken] = useState('')
   const [snapCapiSaving, setSnapCapiSaving] = useState(false)
   const [snapCapiSaved, setSnapCapiSaved] = useState(false)
+  const [snapCapiError, setSnapCapiError] = useState('')
   const [addressMode, setAddressMode] = useState<'text' | 'map'>('text')
   const [locationRequired, setLocationRequired] = useState(false)
   const [showQuantity, setShowQuantity] = useState(false)
@@ -224,25 +225,35 @@ export default function SettingsPage() {
     setLogoPreview(URL.createObjectURL(file))
   }
 
+  // Persist CAPI settings via the server route (token stays server-side). Shared
+  // by the card's own Save button and the global "Save all changes" so either
+  // one reliably writes the toggle + token. Returns true on success.
+  const persistSnapCapi = async (): Promise<boolean> => {
+    const res = await fetch('/api/dashboard/snap-capi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: snapCapiEnabled, capiToken: snapCapiToken.trim() || undefined }),
+    })
+    const d = await res.json().catch(() => null)
+    if (!res.ok) throw new Error(d?.error || `Save failed (${res.status})`)
+    if (d) {
+      setSnapCapiEnabled(!!d.enabled)
+      setSnapCapiHasToken(!!d.hasToken)
+      setSnapCapiToken('')
+    }
+    return true
+  }
+
   const saveSnapCapi = async () => {
     setSnapCapiSaving(true)
     setSnapCapiSaved(false)
+    setSnapCapiError('')
     try {
-      const res = await fetch('/api/dashboard/snap-capi', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: snapCapiEnabled, capiToken: snapCapiToken.trim() || undefined }),
-      })
-      const d = await res.json().catch(() => null)
-      if (res.ok && d) {
-        setSnapCapiEnabled(!!d.enabled)
-        setSnapCapiHasToken(!!d.hasToken)
-        setSnapCapiToken('')
-        setSnapCapiSaved(true)
-        setTimeout(() => setSnapCapiSaved(false), 2500)
-      }
-    } catch {
-      // best-effort; leave UI state as-is
+      await persistSnapCapi()
+      setSnapCapiSaved(true)
+      setTimeout(() => setSnapCapiSaved(false), 2500)
+    } catch (e: any) {
+      setSnapCapiError(e?.message || 'Save failed')
     } finally {
       setSnapCapiSaving(false)
     }
@@ -340,6 +351,15 @@ export default function SettingsPage() {
       setError('Failed to save settings.')
       setSaving(false)
       return
+    }
+
+    // Persist Snapchat CAPI (enabled + token) through the server route so the
+    // main save button also saves it — non-fatal if it fails.
+    setSnapCapiError('')
+    try {
+      await persistSnapCapi()
+    } catch (e: any) {
+      setSnapCapiError(e?.message || 'Snapchat CAPI save failed')
     }
 
     setStore((prev: any) => ({
@@ -1097,6 +1117,10 @@ export default function SettingsPage() {
                       type="text"
                       value={snapchatPixelInput}
                       onChange={e => setSnapchatPixelInput(e.target.value)}
+                      name="snapchat-pixel-ids"
+                      autoComplete="off"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
                       onKeyDown={e => {
                         if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
                           e.preventDefault()
@@ -1147,7 +1171,11 @@ export default function SettingsPage() {
                     type="password"
                     value={snapCapiToken}
                     onChange={e => setSnapCapiToken(e.target.value)}
-                    autoComplete="off"
+                    name="snap-capi-token"
+                    autoComplete="new-password"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-form-type="other"
                     placeholder={snapCapiHasToken
                       ? (lang === 'ar' ? '•••••••• محفوظ — الصق رمزًا جديدًا للتغيير' : '•••••••• saved — paste a new token to change')
                       : (lang === 'ar' ? 'الصق الرمز من Snapchat' : 'Paste the token from Snapchat')}
@@ -1180,6 +1208,17 @@ export default function SettingsPage() {
                     {snapCapiSaving ? (lang === 'ar' ? 'جارٍ الحفظ…' : 'Saving…') : snapCapiSaved ? (lang === 'ar' ? '✓ تم' : '✓ Saved') : (lang === 'ar' ? 'حفظ' : 'Save')}
                   </button>
                 </div>
+
+                {snapCapiError && (
+                  <p className="text-xs text-red-400 mt-3">
+                    {lang === 'ar' ? 'فشل الحفظ: ' : 'Save failed: '}{snapCapiError}
+                  </p>
+                )}
+                {!snapCapiError && snapCapiHasToken && (
+                  <p className="text-xs text-[#4ade80] mt-3">
+                    {lang === 'ar' ? '✓ الرمز محفوظ' + (snapCapiEnabled ? ' والإرسال مُفعّل' : ' (الإرسال متوقف)') : '✓ Token saved' + (snapCapiEnabled ? ' and sending is on' : ' (sending is off)')}
+                  </p>
+                )}
               </div>
 
               {/* Google Ads */}

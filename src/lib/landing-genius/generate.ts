@@ -103,35 +103,54 @@ async function makeCutout(seedKey: string, refUrl: string): Promise<Buffer | nul
   } catch { return null } finally { rm(dir, { recursive: true, force: true }).catch(() => {}) }
 }
 
-// ── PHASE 3: re-skin the canonical template ───────────────────────────────────
-const BUILD_SYS = `You are a world-class front-end engineer. You are given a REFERENCE landing page (canonical template). Recreate it for a NEW product, preserving the EXACT structure and design system so all products stay consistent.
-KEEP IDENTICAL: section order, HTML structure, class names, all CSS, fonts, sticky nav, sticky CTA, the blended-cutout hero, the CHECKOUT DRAWER + window.LANDING_CONFIG + all element ids and CTA wiring (openOrder), the countdown/FAQ scripts, compact benefit cards, minimal footer.
-CHANGE ONLY:
-- :root palette variable VALUES → the provided palette.
-- brand/title text → the provided brand and product title.
-- ALL Arabic copy → the provided copy (same number of items where possible).
-- image URLs: hero cutout <img class="hero-cutout"> src AND window.LANDING_CONFIG.cutout → the provided cutoutUrl; lifestyle → the use:"lifestyle" generated image; showcase grid → the use:"showcase" images (one per tile, caption matches image, never repeat); thumbnail gallery → productImages.
-- window.LANDING_CONFIG: set productName, price, currency to this product; keep offers/bump/showQuantity/showNote keys intact.
-- price/compare-at → the product's price.
-Return ONLY the full HTML document, starting with <!DOCTYPE html>, ending with </html>. No markdown fences, no commentary.`
+// ── PHASE 3: re-skin ONLY the body sections (fast, one round ~125s), then swap the
+// palette programmatically. The static CSS/scripts/checkout drawer are never sent to
+// Claude, so a single request stays well under the function time limit.
+const BODY_SYS = `You re-skin the BODY sections of an Arabic RTL landing page for a NEW product. Keep the EXACT structure, ALL class names, and ALL element ids identical.
+CHANGE ONLY: the Arabic copy text; the image URLs (the hero <img class="hero-cutout"> src → the provided cutoutUrl; the lifestyle image → the use:"lifestyle" generated image; the showcase grid images → the use:"showcase" generated images, one per tile with a caption that matches the image, never repeating one; the thumbnail gallery → productImages); the price numbers; and the brand text.
+Do NOT output <html>, <head>, <style>, or <script> — ONLY the body-section HTML in the same order/structure as given (starting with the nav comment, ending with the sticky-cta section). No markdown fences, no commentary.`
 
-async function buildHtml(client: Anthropic, p: GeniusProduct, art: any, generated: any[], cutoutUrl: string) {
-  const payload = {
+const hexRgb = (h: string) => { const x = h.replace('#', ''); const n = parseInt(x.length === 3 ? x.split('').map(c => c + c).join('') : x, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] }
+const toHex = (r: number, g: number, b: number) => '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('')
+const darken = (h: string, f = 0.72) => { const [r, g, b] = hexRgb(h); return toHex(r * f, g * f, b * f) }
+const lighten = (h: string, f = 0.9) => { const [r, g, b] = hexRgb(h); return toHex(r + (255 - r) * f, g + (255 - g) * f, b + (255 - b) * f) }
+
+const BODY_START = '<!--GENIUS_BODY_START-->'
+const BODY_END = '<!--GENIUS_BODY_END-->'
+
+async function buildLanding(client: Anthropic, p: GeniusProduct, art: any, generated: any[], cutoutUrl: string): Promise<string> {
+  const iS = TEMPLATE.indexOf(BODY_START), iE = TEMPLATE.indexOf(BODY_END)
+  const head = TEMPLATE.slice(0, iS)
+  const bodyRef = TEMPLATE.slice(iS + BODY_START.length, iE)
+  const tail = TEMPLATE.slice(iE + BODY_END.length)
+
+  const brief = {
     product: { title: p.title, price: p.price, compareAtPrice: p.compareAtPrice ?? null, currency: p.currency || 'SAR', productImages: p.images || [] },
-    brand: art.brand, tagline: art.tagline, mood: art.mood, palette: art.palette, copy: art.copy,
-    cutoutUrl, generated,
+    brand: art.brand, copy: art.copy, cutoutUrl, generated,
   }
-  const messages: any[] = [{ role: 'user', content: `REFERENCE TEMPLATE (reproduce structure & CSS, re-skinned):\n\n${TEMPLATE}\n\n─────────\nNEW PRODUCT BRIEF:\n${JSON.stringify(payload, null, 2)}\n\nReturn the complete re-skinned HTML ending with </html>.` }]
-  let html = ''
-  for (let round = 0; round < 5; round++) {
-    const r = await client.messages.create({ model: MODEL, max_tokens: 16000, system: BUILD_SYS, messages })
+  const messages: any[] = [{ role: 'user', content: `BODY TEMPLATE (re-skin this, keep classes/structure/order):\n${bodyRef}\n\nBRIEF:\n${JSON.stringify(brief)}\n\nReturn ONLY the re-skinned body HTML fragment.` }]
+  let body = ''
+  for (let round = 0; round < 3; round++) {
+    const r = await client.messages.create({ model: MODEL, max_tokens: 16000, system: BODY_SYS, messages })
     const chunk = r.content[0].type === 'text' ? r.content[0].text : ''
-    html += chunk
-    if (r.stop_reason !== 'max_tokens' || html.includes('</html>')) break
+    body += chunk
+    if (r.stop_reason !== 'max_tokens') break
     messages.push({ role: 'assistant', content: chunk })
-    messages.push({ role: 'user', content: 'Continue the HTML from EXACTLY where you stopped — no repeats, no markdown fences. Finish ending with </html>.' })
+    messages.push({ role: 'user', content: 'Continue from EXACTLY where you stopped, no repeats. Finish the fragment.' })
   }
-  return html.replace(/^```html?\s*/i, '').replace(/```\s*$/, '').trim()
+  body = body.replace(/^```html?\s*/i, '').replace(/```\s*$/, '').trim()
+
+  // Programmatic palette swap in the static head CSS (instant).
+  const pal = art.palette || {}
+  let h = head
+  const set = (name: string, val?: string) => { if (val) h = h.replace(new RegExp(`(--${name}:)\\s*[^;]+;`), `$1 ${val};`) }
+  set('bg', pal.bg); set('surface', pal.surface); set('primary', pal.primary); set('accent', pal.accent); set('text', pal.text); set('muted', pal.muted)
+  if (pal.primary) {
+    set('primary-dark', darken(pal.primary)); set('primary-light', lighten(pal.primary))
+    const [r, g, b] = hexRgb(pal.primary)
+    h = h.replace(/rgba\(26,\s*95,\s*168,/g, `rgba(${r},${g},${b},`)
+  }
+  return h + body + tail
 }
 
 // ── STAGE 1 (prepare): art direction + all images + cutout (~60s). No Claude re-skin. ─
@@ -157,11 +176,11 @@ export async function prepareAssets(
   return { art, generated, cutoutUrl }
 }
 
-// ── STAGE 2 (finish): re-skin the template into the final HTML (~200s). ────────
+// ── STAGE 2 (finish): body-only re-skin + palette swap → full HTML (~130s, one request). ─
 export async function assembleHtml(
   p: GeniusProduct, art: any, generated: any[], cutoutUrl: string,
   keys: { anthropic: string },
 ): Promise<string> {
   const client = new Anthropic({ apiKey: keys.anthropic })
-  return buildHtml(client, p, art, generated, cutoutUrl)
+  return buildLanding(client, p, art, generated, cutoutUrl)
 }

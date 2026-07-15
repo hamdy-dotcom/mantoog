@@ -392,18 +392,17 @@ export default function NewProductPage() {
       }).select('id').single()
       if (pErr || !product) { setError('تعذّر حفظ المنتج'); setGeniusBusy(false); return }
 
-      const body = { title, price: priceNum, compareAtPrice: compare ? parseFloat(compare) : null, description: '', features: [], images: finalImages }
+      const H = { 'Content-Type': 'application/json' }
+      const body = { title, price: priceNum, compareAtPrice: compare ? parseFloat(compare) : null, description: '', features: [], images: finalImages, currency: store.currency }
 
       // Stage 1 — prepare assets (art-direction + AI images + cutout)
-      const prep = await fetch('/api/ai/landing-genius/prepare', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      })
+      const prep = await fetch('/api/ai/landing-genius/prepare', { method: 'POST', headers: H, body: JSON.stringify(body) })
       const pd = await prep.json().catch(() => ({}))
       if (!prep.ok) { setError(pd.error || 'تعذّر تجهيز صور المنتج'); setGeniusBusy(false); return }
 
-      // Stage 2 — assemble the page, charge credits, and save
+      // Stage 2 — assemble the page (body re-skin + palette), charge credits, save
       const res = await fetch('/api/ai/landing-genius', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: H,
         body: JSON.stringify({ productId: product.id, ...body, art: pd.art, generated: pd.generated, cutoutUrl: pd.cutoutUrl }),
       })
       const d = await res.json().catch(() => ({}))

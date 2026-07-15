@@ -8,8 +8,8 @@ export const maxDuration = 300
 
 const CREDIT_COST = 200
 
-// Stage 2 (finish): take the prepared assets (from /prepare) and re-skin the template
-// into the final HTML, then charge 200 credits and save onto the product.
+// Stage 2 (finish): body-only re-skin (~130s) + programmatic palette swap → full HTML,
+// then charge 200 credits and save onto the product's landing_pages row.
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -24,9 +24,8 @@ export async function POST(req: NextRequest) {
   }
 
   const anthropic = process.env.ANTHROPIC_API_KEY
-  if (!anthropic) return NextResponse.json({ error: 'AI keys not configured' }, { status: 500 })
+  if (!anthropic) return NextResponse.json({ error: 'AI key not configured' }, { status: 500 })
 
-  // Credit balance check (charged after success)
   const { data: creditRows } = await supabaseAdmin
     .from('order_credits').select('id, credits_total, credits_used')
     .eq('merchant_id', user.id).order('created_at', { ascending: false })

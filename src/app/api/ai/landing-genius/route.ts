@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
 
   const landingConfig = {
-    productName: title, price: product.price, currency: product.currency,
+    productName: title, price: product.price, currency: product.currency, cutout: cutoutUrl,
     showQuantity: true, showNote: false, shipping: 0, offers: [], bump: null,
   }
 

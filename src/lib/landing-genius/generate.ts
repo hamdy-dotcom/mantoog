@@ -150,7 +150,10 @@ async function buildLanding(client: Anthropic, p: GeniusProduct, art: any, gener
     const [r, g, b] = hexRgb(pal.primary)
     h = h.replace(/rgba\(26,\s*95,\s*168,/g, `rgba(${r},${g},${b},`)
   }
-  return h + body + tail
+  const full = h + body + tail
+  // Point EVERY cutout reference (hero <img>, checkout-drawer summary <img>, baked
+  // LANDING_CONFIG.cutout in the static tail) at the real uploaded cutout URL.
+  return cutoutUrl ? full.split('hero-cutout.png').join(cutoutUrl) : full
 }
 
 // ── STAGE 1 (prepare): art direction + all images + cutout (~60s). No Claude re-skin. ─

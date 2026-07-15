@@ -115,6 +115,8 @@ export default function SettingsPage() {
   const [snapCapiSaving, setSnapCapiSaving] = useState(false)
   const [snapCapiSaved, setSnapCapiSaved] = useState(false)
   const [snapCapiError, setSnapCapiError] = useState('')
+  const [snapCapiTail, setSnapCapiTail] = useState<string | null>(null)
+  const [snapCapiReplacing, setSnapCapiReplacing] = useState(false)
   const [addressMode, setAddressMode] = useState<'text' | 'map'>('text')
   const [locationRequired, setLocationRequired] = useState(false)
   const [showQuantity, setShowQuantity] = useState(false)
@@ -190,7 +192,7 @@ export default function SettingsPage() {
       // Snapchat CAPI status comes from a server route (token stays server-side).
       fetch('/api/dashboard/snap-capi')
         .then(r => (r.ok ? r.json() : null))
-        .then(d => { if (d) { setSnapCapiEnabled(!!d.enabled); setSnapCapiHasToken(!!d.hasToken) } })
+        .then(d => { if (d) { setSnapCapiEnabled(!!d.enabled); setSnapCapiHasToken(!!d.hasToken); setSnapCapiTail(d.tokenTail ?? null) } })
         .catch(() => {})
       setAddressMode(store.address_mode || (store.enable_location ? 'map' : 'text'))
       setLocationRequired(store.location_required || false)
@@ -239,7 +241,9 @@ export default function SettingsPage() {
     if (d) {
       setSnapCapiEnabled(!!d.enabled)
       setSnapCapiHasToken(!!d.hasToken)
+      setSnapCapiTail(d.tokenTail ?? null)
       setSnapCapiToken('')
+      setSnapCapiReplacing(false)
     }
     return true
   }
@@ -1167,20 +1171,39 @@ export default function SettingsPage() {
                   <label className="text-xs font-medium text-[#8b8fa8] uppercase tracking-wider">
                     {lang === 'ar' ? 'رمز الـ API (Pixel Token)' : 'CAPI Token (Pixel Token)'}
                   </label>
-                  <input
-                    type="password"
-                    value={snapCapiToken}
-                    onChange={e => setSnapCapiToken(e.target.value)}
-                    name="snap-capi-token"
-                    autoComplete="new-password"
-                    data-lpignore="true"
-                    data-1p-ignore="true"
-                    data-form-type="other"
-                    placeholder={snapCapiHasToken
-                      ? (lang === 'ar' ? '•••••••• محفوظ — الصق رمزًا جديدًا للتغيير' : '•••••••• saved — paste a new token to change')
-                      : (lang === 'ar' ? 'الصق الرمز من Snapchat' : 'Paste the token from Snapchat')}
-                    className="mt-1.5 w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#fffc00]/50 transition-colors font-mono"
-                  />
+
+                  {snapCapiHasToken && !snapCapiReplacing ? (
+                    // Token is stored — show a clear "connected" state (not an empty
+                    // box) so saving never looks like it wiped the token.
+                    <div className="mt-1.5 flex items-center gap-2 bg-[#0f1117] border border-[#4ade80]/30 rounded-lg px-3 py-2.5">
+                      <span className="text-[#4ade80] text-sm">✓</span>
+                      <span className="flex-1 text-sm text-white font-mono tracking-wider">
+                        {'•'.repeat(20)}{snapCapiTail ? snapCapiTail : ''}
+                      </span>
+                      <span className="text-xs text-[#4ade80]">{lang === 'ar' ? 'محفوظ' : 'Saved'}</span>
+                      <button
+                        type="button"
+                        onClick={() => { setSnapCapiReplacing(true); setSnapCapiToken('') }}
+                        className="text-xs text-[#8b8fa8] hover:text-white underline underline-offset-2 cursor-pointer"
+                      >
+                        {lang === 'ar' ? 'تغيير' : 'Replace'}
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      type="password"
+                      value={snapCapiToken}
+                      onChange={e => setSnapCapiToken(e.target.value)}
+                      name="snap-capi-token"
+                      autoComplete="new-password"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      data-form-type="other"
+                      placeholder={lang === 'ar' ? 'الصق الرمز من Snapchat' : 'Paste the token from Snapchat'}
+                      className="mt-1.5 w-full bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#fffc00]/50 transition-colors font-mono"
+                    />
+                  )}
+
                   <p className="text-xs text-[#4a4e60] mt-1.5">
                     {lang === 'ar'
                       ? 'من: Snapchat Events Manager → Pixel → Conversions API → إنشاء رمز. يتطلب Pixel ID أعلاه.'
@@ -1215,8 +1238,10 @@ export default function SettingsPage() {
                   </p>
                 )}
                 {!snapCapiError && snapCapiHasToken && (
-                  <p className="text-xs text-[#4ade80] mt-3">
-                    {lang === 'ar' ? '✓ الرمز محفوظ' + (snapCapiEnabled ? ' والإرسال مُفعّل' : ' (الإرسال متوقف)') : '✓ Token saved' + (snapCapiEnabled ? ' and sending is on' : ' (sending is off)')}
+                  <p className={`text-xs mt-3 ${snapCapiEnabled ? 'text-[#4ade80]' : 'text-[#8b8fa8]'}`}>
+                    {snapCapiEnabled
+                      ? (lang === 'ar' ? '✓ الإرسال من الخادم مُفعّل' : '✓ Server-side sending is ON')
+                      : (lang === 'ar' ? 'الإرسال من الخادم متوقف — فعّل المفتاح واحفظ' : 'Server-side sending is OFF — turn on the toggle and save')}
                   </p>
                 )}
               </div>

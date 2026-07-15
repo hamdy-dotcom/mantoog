@@ -31,6 +31,7 @@ export async function GET() {
   return NextResponse.json({
     enabled: !!data?.enabled,
     hasToken: !!data?.capi_token,
+    tokenTail: data?.capi_token ? String(data.capi_token).slice(-4) : null,
     testEventCode: data?.test_event_code ?? null,
   })
 }
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
     ok: true,
     enabled: !!data?.enabled,
     hasToken: !!data?.capi_token,
+    tokenTail: data?.capi_token ? String(data.capi_token).slice(-4) : null,
     testEventCode: data?.test_event_code ?? null,
   })
 }

@@ -85,21 +85,25 @@
   .nav-brand {
     font-family: 'Cairo', sans-serif;
     font-weight: 900;
-    font-size: 1.25rem;
+    font-size: 1.05rem;
     color: var(--primary);
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 62%;
   }
   .nav-brand-dot {
-    width: 10px; height: 10px;
+    width: 9px; height: 9px;
     border-radius: 50%;
     background: var(--accent);
     display: inline-block;
+    vertical-align: middle;
+    margin-inline-end: 7px;
   }
   .nav-cta {
     background: var(--primary);
     color: #fff;
+    flex-shrink: 0;
     padding: 9px 22px;
     border-radius: 50px;
     font-family: 'Cairo', sans-serif;
@@ -119,7 +123,7 @@
     position: relative;
     overflow: hidden;
     text-align: center;
-    padding: 104px 20px 60px;
+    padding: 26px 20px 44px;
     background: radial-gradient(125% 95% at 50% 0%, var(--primary-light) 0%, #EEF3FA 45%, #DCE8F6 100%);
   }
   .hero-glow {
@@ -162,14 +166,14 @@
     font-weight: 700;
     padding: 6px 16px;
     border-radius: 50px;
-    margin-bottom: 24px;
+    margin-bottom: 14px;
   }
   .hero-badge span { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); display: inline-block; }
   .hero h1 {
-    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-size: clamp(1.8rem, 4vw, 3.2rem);
     font-weight: 900;
     color: var(--text);
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     letter-spacing: -0.5px;
   }
   .hero h1 em {

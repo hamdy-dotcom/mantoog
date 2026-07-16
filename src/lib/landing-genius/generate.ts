@@ -34,7 +34,8 @@ const jsonFrom = (raw: string) => JSON.parse(raw.slice(raw.indexOf('{'), raw.las
 const ART_SYS = `You are a world-class creative director + conversion copywriter + brand strategist for premium Saudi/Gulf e-commerce.
 Given a product (with its REAL photos + details), invent a bespoke brand world + a high-converting Arabic (Saudi) landing page as STRUCTURED CONTENT that will be poured into a fixed premium template. Do NOT write HTML. Return ONLY JSON in EXACTLY this shape (keep every key; counts are fixed):
 {
-  "brand":"<short catchy Arabic brand/product name>",
+  "brand":"<the product's REAL manufacturer/brand ONLY — e.g. كولن / Koolen — read it from the product title; do NOT invent a slogan or made-up name; if the title has no brand, use a short clean brand derived from it>",
+  "productName":"<concise Arabic product NAME — WHAT the product is, e.g. غسالة سجاد كهربائية / مكنسة رطبة وجافة — different from the brand, and NOT a slogan>",
   "tagline":"<one punchy Arabic tagline>",
   "palette":{"bg":"#hex","surface":"#hex","primary":"#hex","accent":"#hex","text":"#hex","muted":"#hex"},
   "hero":{"badge":"<short Arabic badge>","h1":"<scroll-stopping Arabic headline, first line>","h1em":"<emphasised second line>","sub":"<Arabic sub-headline>","priceMain":"<number only, no currency>","priceNote":"<e.g. شامل الضريبة>","ctaPrimary":"<Arabic CTA incl. price>","ctaSecondary":"<Arabic, e.g. اعرف أكثر>","trust":["<3-4 word Arabic>","<...>","<...>"]},
@@ -52,7 +53,7 @@ Given a product (with its REAL photos + details), invent a bespoke brand world +
   "faqDesc":"<Arabic one-liner intro to the FAQ — about THIS product>",
   "faq":[{"q":"<Arabic>","a":"<Arabic>"},{"q":"","a":""},{"q":"","a":""},{"q":"","a":""}]
 }
-RULES: benefits.items EXACTLY 6, showcase EXACTLY 4 (each a DIFFERENT real part/feature the customer should see), lifestyle.items EXACTLY 4, reviews EXACTLY 3, price.features EXACTLY 6, faq EXACTLY 4. Every headline/desc must describe THIS product only — never mention a different product category. Real persuasive Saudi Arabic, no lorem, no English. priceMain/price.amount are digits only. Palette must suit the product and be tasteful with strong contrast.`
+RULES: benefits.items EXACTLY 6, showcase EXACTLY 4 (each a DIFFERENT real part/feature the customer should see), lifestyle.items EXACTLY 4, reviews EXACTLY 3, price.features EXACTLY 6, faq EXACTLY 4. "brand" is the manufacturer only (never a slogan); "productName" is the concise name of what the product is — keep them clearly separate and both grounded in the given product title. Every headline/desc must describe THIS product only — never mention a different product category. Real persuasive Saudi Arabic, no lorem, no English. priceMain/price.amount are digits only. Palette must suit the product and be tasteful with strong contrast.`
 
 async function artDirect(client: Anthropic, p: GeniusProduct) {
   const r = await client.messages.create({
@@ -169,8 +170,14 @@ export async function assembleHtml(
   const compareAt = p.compareAtPrice != null && Number(p.compareAtPrice) > (Number(art?.price?.amount) || p.price || 0)
     ? Number(p.compareAtPrice) : null
 
+  // Gallery must always show 4: real product photos first, then the AI montages
+  // (and the cutout as a last resort) so a product with few photos still fills 4.
+  const galleryPool = [...(p.images || []).filter(Boolean), imgOf('a'), imgOf('b'), cutoutUrl]
+  const gallery = Array.from(new Set(galleryPool)).slice(0, 4)
+
   const GENIUS = {
     brand: art.brand || p.title,
+    productName: art.productName || p.title,
     tagline: art.tagline || '',
     currency,
     compareAt,
@@ -188,7 +195,7 @@ export async function assembleHtml(
     guarantee: art.guarantee || {},
     faqDesc: art.faqDesc || '',
     faq: Array.isArray(art.faq) ? art.faq : [],
-    gallery: (p.images || []).filter(Boolean).slice(0, 4),
+    gallery,
     images: { a: imgOf('a'), b: imgOf('b'), cutout: cutoutUrl },
   }
 

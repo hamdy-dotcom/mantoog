@@ -1417,7 +1417,8 @@
   // Hero
   var H=G.hero||{};
   label(q('.hero-badge'), H.badge);
-  var h1=q('.hero h1'); if(h1&&(H.h1||H.h1em)) h1.innerHTML=esc(H.h1||'')+(H.h1em?'<br><em>'+esc(H.h1em)+'</em>':'');
+  // Big title = product name; the creative headline becomes a smaller subheader.
+  var h1=q('.hero h1'); if(h1){ var pname=G.productName||G.brand||''; var hook=esc(H.h1||'')+(H.h1em?' <em style="color:var(--primary);font-style:italic">'+esc(H.h1em)+'</em>':''); h1.innerHTML=esc(pname)+((H.h1||H.h1em)?'<span style="display:block;font-size:.44em;font-weight:600;line-height:1.5;margin-top:14px;color:var(--muted)">'+hook+'</span>':''); }
   txt('.hero-sub', H.sub);
   var pb=q('.hero-price-badge'); if(pb&&H.priceMain){ var was=G.compareAt?'<small style="text-decoration:line-through;opacity:.6">'+esc(G.compareAt)+' '+esc(G.currency||'')+'</small>':''; pb.innerHTML='<b>'+esc(H.priceMain)+'</b><span>'+esc(G.currency||'')+'</span>'+was+(H.priceNote?'<small>'+esc(H.priceNote)+'</small>':''); }
   var ha=qa('.hero-actions a'); if(ha[0]&&H.ctaPrimary) ha[0].textContent=H.ctaPrimary; if(ha[1]&&H.ctaSecondary) ha[1].textContent=H.ctaSecondary;
@@ -1461,8 +1462,8 @@
   txt('.proof-section .section-desc', G.reviewsDesc);
   qa('.proof-card').forEach(function(card,i){ var r=(G.reviews||[])[i]; if(!r) return; txt('.proof-quote',r.quote,card); txt('.proof-author-name',r.name,card); txt('.proof-author-city',r.city,card); var av=q('.proof-avatar',card); if(av&&r.name) av.textContent=String(r.name).trim().charAt(0); });
 
-  // Gallery — real product photos
-  var thumbs=qa('.thumb-item img'); (G.gallery||[]).forEach(function(u,i){ if(thumbs[i]&&u) thumbs[i].src=u; });
+  // Gallery — fill all 4 tiles (real photos padded with the AI montages); hide any extra
+  qa('.thumb-item').forEach(function(t,i){ var u=(G.gallery||[])[i], im=q('img',t); if(u&&im){ im.src=u; im.alt=G.productName||''; t.style.display=''; } else { t.style.display='none'; } });
 
   // Urgency
   txt('.urgency-text', G.urgency);

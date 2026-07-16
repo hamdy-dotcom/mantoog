@@ -40,15 +40,19 @@ Given a product (with its REAL photos + details), invent a bespoke brand world +
   "hero":{"badge":"<short Arabic badge>","h1":"<scroll-stopping Arabic headline, first line>","h1em":"<emphasised second line>","sub":"<Arabic sub-headline>","priceMain":"<number only, no currency>","priceNote":"<e.g. شامل الضريبة>","ctaPrimary":"<Arabic CTA incl. price>","ctaSecondary":"<Arabic, e.g. اعرف أكثر>","trust":["<3-4 word Arabic>","<...>","<...>"]},
   "problem":{"title":"<Arabic pain-point headline>","para":"<Arabic pain paragraph>","icons":["<2-3 word Arabic pain>","<...>","<...>","<...>"]},
   "benefits":{"title":"<Arabic>","titleAccent":"<Arabic highlighted tail>","desc":"<Arabic>","items":[{"title":"<Arabic>","desc":"<Arabic>"},{"title":"","desc":""},{"title":"","desc":""},{"title":"","desc":""},{"title":"","desc":""},{"title":"","desc":""}]},
+  "showcaseHead":{"title":"<Arabic features headline>","titleAccent":"<Arabic highlighted tail>","desc":"<Arabic one-line about the product's build/features — NAME THIS product, never another>"},
   "showcase":[{"caption":"<Arabic caption naming the shown part/feature>","title":"<Arabic>","desc":"<Arabic>"},{"caption":"","title":"","desc":""},{"caption":"","title":"","desc":""},{"caption":"","title":"","desc":""}],
   "lifestyle":{"title":"<Arabic>","titleAccent":"<Arabic highlighted tail>","para":"<Arabic>","overlay":"<short Arabic caption>","items":["<Arabic point>","<...>","<...>","<...>"]},
+  "reviewsDesc":"<Arabic one-liner intro to the reviews — about THIS product>",
   "reviews":[{"quote":"<authentic Saudi Arabic review>","name":"<Saudi name>","city":"<Saudi city>"},{"quote":"","name":"","city":""},{"quote":"","name":"","city":""}],
   "urgency":"<Arabic urgency line incl. price>",
+  "priceHead":{"title":"<Arabic price-section headline>","titleAccent":"<Arabic highlighted tail>"},
   "price":{"badge":"<Arabic badge>","amount":"<number only>","currency":"<e.g. SAR or ريال>","sub":"<Arabic under-price line>","features":["<Arabic spec/benefit>","<...>","<...>","<...>","<...>","<...>"],"cta":"<Arabic CTA button>"},
   "guarantee":{"title":"<Arabic guarantee headline>","para":"<Arabic>"},
+  "faqDesc":"<Arabic one-liner intro to the FAQ — about THIS product>",
   "faq":[{"q":"<Arabic>","a":"<Arabic>"},{"q":"","a":""},{"q":"","a":""},{"q":"","a":""}]
 }
-RULES: benefits.items EXACTLY 6, showcase EXACTLY 4 (each a DIFFERENT real part/feature the customer should see), lifestyle.items EXACTLY 4, reviews EXACTLY 3, price.features EXACTLY 6, faq EXACTLY 4. Real persuasive Saudi Arabic, no lorem, no English. priceMain/price.amount are digits only. Palette must suit the product and be tasteful with strong contrast.`
+RULES: benefits.items EXACTLY 6, showcase EXACTLY 4 (each a DIFFERENT real part/feature the customer should see), lifestyle.items EXACTLY 4, reviews EXACTLY 3, price.features EXACTLY 6, faq EXACTLY 4. Every headline/desc must describe THIS product only — never mention a different product category. Real persuasive Saudi Arabic, no lorem, no English. priceMain/price.amount are digits only. Palette must suit the product and be tasteful with strong contrast.`
 
 async function artDirect(client: Anthropic, p: GeniusProduct) {
   const r = await client.messages.create({
@@ -100,8 +104,12 @@ async function makeCutout(seedKey: string, refUrl: string): Promise<Buffer | nul
 
 // Two multi-angle montage prompts. Each frame packs several angles/details of the
 // SAME product so the template can crop distinct-looking tiles out of one image.
-const MONTAGE_A = 'Editorial product composition: place THIS EXACT product (identical color, shape, materials, and branding to the reference) shown from 2-3 complementary views within a SINGLE cohesive frame — a clear front hero view, a three-quarter angle, and one closer detail — arranged with generous spacing on a premium softly-lit lifestyle background that suits the product category. Photorealistic commercial photography, cinematic soft lighting, shallow depth of field, no text, no watermark. The product must stay 100% identical to the reference.'
-const MONTAGE_B = 'Studio detail composition: show THIS EXACT product (identical to the reference) with 2-3 different close-up crops of its key real parts and features arranged within ONE clean frame, highlighting distinct components/details. Premium macro product photography on a clean neutral studio background, crisp even lighting, no text, no watermark. The product must stay 100% identical to the reference.'
+// Each montage must spread DISTINCT views across the frame so that zooming into
+// opposite corners yields visibly different tiles (the shell crops 200% into
+// corners). A is a lifestyle scene with the product in different spots/angles;
+// B is a detail grid where each corner is a different part/feature.
+const MONTAGE_A = 'A single wide lifestyle photo of THIS EXACT product (identical color, shape, materials, branding to the reference) appearing in TWO or THREE different spots across the frame at clearly different angles and distances — e.g. a full front view on one side and a three-quarter or in-use view on the other — set in a premium, softly-lit room that suits the product category. Each area of the image shows a genuinely different view. Photorealistic commercial photography, cinematic soft light, no text, no watermark, no collage borders. Product stays 100% identical to the reference.'
+const MONTAGE_B = 'A clean 2x2 style composition on a neutral studio background showing FOUR clearly DIFFERENT close-up detail views of THIS EXACT product — a distinct real part or feature in each corner of the frame (top-left, top-right, bottom-left, bottom-right), each visibly different from the others. Premium macro product photography, crisp even lighting, no text, no watermark, no visible grid lines. Product stays 100% identical to the reference.'
 
 // ── palette helpers ───────────────────────────────────────────────────────────
 const hexRgb = (h: string) => { const x = h.replace('#', ''); const n = parseInt(x.length === 3 ? x.split('').map(c => c + c).join('') : x, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] }
@@ -158,19 +166,27 @@ export async function assembleHtml(
   const imgOf = (k: string) => (generated.find((g: any) => g?.key === k)?.url) || cutoutUrl
   const currency = art?.price?.currency || p.currency || 'ريال'
 
+  const compareAt = p.compareAtPrice != null && Number(p.compareAtPrice) > (Number(art?.price?.amount) || p.price || 0)
+    ? Number(p.compareAtPrice) : null
+
   const GENIUS = {
     brand: art.brand || p.title,
     tagline: art.tagline || '',
     currency,
+    compareAt,
     hero: art.hero || {},
     problem: art.problem || {},
     benefits: art.benefits || {},
+    showcaseHead: art.showcaseHead || {},
     showcase: Array.isArray(art.showcase) ? art.showcase : [],
     lifestyle: art.lifestyle || {},
+    reviewsDesc: art.reviewsDesc || '',
     reviews: Array.isArray(art.reviews) ? art.reviews : [],
     urgency: art.urgency || '',
+    priceHead: art.priceHead || {},
     price: art.price || {},
     guarantee: art.guarantee || {},
+    faqDesc: art.faqDesc || '',
     faq: Array.isArray(art.faq) ? art.faq : [],
     gallery: (p.images || []).filter(Boolean).slice(0, 4),
     images: { a: imgOf('a'), b: imgOf('b'), cutout: cutoutUrl },

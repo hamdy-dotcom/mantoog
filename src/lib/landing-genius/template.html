@@ -1419,7 +1419,7 @@
   label(q('.hero-badge'), H.badge);
   var h1=q('.hero h1'); if(h1&&(H.h1||H.h1em)) h1.innerHTML=esc(H.h1||'')+(H.h1em?'<br><em>'+esc(H.h1em)+'</em>':'');
   txt('.hero-sub', H.sub);
-  var pb=q('.hero-price-badge'); if(pb&&H.priceMain) pb.innerHTML='<b>'+esc(H.priceMain)+'</b><span>'+esc(G.currency||'')+'</span>'+(H.priceNote?'<small>'+esc(H.priceNote)+'</small>':'');
+  var pb=q('.hero-price-badge'); if(pb&&H.priceMain){ var was=G.compareAt?'<small style="text-decoration:line-through;opacity:.6">'+esc(G.compareAt)+' '+esc(G.currency||'')+'</small>':''; pb.innerHTML='<b>'+esc(H.priceMain)+'</b><span>'+esc(G.currency||'')+'</span>'+was+(H.priceNote?'<small>'+esc(H.priceNote)+'</small>':''); }
   var ha=qa('.hero-actions a'); if(ha[0]&&H.ctaPrimary) ha[0].textContent=H.ctaPrimary; if(ha[1]&&H.ctaSecondary) ha[1].textContent=H.ctaSecondary;
   qa('.hero-trust-item').forEach(function(el,i){ if(H.trust&&H.trust[i]) label(el,H.trust[i]); });
 
@@ -1437,10 +1437,19 @@
   txt('.benefits-section .section-desc', B.desc);
   qa('.benefit-card').forEach(function(card,i){ var it=(B.items||[])[i]; if(!it) return; txt('h3',it.title,card); txt('p',it.desc,card); });
 
-  // Showcase — 4 tiles cropped from 2 montages by panning object-position to different angles
+  // Showcase head (was leaking sample text) + 4 tiles. Montages are ~4:3 (same as
+  // the tile box) so object-fit cover shows the WHOLE image identically — instead we
+  // zoom 200% into a different CORNER of the wrap background per tile, so each tile
+  // shows a genuinely different region. Two corners from montage A, two from B.
+  var SH=G.showcaseHead||{};
+  titleAccent(q('.showcase-section .section-title'), SH.title, SH.titleAccent);
+  txt('.showcase-section .section-desc', SH.desc);
   var SC=G.showcase||[], img=G.images||{};
-  var crop=[['a','25% 30%'],['a','75% 68%'],['b','25% 30%'],['b','75% 68%']];
-  qa('.showcase-card').forEach(function(card,i){ var it=SC[i]||{}; txt('.showcase-caption-badge',it.caption,card); txt('.showcase-body h3',it.title,card); txt('.showcase-body p',it.desc,card); var im=q('.showcase-img-wrap img',card); if(im){ var c=crop[i]||['a','50% 50%']; if(img[c[0]]) im.src=img[c[0]]; im.style.objectPosition=c[1]; if(it.caption) im.alt=it.caption; } });
+  var tile=[['a','0% 0%'],['a','100% 100%'],['b','0% 0%'],['b','100% 100%']];
+  qa('.showcase-card').forEach(function(card,i){ var it=SC[i]||{}; txt('.showcase-caption-badge',it.caption,card); txt('.showcase-body h3',it.title,card); txt('.showcase-body p',it.desc,card);
+    var wrap=q('.showcase-img-wrap',card), im=q('.showcase-img-wrap img',card); var t=tile[i]||['a','50% 50%']; var u=img[t[0]]||img.a;
+    if(wrap&&u){ wrap.style.backgroundImage="url('"+String(u).replace(/'/g,'%27')+"')"; wrap.style.backgroundSize='200%'; wrap.style.backgroundPosition=t[1]; wrap.style.backgroundRepeat='no-repeat'; if(im) im.style.display='none'; }
+  });
 
   // Lifestyle
   var L=G.lifestyle||{};
@@ -1448,7 +1457,8 @@
   txt('.lifestyle-img-overlay', L.overlay);
   var lim=q('.lifestyle-img-wrap img'); if(lim){ if(img.a) lim.src=img.a; lim.style.objectPosition='50% 40%'; if(L.overlay) lim.alt=L.overlay; }
 
-  // Reviews
+  // Reviews (desc was leaking sample text)
+  txt('.proof-section .section-desc', G.reviewsDesc);
   qa('.proof-card').forEach(function(card,i){ var r=(G.reviews||[])[i]; if(!r) return; txt('.proof-quote',r.quote,card); txt('.proof-author-name',r.name,card); txt('.proof-author-city',r.city,card); var av=q('.proof-avatar',card); if(av&&r.name) av.textContent=String(r.name).trim().charAt(0); });
 
   // Gallery — real product photos
@@ -1457,10 +1467,11 @@
   // Urgency
   txt('.urgency-text', G.urgency);
 
-  // Price
-  var PR=G.price||{};
+  // Price (heading was leaking sample text) + discount
+  var PR=G.price||{}, PH=G.priceHead||{};
+  titleAccent(q('.price-section .section-title'), PH.title, PH.titleAccent);
   txt('.price-badge-top', PR.badge);
-  var pa=q('.price-amount'); if(pa&&PR.amount) pa.innerHTML='<sup>'+esc(PR.currency||G.currency||'')+'</sup>'+esc(PR.amount);
+  var pa=q('.price-amount'); if(pa&&PR.amount){ var cur=esc(PR.currency||G.currency||''); var oldp=G.compareAt?' <s style="font-size:.42em;opacity:.55;font-weight:600">'+esc(G.compareAt)+' '+cur+'</s>':''; pa.innerHTML='<sup>'+cur+'</sup>'+esc(PR.amount)+oldp; }
   txt('.price-sub', PR.sub);
   qa('.price-features li').forEach(function(li,i){ if(PR.features&&PR.features[i]) label(li,PR.features[i]); });
   var pcta=q('.price-cta'); if(pcta&&PR.cta) pcta.textContent=PR.cta;
@@ -1468,8 +1479,13 @@
   // Guarantee
   var GU=G.guarantee||{}; txt('.guarantee-section h2', GU.title); txt('.guarantee-section p', GU.para);
 
-  // FAQ (question text sits before the arrow span)
+  // FAQ (desc was leaking sample text; question text sits before the arrow span)
+  txt('.faq-section .section-desc', G.faqDesc);
   qa('.faq-item').forEach(function(item,i){ var f=(G.faq||[])[i]; if(!f) return; var btn=q('.faq-q',item); if(btn&&f.q){ var arrow=q('.faq-arrow',btn); for(var j=btn.childNodes.length-1;j>=0;j--){ if(btn.childNodes[j].nodeType===3) btn.removeChild(btn.childNodes[j]); } var tn=d.createTextNode(f.q+' '); if(arrow) btn.insertBefore(tn,arrow); else btn.appendChild(tn); } txt('.faq-a',f.a,item); });
+
+  // Sticky mobile CTA + footer copyright (both were leaking the sample price/brand)
+  var sc=q('.sticky-cta a'); if(sc&&H.ctaPrimary) sc.textContent=H.ctaPrimary;
+  var fc=q('.footer-copy'); if(fc&&G.brand) fc.textContent='© 2025 '+G.brand;
 })();
 </script>
 <!-- ══════════════ SCRIPTS ══════════════ -->

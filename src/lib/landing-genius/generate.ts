@@ -1,7 +1,9 @@
-// AI Genius premium landing page generator (ported from the standalone demo).
-// Pipeline: Claude art-direction → Seedance Nano Banana Pro image-to-image (real
-// product composed into scenes + feature shots) → ffmpeg chroma-key cutout →
-// re-skin the canonical template. Produces a self-contained HTML string.
+// AI Genius premium landing page generator — CHEAP/FAST pipeline.
+// Design is a FIXED shell (template.html). Claude runs ONCE to produce the
+// content JSON (no HTML re-skin). We generate exactly 3 images (a transparent
+// cutout + 2 multi-angle montages) and the template's hydrate script crops
+// different regions of those montages into every tile. Colors are swapped
+// programmatically. No per-tile image generation, no 27KB HTML rewrite.
 import Anthropic from '@anthropic-ai/sdk'
 import { spawn } from 'child_process'
 import { readFile, writeFile, rm, mkdtemp } from 'fs/promises'
@@ -28,32 +30,25 @@ export type GeniusProduct = {
 
 const jsonFrom = (raw: string) => JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1))
 
-// ── PHASE 1: art direction ────────────────────────────────────────────────────
-const ART_SYS = `You are a world-class creative director + conversion copywriter + brand strategist for premium Saudi e-commerce.
-Given a product (with its REAL product photos), invent a bespoke brand world + a high-converting Arabic (Saudi) landing page, PLUS image briefs.
-IMPORTANT: images are made with an IMAGE-TO-IMAGE editor that takes the REAL product photo and re-composes it. Every "editPrompt" MUST keep the product 100% identical to the reference (same color, shape, materials, branding/logo) while changing the SCENE, ANGLE, CROP, or CONTEXT. Never describe a different product.
-Return ONLY JSON:
+// ── PHASE 1: content (ONE Claude call → structured JSON that maps to the shell's slots) ──
+const ART_SYS = `You are a world-class creative director + conversion copywriter + brand strategist for premium Saudi/Gulf e-commerce.
+Given a product (with its REAL photos + details), invent a bespoke brand world + a high-converting Arabic (Saudi) landing page as STRUCTURED CONTENT that will be poured into a fixed premium template. Do NOT write HTML. Return ONLY JSON in EXACTLY this shape (keep every key; counts are fixed):
 {
-  "brand":"<short catchy brand/product name>",
+  "brand":"<short catchy Arabic brand/product name>",
   "tagline":"<one punchy Arabic tagline>",
   "palette":{"bg":"#hex","surface":"#hex","primary":"#hex","accent":"#hex","text":"#hex","muted":"#hex"},
-  "mood":"<3-5 word visual mood>",
-  "imageBriefs":[
-    {"slot":"hero","use":"hero","caption":"","editPrompt":"Place THIS EXACT product (identical color/shape/branding) as the hero on a premium fitting setting, cinematic soft lighting, negative space, photorealistic lifestyle product photography, no text/watermark"},
-    {"slot":"lifestyle","use":"lifestyle","caption":"<short Arabic>","editPrompt":"Show THIS EXACT product used naturally in a beautiful modern Saudi room, aspirational warm scene, product identical, photorealistic, no text"},
-    {"slot":"f1","use":"showcase","caption":"<Arabic caption naming the shown part/feature>","editPrompt":"A clean studio close-up highlighting ONE specific REAL part/feature of this product, product identical, premium macro photography, no text"},
-    {"slot":"f2","use":"showcase","caption":"<Arabic>","editPrompt":"<a DIFFERENT real part/feature close-up, product identical, no text>"},
-    {"slot":"f3","use":"showcase","caption":"<Arabic>","editPrompt":"<another DIFFERENT angle/context showing the product in action with relevant items, identical product, no text>"},
-    {"slot":"f4","use":"showcase","caption":"<Arabic>","editPrompt":"<another DIFFERENT tasteful styled shot, identical product, no text>"}
-  ],
-  "copy":{
-    "hook":"<scroll-stopping Arabic hero headline>","sub":"<Arabic sub-headline>","problem":"<Arabic pain-point paragraph>",
-    "benefits":[{"title":"<Arabic>","desc":"<Arabic>"}],"features":[{"title":"<Arabic>","desc":"<Arabic>"}],
-    "socialProof":[{"name":"<Arabic name>","city":"<Saudi city>","quote":"<Arabic review>","stars":5}],
-    "guarantee":"<Arabic>","urgency":"<Arabic>","faq":[{"q":"<Arabic>","a":"<Arabic>"}],"cta":"<Arabic CTA>"
-  }
+  "hero":{"badge":"<short Arabic badge>","h1":"<scroll-stopping Arabic headline, first line>","h1em":"<emphasised second line>","sub":"<Arabic sub-headline>","priceMain":"<number only, no currency>","priceNote":"<e.g. شامل الضريبة>","ctaPrimary":"<Arabic CTA incl. price>","ctaSecondary":"<Arabic, e.g. اعرف أكثر>","trust":["<3-4 word Arabic>","<...>","<...>"]},
+  "problem":{"title":"<Arabic pain-point headline>","para":"<Arabic pain paragraph>","icons":["<2-3 word Arabic pain>","<...>","<...>","<...>"]},
+  "benefits":{"title":"<Arabic>","titleAccent":"<Arabic highlighted tail>","desc":"<Arabic>","items":[{"title":"<Arabic>","desc":"<Arabic>"},{"title":"","desc":""},{"title":"","desc":""},{"title":"","desc":""},{"title":"","desc":""},{"title":"","desc":""}]},
+  "showcase":[{"caption":"<Arabic caption naming the shown part/feature>","title":"<Arabic>","desc":"<Arabic>"},{"caption":"","title":"","desc":""},{"caption":"","title":"","desc":""},{"caption":"","title":"","desc":""}],
+  "lifestyle":{"title":"<Arabic>","titleAccent":"<Arabic highlighted tail>","para":"<Arabic>","overlay":"<short Arabic caption>","items":["<Arabic point>","<...>","<...>","<...>"]},
+  "reviews":[{"quote":"<authentic Saudi Arabic review>","name":"<Saudi name>","city":"<Saudi city>"},{"quote":"","name":"","city":""},{"quote":"","name":"","city":""}],
+  "urgency":"<Arabic urgency line incl. price>",
+  "price":{"badge":"<Arabic badge>","amount":"<number only>","currency":"<e.g. SAR or ريال>","sub":"<Arabic under-price line>","features":["<Arabic spec/benefit>","<...>","<...>","<...>","<...>","<...>"],"cta":"<Arabic CTA button>"},
+  "guarantee":{"title":"<Arabic guarantee headline>","para":"<Arabic>"},
+  "faq":[{"q":"<Arabic>","a":"<Arabic>"},{"q":"","a":""},{"q":"","a":""},{"q":"","a":""}]
 }
-RULES: imageBriefs exactly 6 (hero, lifestyle, f1-f4); each f1-f4 a DIFFERENT real part/feature with a caption that matches what the image shows. benefits 4-6, features 3-6, socialProof 3, faq 3-4. Real persuasive Arabic, no lorem. Palette suits the product.`
+RULES: benefits.items EXACTLY 6, showcase EXACTLY 4 (each a DIFFERENT real part/feature the customer should see), lifestyle.items EXACTLY 4, reviews EXACTLY 3, price.features EXACTLY 6, faq EXACTLY 4. Real persuasive Saudi Arabic, no lorem, no English. priceMain/price.amount are digits only. Palette must suit the product and be tasteful with strong contrast.`
 
 async function artDirect(client: Anthropic, p: GeniusProduct) {
   const r = await client.messages.create({
@@ -64,7 +59,7 @@ async function artDirect(client: Anthropic, p: GeniusProduct) {
   return jsonFrom(t)
 }
 
-// ── PHASE 2: Seedance Nano Banana Pro image-to-image ──────────────────────────
+// ── PHASE 2: Seedance nano-banana-pro image-to-image ──────────────────────────
 async function editImage(seedKey: string, refUrl: string, prompt: string): Promise<string | null> {
   const H = { Authorization: `Bearer ${seedKey}`, 'Content-Type': 'application/json' }
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -103,46 +98,21 @@ async function makeCutout(seedKey: string, refUrl: string): Promise<Buffer | nul
   } catch { return null } finally { rm(dir, { recursive: true, force: true }).catch(() => {}) }
 }
 
-// ── PHASE 3: re-skin ONLY the body sections (fast, one round ~125s), then swap the
-// palette programmatically. The static CSS/scripts/checkout drawer are never sent to
-// Claude, so a single request stays well under the function time limit.
-const BODY_SYS = `You re-skin the BODY sections of an Arabic RTL landing page for a NEW product. Keep the EXACT structure, ALL class names, and ALL element ids identical.
-CHANGE ONLY: the Arabic copy text; the image URLs (the hero <img class="hero-cutout"> src → the provided cutoutUrl; the lifestyle image → the use:"lifestyle" generated image; the showcase grid images → the use:"showcase" generated images, one per tile with a caption that matches the image, never repeating one; the thumbnail gallery → productImages); the price numbers; and the brand text.
-Do NOT output <html>, <head>, <style>, or <script> — ONLY the body-section HTML in the same order/structure as given (starting with the nav comment, ending with the sticky-cta section). No markdown fences, no commentary.`
+// Two multi-angle montage prompts. Each frame packs several angles/details of the
+// SAME product so the template can crop distinct-looking tiles out of one image.
+const MONTAGE_A = 'Editorial product composition: place THIS EXACT product (identical color, shape, materials, and branding to the reference) shown from 2-3 complementary views within a SINGLE cohesive frame — a clear front hero view, a three-quarter angle, and one closer detail — arranged with generous spacing on a premium softly-lit lifestyle background that suits the product category. Photorealistic commercial photography, cinematic soft lighting, shallow depth of field, no text, no watermark. The product must stay 100% identical to the reference.'
+const MONTAGE_B = 'Studio detail composition: show THIS EXACT product (identical to the reference) with 2-3 different close-up crops of its key real parts and features arranged within ONE clean frame, highlighting distinct components/details. Premium macro product photography on a clean neutral studio background, crisp even lighting, no text, no watermark. The product must stay 100% identical to the reference.'
 
+// ── palette helpers ───────────────────────────────────────────────────────────
 const hexRgb = (h: string) => { const x = h.replace('#', ''); const n = parseInt(x.length === 3 ? x.split('').map(c => c + c).join('') : x, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] }
 const toHex = (r: number, g: number, b: number) => '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('')
 const darken = (h: string, f = 0.72) => { const [r, g, b] = hexRgb(h); return toHex(r * f, g * f, b * f) }
 const lighten = (h: string, f = 0.9) => { const [r, g, b] = hexRgb(h); return toHex(r + (255 - r) * f, g + (255 - g) * f, b + (255 - b) * f) }
 
-const BODY_START = '<!--GENIUS_BODY_START-->'
-const BODY_END = '<!--GENIUS_BODY_END-->'
-
-async function buildLanding(client: Anthropic, p: GeniusProduct, art: any, generated: any[], cutoutUrl: string): Promise<string> {
-  const iS = TEMPLATE.indexOf(BODY_START), iE = TEMPLATE.indexOf(BODY_END)
-  const head = TEMPLATE.slice(0, iS)
-  const bodyRef = TEMPLATE.slice(iS + BODY_START.length, iE)
-  const tail = TEMPLATE.slice(iE + BODY_END.length)
-
-  const brief = {
-    product: { title: p.title, price: p.price, compareAtPrice: p.compareAtPrice ?? null, currency: p.currency || 'SAR', productImages: p.images || [] },
-    brand: art.brand, copy: art.copy, cutoutUrl, generated,
-  }
-  const messages: any[] = [{ role: 'user', content: `BODY TEMPLATE (re-skin this, keep classes/structure/order):\n${bodyRef}\n\nBRIEF:\n${JSON.stringify(brief)}\n\nReturn ONLY the re-skinned body HTML fragment.` }]
-  let body = ''
-  for (let round = 0; round < 3; round++) {
-    const r = await client.messages.create({ model: MODEL, max_tokens: 16000, system: BODY_SYS, messages })
-    const chunk = r.content[0].type === 'text' ? r.content[0].text : ''
-    body += chunk
-    if (r.stop_reason !== 'max_tokens') break
-    messages.push({ role: 'assistant', content: chunk })
-    messages.push({ role: 'user', content: 'Continue from EXACTLY where you stopped, no repeats. Finish the fragment.' })
-  }
-  body = body.replace(/^```html?\s*/i, '').replace(/```\s*$/, '').trim()
-
-  // Programmatic palette swap in the static head CSS (instant).
-  const pal = art.palette || {}
-  let h = head
+// Apply the art-directed palette to the fixed shell's CSS (var values + the
+// blue-tinted rgba literals baked into the stylesheet). Deterministic, instant.
+function applyPalette(html: string, pal: any): string {
+  let h = html
   const set = (name: string, val?: string) => { if (val) h = h.replace(new RegExp(`(--${name}:)\\s*[^;]+;`), `$1 ${val};`) }
   set('bg', pal.bg); set('surface', pal.surface); set('primary', pal.primary); set('accent', pal.accent); set('text', pal.text); set('muted', pal.muted)
   if (pal.primary) {
@@ -150,13 +120,12 @@ async function buildLanding(client: Anthropic, p: GeniusProduct, art: any, gener
     const [r, g, b] = hexRgb(pal.primary)
     h = h.replace(/rgba\(26,\s*95,\s*168,/g, `rgba(${r},${g},${b},`)
   }
-  const full = h + body + tail
-  // Point EVERY cutout reference (hero <img>, checkout-drawer summary <img>, baked
-  // LANDING_CONFIG.cutout in the static tail) at the real uploaded cutout URL.
-  return cutoutUrl ? full.split('hero-cutout.png').join(cutoutUrl) : full
+  return h
 }
 
-// ── STAGE 1 (prepare): art direction + all images + cutout (~60s). No Claude re-skin. ─
+const GENIUS_MARKER = '<!--GENIUS_DATA-->'
+
+// ── STAGE 1 (prepare): content + 3 images (cutout + 2 montages). ~40-70s. ─
 export async function prepareAssets(
   p: GeniusProduct,
   keys: { anthropic: string; seedance: string },
@@ -166,24 +135,53 @@ export async function prepareAssets(
   const art = await artDirect(client, p)
   const ref = p.images[0]
   const ref2 = p.images[1] || ref
-  const briefs: any[] = (art.imageBriefs || [])
-  // All scene images + the cutout CONCURRENTLY (nano-banana allows ~30/min).
-  const [genResults, cutPng] = await Promise.all([
-    Promise.all(briefs.map((b, i) =>
-      editImage(keys.seedance, i % 2 === 0 ? ref : ref2, b.editPrompt)
-        .then(url => (url ? { slot: b.slot, use: b.use, caption: b.caption || '', url } : null)))),
+  // cutout + 2 montages CONCURRENTLY = exactly 3 generations (24 credits).
+  const [cutPng, montA, montB] = await Promise.all([
     makeCutout(keys.seedance, ref),
+    editImage(keys.seedance, ref, MONTAGE_A),
+    editImage(keys.seedance, ref2, MONTAGE_B),
   ])
-  const generated = genResults.filter(Boolean)
   const cutoutUrl = cutPng ? await uploadCutout(cutPng) : ref
+  // Fall back to the real product photos if a montage fails, so tiles never break.
+  const generated = [
+    { key: 'a', url: montA || ref },
+    { key: 'b', url: montB || ref2 },
+  ]
   return { art, generated, cutoutUrl }
 }
 
-// ── STAGE 2 (finish): body-only re-skin + palette swap → full HTML (~130s, one request). ─
+// ── STAGE 2 (finish): deterministic assembly — NO Claude, NO timeout. ─
 export async function assembleHtml(
   p: GeniusProduct, art: any, generated: any[], cutoutUrl: string,
-  keys: { anthropic: string },
+  _keys?: { anthropic?: string },
 ): Promise<string> {
-  const client = new Anthropic({ apiKey: keys.anthropic })
-  return buildLanding(client, p, art, generated, cutoutUrl)
+  const imgOf = (k: string) => (generated.find((g: any) => g?.key === k)?.url) || cutoutUrl
+  const currency = art?.price?.currency || p.currency || 'ريال'
+
+  const GENIUS = {
+    brand: art.brand || p.title,
+    tagline: art.tagline || '',
+    currency,
+    hero: art.hero || {},
+    problem: art.problem || {},
+    benefits: art.benefits || {},
+    showcase: Array.isArray(art.showcase) ? art.showcase : [],
+    lifestyle: art.lifestyle || {},
+    reviews: Array.isArray(art.reviews) ? art.reviews : [],
+    urgency: art.urgency || '',
+    price: art.price || {},
+    guarantee: art.guarantee || {},
+    faq: Array.isArray(art.faq) ? art.faq : [],
+    gallery: (p.images || []).filter(Boolean).slice(0, 4),
+    images: { a: imgOf('a'), b: imgOf('b'), cutout: cutoutUrl },
+  }
+
+  let html = applyPalette(TEMPLATE, art.palette || {})
+  // Point every cutout ref (hero + checkout drawer + baked LANDING_CONFIG) at the upload.
+  if (cutoutUrl) html = html.split('hero-cutout.png').join(cutoutUrl)
+  // Inject the content the hydrate script reads. </script> is escaped so a stray
+  // sequence in the copy can't break out of the tag.
+  const payload = JSON.stringify(GENIUS).replace(/<\/script/gi, '<\\/script')
+  html = html.replace(GENIUS_MARKER, `<script>window.GENIUS = ${payload};</script>`)
+  return html
 }

@@ -1394,6 +1394,84 @@
 </div>
 
 <!--GENIUS_BODY_END-->
+<!--GENIUS_DATA-->
+<!-- ══════════════ GENIUS HYDRATE ══════════════ -->
+<script>
+/* Pour window.GENIUS content into the fixed shell. No-op in the standalone demo
+   (window.GENIUS undefined → sample content stays). Colors are swapped server-side. */
+(function(){
+  var G = window.GENIUS; if(!G) return;
+  var d=document;
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function q(sel,root){ return (root||d).querySelector(sel); }
+  function qa(sel,root){ return Array.prototype.slice.call((root||d).querySelectorAll(sel)); }
+  function txt(sel,v,root){ var e=q(sel,root); if(e&&v!=null&&v!=='') e.textContent=v; }
+  function label(e,v){ if(!e||v==null||v==='') return; for(var i=e.childNodes.length-1;i>=0;i--){ if(e.childNodes[i].nodeType===3) e.removeChild(e.childNodes[i]); } e.appendChild(d.createTextNode(' '+v)); }
+  function titleAccent(e,t,acc){ if(!e) return; if(acc) e.innerHTML=esc(t||'')+' <span>'+esc(acc)+'</span>'; else if(t) e.textContent=t; }
+
+  // Brand
+  var nb=q('.nav-brand'); if(nb&&G.brand) nb.innerHTML='<span class="nav-brand-dot"></span> '+esc(G.brand);
+  txt('.footer-brand', G.brand);
+  if(G.tagline){ var fp=q('footer p'); if(fp) fp.textContent=G.tagline; }
+
+  // Hero
+  var H=G.hero||{};
+  label(q('.hero-badge'), H.badge);
+  var h1=q('.hero h1'); if(h1&&(H.h1||H.h1em)) h1.innerHTML=esc(H.h1||'')+(H.h1em?'<br><em>'+esc(H.h1em)+'</em>':'');
+  txt('.hero-sub', H.sub);
+  var pb=q('.hero-price-badge'); if(pb&&H.priceMain) pb.innerHTML='<b>'+esc(H.priceMain)+'</b><span>'+esc(G.currency||'')+'</span>'+(H.priceNote?'<small>'+esc(H.priceNote)+'</small>':'');
+  var ha=qa('.hero-actions a'); if(ha[0]&&H.ctaPrimary) ha[0].textContent=H.ctaPrimary; if(ha[1]&&H.ctaSecondary) ha[1].textContent=H.ctaSecondary;
+  qa('.hero-trust-item').forEach(function(el,i){ if(H.trust&&H.trust[i]) label(el,H.trust[i]); });
+
+  // Cutout (server already swaps the URL; set again so the mock renders too)
+  if(G.images&&G.images.cutout) qa('.hero-cutout, #ordImg').forEach(function(im){ im.src=G.images.cutout; });
+
+  // Problem
+  var P=G.problem||{};
+  txt('.problem-section h2', P.title); txt('.problem-section p', P.para);
+  qa('.problem-icon-item').forEach(function(el,i){ if(P.icons&&P.icons[i]) label(el,P.icons[i]); });
+
+  // Benefits
+  var B=G.benefits||{};
+  titleAccent(q('.benefits-section .section-title'), B.title, B.titleAccent);
+  txt('.benefits-section .section-desc', B.desc);
+  qa('.benefit-card').forEach(function(card,i){ var it=(B.items||[])[i]; if(!it) return; txt('h3',it.title,card); txt('p',it.desc,card); });
+
+  // Showcase — 4 tiles cropped from 2 montages by panning object-position to different angles
+  var SC=G.showcase||[], img=G.images||{};
+  var crop=[['a','25% 30%'],['a','75% 68%'],['b','25% 30%'],['b','75% 68%']];
+  qa('.showcase-card').forEach(function(card,i){ var it=SC[i]||{}; txt('.showcase-caption-badge',it.caption,card); txt('.showcase-body h3',it.title,card); txt('.showcase-body p',it.desc,card); var im=q('.showcase-img-wrap img',card); if(im){ var c=crop[i]||['a','50% 50%']; if(img[c[0]]) im.src=img[c[0]]; im.style.objectPosition=c[1]; if(it.caption) im.alt=it.caption; } });
+
+  // Lifestyle
+  var L=G.lifestyle||{};
+  var lc=q('.lifestyle-content'); if(lc){ titleAccent(q('.section-title',lc), L.title, L.titleAccent); txt('p',L.para,lc); qa('.lifestyle-list li',lc).forEach(function(li,i){ if(L.items&&L.items[i]) label(li,L.items[i]); }); }
+  txt('.lifestyle-img-overlay', L.overlay);
+  var lim=q('.lifestyle-img-wrap img'); if(lim){ if(img.a) lim.src=img.a; lim.style.objectPosition='50% 40%'; if(L.overlay) lim.alt=L.overlay; }
+
+  // Reviews
+  qa('.proof-card').forEach(function(card,i){ var r=(G.reviews||[])[i]; if(!r) return; txt('.proof-quote',r.quote,card); txt('.proof-author-name',r.name,card); txt('.proof-author-city',r.city,card); var av=q('.proof-avatar',card); if(av&&r.name) av.textContent=String(r.name).trim().charAt(0); });
+
+  // Gallery — real product photos
+  var thumbs=qa('.thumb-item img'); (G.gallery||[]).forEach(function(u,i){ if(thumbs[i]&&u) thumbs[i].src=u; });
+
+  // Urgency
+  txt('.urgency-text', G.urgency);
+
+  // Price
+  var PR=G.price||{};
+  txt('.price-badge-top', PR.badge);
+  var pa=q('.price-amount'); if(pa&&PR.amount) pa.innerHTML='<sup>'+esc(PR.currency||G.currency||'')+'</sup>'+esc(PR.amount);
+  txt('.price-sub', PR.sub);
+  qa('.price-features li').forEach(function(li,i){ if(PR.features&&PR.features[i]) label(li,PR.features[i]); });
+  var pcta=q('.price-cta'); if(pcta&&PR.cta) pcta.textContent=PR.cta;
+
+  // Guarantee
+  var GU=G.guarantee||{}; txt('.guarantee-section h2', GU.title); txt('.guarantee-section p', GU.para);
+
+  // FAQ (question text sits before the arrow span)
+  qa('.faq-item').forEach(function(item,i){ var f=(G.faq||[])[i]; if(!f) return; var btn=q('.faq-q',item); if(btn&&f.q){ var arrow=q('.faq-arrow',btn); for(var j=btn.childNodes.length-1;j>=0;j--){ if(btn.childNodes[j].nodeType===3) btn.removeChild(btn.childNodes[j]); } var tn=d.createTextNode(f.q+' '); if(arrow) btn.insertBefore(tn,arrow); else btn.appendChild(tn); } txt('.faq-a',f.a,item); });
+})();
+</script>
 <!-- ══════════════ SCRIPTS ══════════════ -->
 <script>
   // ── Scroll Reveal ──

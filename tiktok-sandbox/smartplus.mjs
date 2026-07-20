@@ -3,10 +3,7 @@
 //
 //   node tiktok-sandbox/smartplus.mjs check          → verify the sandbox token + advertiser work
 //   node tiktok-sandbox/smartplus.mjs conversion     → create a Smart+ Web-conversion campaign
-//   node tiktok-sandbox/smartplus.mjs leads          → create a Smart+ Lead-gen campaign
-//   node tiktok-sandbox/smartplus.mjs search         → create a Smart+ Search campaign
-//   node tiktok-sandbox/smartplus.mjs list           → list Smart+ campaigns in the account
-//   node tiktok-sandbox/smartplus.mjs conversion WEB_CONVERSIONS   → override objective_type ad-hoc
+//   node tiktok-sandbox/smartplus.mjs list           → list campaigns in the account
 //
 // Reads credentials from .env.local (kept out of chat / git):
 //   TIKTOK_SANDBOX_ADVERTISER_ID=...
@@ -85,12 +82,8 @@ const base = (name, objective) => ({
 })
 
 const templates = {
-  // Website conversions (COD products) — optimize on the TikTok pixel.
+  // Smart+ website conversions (COD products) — the only campaign type we ship.
   conversion: () => ({ ...base('Smart+ Conversion', 'WEB_CONVERSIONS'), is_smart_performance_campaign: true }),
-  // Lead generation (instant forms).
-  leads: () => ({ ...base('Smart+ Leads', 'LEAD_GENERATION'), is_smart_performance_campaign: true }),
-  // Search campaigns use is_search_campaign (separate from Smart+).
-  search: () => ({ ...base('Search', 'TRAFFIC'), is_search_campaign: true }),
 }
 
 async function report(j) {
@@ -118,7 +111,7 @@ const override = process.argv[3] // optional objective_type override
     }
     const build = templates[cmd]
     if (!build) {
-      console.log('usage: node tiktok-sandbox/smartplus.mjs [check|list|conversion|leads|search] [objective_override]')
+      console.log('usage: node tiktok-sandbox/smartplus.mjs [check|list|conversion]')
       return
     }
     const body = build()

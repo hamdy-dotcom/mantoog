@@ -104,78 +104,75 @@ export function fetchErrorMessage(code: FetchProductUrlErrorCode, status?: numbe
   }
 }
 
+// A 200 response can still be a bot wall (Amazon "Robot Check"/captcha). Treat those
+// as unusable so we fall back to ScraperAPI.
+function looksLikeBotWall(html: string): boolean {
+  return /Robot Check|Enter the characters you see below|api-services-support\.amazon|automated access to Amazon data|\/errors\/validateCaptcha|captcha/i.test(
+    html.slice(0, 20000)
+  )
+}
+function looksUsable(html: string): boolean {
+  return html.trim().length > 2000 && !looksLikeBotWall(html)
+}
+
+type Attempt = { ok: true; html: string; status: number } | { ok: false; code: FetchProductUrlErrorCode; status?: number }
+
+async function attemptFetch(fetchUrl: string, headers: Record<string, string> | undefined, timeoutMs: number): Promise<Attempt> {
+  try {
+    const response = await fetch(fetchUrl, { headers, redirect: 'follow', signal: AbortSignal.timeout(timeoutMs) })
+    if (!response.ok) return { ok: false, code: 'http_error', status: response.status }
+    const html = await response.text()
+    if (!html.trim()) return { ok: false, code: 'empty_response' }
+    return { ok: true, html, status: response.status }
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'TimeoutError') return { ok: false, code: 'timeout' }
+    console.error('[products/fetch-url] fetch failed:', error)
+    return { ok: false, code: 'fetch_failed' }
+  }
+}
+
 export async function fetchProductPageHtml(url: string): Promise<FetchProductUrlResult> {
   const parsed = parsePublicProductUrl(url)
   if (!parsed) {
-    return {
-      ok: false,
-      code: 'invalid_url',
-      message: fetchErrorMessage('invalid_url'),
-    }
+    return { ok: false, code: 'invalid_url', message: fetchErrorMessage('invalid_url') }
   }
 
   const targetUrl = parsed.toString()
   // .trim() + non-empty guard: Vercel can store blank env vars as '' (falsy but not undefined)
   const apiKey = process.env.SCRAPERAPI_KEY?.trim() || undefined
-  console.log(
-    '[fetch-url] SCRAPERAPI_KEY present:', !!apiKey,
-    '| raw length:', (process.env.SCRAPERAPI_KEY ?? '').length,
-    '| trimmed length:', (apiKey ?? '').length,
-  )
-  // Route through ScraperAPI when key is present — bypasses bot-detection on Amazon, Noon, etc.
-  // Falls back to direct fetch when key is absent (local dev).
-  const fetchUrl = apiKey
-    ? `https://api.scraperapi.com/?api_key=${apiKey}&url=${encodeURIComponent(targetUrl)}&render=true`
-    : targetUrl
-  console.log('[fetch-url] branch:', apiKey ? 'ScraperAPI' : 'direct-fetch', '| fetchUrl prefix:', fetchUrl.slice(0, 80))
 
-  try {
-    const response = await fetch(fetchUrl, {
-      // ScraperAPI handles its own browser headers; only send them on the direct-fetch fallback.
-      headers: apiKey ? undefined : BROWSER_HEADERS,
-      redirect: 'follow',
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    })
-
-    if (!response.ok) {
-      return {
-        ok: false,
-        code: 'http_error',
-        status: response.status,
-        message: fetchErrorMessage('http_error', response.status),
-      }
-    }
-
-    const html = await response.text()
-    if (!html.trim()) {
-      return {
-        ok: false,
-        code: 'empty_response',
-        message: fetchErrorMessage('empty_response'),
-      }
-    }
-
-    return {
-      ok: true,
-      html,
-      status: response.status,
-      finalUrl: targetUrl, // return original URL, not the ScraperAPI wrapper URL
-    }
-  } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'TimeoutError') {
-      return {
-        ok: false,
-        code: 'timeout',
-        message: fetchErrorMessage('timeout'),
-      }
-    }
-    console.error('[products/fetch-url] fetch failed:', error)
-    return {
-      ok: false,
-      code: 'fetch_failed',
-      message: fetchErrorMessage('fetch_failed'),
-    }
+  // 1) Direct fetch FIRST. Product pages (Amazon, Noon, …) return the full product HTML
+  //    server-side in ~1s — ScraperAPI's headless render (10–25s) is unnecessary and was
+  //    timing out. Only fall back if the direct response is blocked, empty, or a bot wall.
+  const direct = await attemptFetch(targetUrl, BROWSER_HEADERS, 9_000)
+  if (direct.ok && looksUsable(direct.html)) {
+    console.log('[fetch-url] direct fetch succeeded', { bytes: direct.html.length })
+    return { ok: true, html: direct.html, status: direct.status, finalUrl: targetUrl }
   }
+  console.log('[fetch-url] direct fetch not usable', {
+    ok: direct.ok, code: direct.ok ? 'bot_wall_or_thin' : direct.code, hasKey: !!apiKey,
+  })
+
+  // 2) Fall back to ScraperAPI for hosts that block our server IP. NO render=true —
+  //    product pages (Amazon/Noon/…) ship the product data in the server HTML, so the
+  //    headless render just added 10–25s and caused the timeout. ScraperAPI's proxy
+  //    still bypasses the IP block.
+  if (apiKey) {
+    const scraped = await attemptFetch(
+      `https://api.scraperapi.com/?api_key=${apiKey}&url=${encodeURIComponent(targetUrl)}`,
+      undefined,
+      FETCH_TIMEOUT_MS
+    )
+    if (scraped.ok && scraped.html.trim()) {
+      return { ok: true, html: scraped.html, status: scraped.status, finalUrl: targetUrl }
+    }
+    const code = scraped.ok ? 'empty_response' : scraped.code
+    return { ok: false, code, status: scraped.ok ? undefined : scraped.status, message: fetchErrorMessage(code, scraped.ok ? undefined : scraped.status) }
+  }
+
+  // No ScraperAPI key and direct wasn't usable → surface the direct error.
+  const code = direct.ok ? 'empty_response' : direct.code
+  return { ok: false, code, status: direct.ok ? undefined : direct.status, message: fetchErrorMessage(code, direct.ok ? undefined : direct.status) }
 }
 
 export function detectPlatform(url: string): string {

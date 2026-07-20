@@ -698,7 +698,7 @@ export default function SeedancePage() {
                       </span>
                       <span className="flex-1 mr-3">
                         <span className="block text-[13.5px] font-bold text-white">حملة Smart+ (ذكية) ⚡</span>
-                        <span className="block text-[11.5px] text-[#9aa0b4] mt-0.5">تتولى TikTok الاستهداف والمزايدة والتوزيع تلقائيًا. تتفعّل بعد اعتماد حسابك من TikTok (Allowlist)؛ قبلها تُنشأ كحملة عادية.</span>
+                        <span className="block text-[11.5px] text-[#9aa0b4] mt-0.5">تتولى TikTok الاستهداف والمزايدة والتوزيع تلقائيًا. تُنشأ الحملة موقوفة (Paused) للمراجعة — فعّلها من TikTok Ads Manager.</span>
                       </span>
                     </button>
 

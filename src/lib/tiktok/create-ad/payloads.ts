@@ -57,23 +57,11 @@ export function buildCampaignPayload(payload: CreateAdWizardPayload) {
     ),
     objective_type: objective,
     operation_status: 'ENABLE',
-    // campaign_type only accepts REGULAR_CAMPAIGN / IOS14_CAMPAIGN. Smart+ is NOT a
-    // campaign_type — it's the separate is_smart_performance_campaign flag below.
+    // /campaign/create/ only accepts REGULAR_CAMPAIGN or IOS14_CAMPAIGN — never Smart+.
     campaign_type: 'REGULAR_CAMPAIGN',
   }
 
-  // Smart+ (Upgraded Smart Performance Campaign): TikTok auto-manages targeting,
-  // bidding, placement and creative. The account must be ALLOWLISTED by TikTok
-  // (UPGRADED_SMART_PLUS_ENABLED) for this to take effect; until then TikTok
-  // silently ignores the flag and creates a normal campaign — so it's safe to send.
-  // Smart+ optimizes budget at the campaign level, so force a campaign budget.
-  const smartPlus = adv.campaignType === 'smart_plus'
-  if (smartPlus) {
-    body.is_smart_performance_campaign = true
-    body.budget_optimize_on = true
-    body.budget_mode = budgetMode
-    body.budget = payload.targeting.daily_budget
-  } else if (isCbo) {
+  if (isCbo) {
     body.budget_optimize_on = true
     body.budget_mode = budgetMode
     body.budget = payload.targeting.daily_budget
@@ -85,6 +73,55 @@ export function buildCampaignPayload(payload: CreateAdWizardPayload) {
   return body
 }
 
+// ── Smart+ (Upgraded Smart Performance Campaign) — dedicated /smart_plus/* endpoints.
+// TikTok auto-manages targeting, bidding, placement and creative optimization. Fields
+// reverse-engineered live against the TikTok API (web-conversion / orders goal).
+// Campaign is created PAUSED so the admin reviews and enables it in TikTok Ads Manager.
+export function buildSmartPlusCampaignPayload(payload: CreateAdWizardPayload) {
+  const objective = goalObjective(payload.targeting.goal) // orders → WEB_CONVERSIONS
+  const body: Record<string, unknown> = {
+    campaign_name: buildCampaignName(payload.product.title, payload.targeting.goal),
+    objective_type: objective,
+    budget_mode: 'BUDGET_MODE_DYNAMIC_DAILY_BUDGET', // daily budget (NOT BUDGET_MODE_DAY, which Smart+ rejects)
+    budget: payload.targeting.daily_budget,
+    operation_status: 'DISABLE', // created paused for review; enable in TikTok Ads Manager
+  }
+  if (objective === 'WEB_CONVERSIONS') body.sales_destination = 'WEBSITE'
+  return body
+}
+
+export function buildSmartPlusAdgroupPayload(
+  campaignId: string,
+  payload: CreateAdWizardPayload,
+  opts?: { numericPixelId?: string; optimizationEvent?: string }
+) {
+  const hasEnd = !!payload.targeting.schedule_end?.trim()
+  const productShort = payload.product.title.length > 36
+    ? `${payload.product.title.slice(0, 35)}…`
+    : payload.product.title
+
+  const body: Record<string, unknown> = {
+    campaign_id: campaignId,
+    adgroup_name: `${productShort} - Ad group - ${uniqueNameSuffix().slice(-8)}`,
+    promotion_type: 'WEBSITE',
+    // Smart+ auto-manages age/gender/interests; only location is supplied.
+    targeting_spec: { location_ids: [payload.targeting.location_id] },
+    schedule_type: hasEnd ? 'SCHEDULE_START_END' : 'SCHEDULE_FROM_NOW',
+    schedule_start_time: localDatetimeToTikTok(payload.targeting.schedule_start),
+    optimization_goal: 'CONVERT',
+    billing_event: 'OCPM',
+    placement_type: 'PLACEMENT_TYPE_NORMAL',
+    placements: ['PLACEMENT_TIKTOK'],
+    operation_status: 'ENABLE',
+  }
+  if (hasEnd && payload.targeting.schedule_end) {
+    body.schedule_end_time = localDatetimeToTikTok(payload.targeting.schedule_end)
+  }
+  if (opts?.numericPixelId) body.pixel_id = opts.numericPixelId
+  if (opts?.optimizationEvent) body.optimization_event = opts.optimizationEvent
+  return body
+}
+
 export function buildAdgroupPayload(
   campaignId: string,
   payload: CreateAdWizardPayload,
@@ -93,10 +130,7 @@ export function buildAdgroupPayload(
   const adv = resolvedAdvanced(payload.targeting.advanced)
   const goal = payload.targeting.goal
   const obj = goalAdgroupConfig(goal, resolvedPlacement(adv))
-  // Smart+ manages budget at the campaign level (like CBO), so the ad group must
-  // not also carry a budget.
-  const campaignLevelBudget = adv.budgetLevel === 'cbo' || adv.campaignType === 'smart_plus'
-  const isCbo = campaignLevelBudget
+  const isCbo = adv.budgetLevel === 'cbo'
   const budgetMode = adv.budgetMode === 'lifetime' ? 'BUDGET_MODE_TOTAL' : 'BUDGET_MODE_DAY'
   const productShort = payload.product.title.length > 36
     ? `${payload.product.title.slice(0, 35)}…`

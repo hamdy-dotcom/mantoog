@@ -112,8 +112,8 @@ export async function POST(req: NextRequest) {
       location_id: locationId,
       age_groups: AGE_OPTIONS.map(a => a.id), // all ages (TikTok requires them explicit)
       gender: 'GENDER_UNLIMITED',
-      // Smart+ by default (campaign auto-optimizes); TikTok ignores the flag until the
-      // ad account is allowlisted for Upgraded Smart+, so this is safe pre-allowlist.
+      // Smart+ by default → dedicated /smart_plus/* endpoints (TikTok auto-optimizes
+      // targeting/bidding/placement). The Smart+ campaign is created PAUSED for review.
       advanced: { ...DEFAULT_ADVANCED, touched: true, campaignType: smartPlus === false ? 'standard' : 'smart_plus' },
       conversion_event: 'place_an_order',
     },

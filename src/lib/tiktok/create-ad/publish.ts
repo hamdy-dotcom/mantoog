@@ -1209,15 +1209,18 @@ export async function createTikTokAd(opts: {
       ad_name,
       display_name,
     })
-    const body: Record<string, unknown> = {
-      adgroup_id,
-      creatives: [creativeObject],
-    }
+    // Smart+ ads use /smart_plus/ad/create/, which wants ad_name at the TOP level
+    // (the manual /ad/create/ nests it inside the creative).
+    const sp = payload.targeting.advanced.campaignType === 'smart_plus'
+    const body: Record<string, unknown> = sp
+      ? { adgroup_id, ad_name, creatives: [creativeObject] }
+      : { adgroup_id, creatives: [creativeObject] }
     const fullRequest = {
       advertiser_id: connection.advertiser_id,
       ...body,
     }
-    console.error('[tiktok/create/ad] POST /ad/create/ request body (full JSON)', JSON.stringify(fullRequest, null, 2))
+    const adPath = sp ? '/smart_plus/ad/create/' : '/ad/create/'
+    console.error(`[tiktok/create/ad] POST ${adPath} request body (full JSON)`, JSON.stringify(fullRequest, null, 2))
     console.error('[tiktok/create/ad] creative identity + video check', {
       identity_id: identity.identity_id,
       identity_type: identity.identity_type,
@@ -1227,7 +1230,7 @@ export async function createTikTokAd(opts: {
       image_ids: creativeObject.image_ids ?? null,
       ad_format: creativeObject.ad_format ?? null,
     })
-    return postLogged(connection, 'ad', '/ad/create/', body)
+    return postLogged(connection, 'ad', adPath, body)
   }
 
   let json = await postAd(primaryDisplayName)

@@ -72,6 +72,7 @@ export default function SeedancePage() {
   const [launchIndex, setLaunchIndex] = useState(0)
   const [dailyBudget, setDailyBudget] = useState('50')
   const [startAt, setStartAt] = useState(defaultStartLocal())
+  const [smartPlus, setSmartPlus] = useState(true)
   const [launchResult, setLaunchResult] = useState<any>(null)
   const [showPixelModal, setShowPixelModal] = useState(false)
   const [pixelInput, setPixelInput] = useState('')
@@ -227,6 +228,7 @@ export default function SeedancePage() {
           caption: productPage.caption,
           dailyBudget: parseFloat(dailyBudget) || 0,
           scheduleStart: startAt,
+          smartPlus,
         }),
       })
       const data = await res.json()
@@ -685,6 +687,20 @@ export default function SeedancePage() {
                           className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3.5 text-[14px] text-white outline-none focus:border-[#6366f1]/60" />
                       </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setSmartPlus(v => !v)}
+                      className="w-full flex items-center justify-between rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-right cursor-pointer hover:border-white/20 transition-colors"
+                    >
+                      <span className={`relative inline-block w-11 h-6 rounded-full transition-colors ${smartPlus ? 'bg-[#6366f1]' : 'bg-white/15'}`}>
+                        <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${smartPlus ? 'right-0.5' : 'right-[22px]'}`} />
+                      </span>
+                      <span className="flex-1 mr-3">
+                        <span className="block text-[13.5px] font-bold text-white">حملة Smart+ (ذكية) ⚡</span>
+                        <span className="block text-[11.5px] text-[#9aa0b4] mt-0.5">تتولى TikTok الاستهداف والمزايدة والتوزيع تلقائيًا. تتفعّل بعد اعتماد حسابك من TikTok (Allowlist)؛ قبلها تُنشأ كحملة عادية.</span>
+                      </span>
+                    </button>
 
                     <div className="flex items-center justify-between rounded-xl bg-black/30 border border-white/10 px-4 py-3">
                       <span className="text-[13px] text-[#9aa0b4]">تكلفة هذا الإعلان</span>

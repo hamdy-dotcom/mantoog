@@ -57,11 +57,23 @@ export function buildCampaignPayload(payload: CreateAdWizardPayload) {
     ),
     objective_type: objective,
     operation_status: 'ENABLE',
-    // /campaign/create/ only accepts REGULAR_CAMPAIGN or IOS14_CAMPAIGN — never Smart+.
+    // campaign_type only accepts REGULAR_CAMPAIGN / IOS14_CAMPAIGN. Smart+ is NOT a
+    // campaign_type — it's the separate is_smart_performance_campaign flag below.
     campaign_type: 'REGULAR_CAMPAIGN',
   }
 
-  if (isCbo) {
+  // Smart+ (Upgraded Smart Performance Campaign): TikTok auto-manages targeting,
+  // bidding, placement and creative. The account must be ALLOWLISTED by TikTok
+  // (UPGRADED_SMART_PLUS_ENABLED) for this to take effect; until then TikTok
+  // silently ignores the flag and creates a normal campaign — so it's safe to send.
+  // Smart+ optimizes budget at the campaign level, so force a campaign budget.
+  const smartPlus = adv.campaignType === 'smart_plus'
+  if (smartPlus) {
+    body.is_smart_performance_campaign = true
+    body.budget_optimize_on = true
+    body.budget_mode = budgetMode
+    body.budget = payload.targeting.daily_budget
+  } else if (isCbo) {
     body.budget_optimize_on = true
     body.budget_mode = budgetMode
     body.budget = payload.targeting.daily_budget
@@ -81,7 +93,10 @@ export function buildAdgroupPayload(
   const adv = resolvedAdvanced(payload.targeting.advanced)
   const goal = payload.targeting.goal
   const obj = goalAdgroupConfig(goal, resolvedPlacement(adv))
-  const isCbo = adv.budgetLevel === 'cbo'
+  // Smart+ manages budget at the campaign level (like CBO), so the ad group must
+  // not also carry a budget.
+  const campaignLevelBudget = adv.budgetLevel === 'cbo' || adv.campaignType === 'smart_plus'
+  const isCbo = campaignLevelBudget
   const budgetMode = adv.budgetMode === 'lifetime' ? 'BUDGET_MODE_TOTAL' : 'BUDGET_MODE_DAY'
   const productShort = payload.product.title.length > 36
     ? `${payload.product.title.slice(0, 35)}…`

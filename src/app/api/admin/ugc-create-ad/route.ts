@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const auth = await assertAdmin()
   if (!auth.ok) return auth.response
 
-  const { productId, videoUrl, caption, dailyBudget, scheduleStart } = await req.json().catch(() => ({}))
+  const { productId, videoUrl, caption, dailyBudget, scheduleStart, smartPlus } = await req.json().catch(() => ({}))
   if (!productId || !videoUrl) return NextResponse.json({ error: 'productId and videoUrl required' }, { status: 400 })
   const budget = Number(dailyBudget)
   if (!Number.isFinite(budget) || budget <= 0) return NextResponse.json({ error: 'valid dailyBudget required' }, { status: 400 })
@@ -112,7 +112,9 @@ export async function POST(req: NextRequest) {
       location_id: locationId,
       age_groups: AGE_OPTIONS.map(a => a.id), // all ages (TikTok requires them explicit)
       gender: 'GENDER_UNLIMITED',
-      advanced: { ...DEFAULT_ADVANCED, touched: true }, // standard, abo, daily, auto bid/placement, all-day, comments/downloads/sharing on
+      // Smart+ by default (campaign auto-optimizes); TikTok ignores the flag until the
+      // ad account is allowlisted for Upgraded Smart+, so this is safe pre-allowlist.
+      advanced: { ...DEFAULT_ADVANCED, touched: true, campaignType: smartPlus === false ? 'standard' : 'smart_plus' },
       conversion_event: 'place_an_order',
     },
     identity: { identity_id: null }, // auto-pick first available

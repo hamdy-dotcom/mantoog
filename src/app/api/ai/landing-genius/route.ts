@@ -65,5 +65,8 @@ export async function POST(req: NextRequest) {
       .eq('id', creditRows[0].id)
   }
 
-  return NextResponse.json({ ok: true, creditsCharged: CREDIT_COST, creditsRemaining: balance - CREDIT_COST })
+  // Return the assembled HTML + config so callers (e.g. the ugc-creatives wizard)
+  // can preview the exact published page inline via <iframe srcDoc> — no dependency
+  // on loading the live URL cross-frame (which some hosts/redirects block).
+  return NextResponse.json({ ok: true, creditsCharged: CREDIT_COST, creditsRemaining: balance - CREDIT_COST, html, landingConfig })
 }

@@ -1445,18 +1445,16 @@
   var SH=G.showcaseHead||{};
   titleAccent(q('.showcase-section .section-title'), SH.title, SH.titleAccent);
   txt('.showcase-section .section-desc', SH.desc);
-  var SC=G.showcase||[], img=G.images||{};
-  var tile=[['a','0% 0%'],['a','100% 100%'],['b','0% 0%'],['b','100% 100%']];
+  var SC=G.showcase||[], img=G.images||{}, scImgs=img.showcase||[];
   qa('.showcase-card').forEach(function(card,i){ var it=SC[i]||{}; txt('.showcase-caption-badge',it.caption,card); txt('.showcase-body h3',it.title,card); txt('.showcase-body p',it.desc,card);
-    var wrap=q('.showcase-img-wrap',card), im=q('.showcase-img-wrap img',card); var t=tile[i]||['a','50% 50%']; var u=img[t[0]]||img.a;
-    if(wrap&&u){ wrap.style.backgroundImage="url('"+String(u).replace(/'/g,'%27')+"')"; wrap.style.backgroundSize='200%'; wrap.style.backgroundPosition=t[1]; wrap.style.backgroundRepeat='no-repeat'; if(im) im.style.display='none'; }
+    var im=q('.showcase-img-wrap img',card); var u=scImgs[i]; if(im&&u){ im.src=u; im.style.display=''; im.style.objectPosition='center'; if(it.caption) im.alt=it.caption; }
   });
 
   // Lifestyle
   var L=G.lifestyle||{};
   var lc=q('.lifestyle-content'); if(lc){ titleAccent(q('.section-title',lc), L.title, L.titleAccent); txt('p',L.para,lc); qa('.lifestyle-list li',lc).forEach(function(li,i){ if(L.items&&L.items[i]) label(li,L.items[i]); }); }
   txt('.lifestyle-img-overlay', L.overlay);
-  var lim=q('.lifestyle-img-wrap img'); if(lim){ if(img.a) lim.src=img.a; lim.style.objectPosition='50% 40%'; if(L.overlay) lim.alt=L.overlay; }
+  var lim=q('.lifestyle-img-wrap img'); if(lim){ if(img.lifestyle) lim.src=img.lifestyle; lim.style.objectPosition='center'; if(L.overlay) lim.alt=L.overlay; }
 
   // Reviews (desc was leaking sample text)
   txt('.proof-section .section-desc', G.reviewsDesc);

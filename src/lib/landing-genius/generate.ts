@@ -42,8 +42,8 @@ Given a product (with its REAL photos + details), invent a bespoke brand world +
   "problem":{"title":"<Arabic pain-point headline>","para":"<Arabic pain paragraph>","icons":["<2-3 word Arabic pain>","<...>","<...>","<...>"]},
   "benefits":{"title":"<Arabic>","titleAccent":"<Arabic highlighted tail>","desc":"<Arabic>","items":[{"title":"<Arabic>","desc":"<Arabic>"},{"title":"","desc":""},{"title":"","desc":""},{"title":"","desc":""},{"title":"","desc":""},{"title":"","desc":""}]},
   "showcaseHead":{"title":"<Arabic features headline>","titleAccent":"<Arabic highlighted tail>","desc":"<Arabic one-line about the product's strengths — NAME THIS product, never another>"},
-  "showcase":[{"caption":"<short Arabic BENEFIT label — a quality/strength of the product, NOT the name of a physical part>","title":"<Arabic benefit headline>","desc":"<Arabic benefit description — sell a strength; do NOT claim the image shows a specific component>"},{"caption":"","title":"","desc":""},{"caption":"","title":"","desc":""},{"caption":"","title":"","desc":""}],
-  "lifestyle":{"title":"<Arabic>","titleAccent":"<Arabic highlighted tail>","para":"<Arabic>","overlay":"<short Arabic caption>","items":["<Arabic point>","<...>","<...>","<...>"]},
+  "showcase":[{"caption":"<short Arabic feature/benefit label>","title":"<Arabic headline>","desc":"<Arabic supporting line>","img":"<ENGLISH image-to-image prompt that shows EXACTLY what this tile's caption/title/desc describes — the specific part, angle, or in-use moment. Product 100% identical to the reference photo. Premium commercial product photography, clean composition, soft light, no text, no watermark.>"},{"caption":"","title":"","desc":"","img":""},{"caption":"","title":"","desc":"","img":""},{"caption":"","title":"","desc":"","img":""}],
+  "lifestyle":{"title":"<Arabic>","titleAccent":"<Arabic highlighted tail>","para":"<Arabic>","overlay":"<short Arabic caption>","items":["<Arabic point>","<...>","<...>","<...>"],"img":"<ENGLISH image-to-image prompt: THIS EXACT product used naturally in a beautiful, aspirational room that suits it, warm cinematic light, product identical to the reference, photorealistic, no text, no watermark>"},
   "reviewsDesc":"<Arabic one-liner intro to the reviews — about THIS product>",
   "reviews":[{"quote":"<authentic Saudi Arabic review>","name":"<Saudi name>","city":"<Saudi city>"},{"quote":"","name":"","city":""},{"quote":"","name":"","city":""}],
   "urgency":"<Arabic urgency line incl. price>",
@@ -53,7 +53,7 @@ Given a product (with its REAL photos + details), invent a bespoke brand world +
   "faqDesc":"<Arabic one-liner intro to the FAQ — about THIS product>",
   "faq":[{"q":"<Arabic>","a":"<Arabic>"},{"q":"","a":""},{"q":"","a":""},{"q":"","a":""}]
 }
-RULES: benefits.items EXACTLY 6, showcase EXACTLY 4 (each a DIFFERENT real part/feature the customer should see), lifestyle.items EXACTLY 4, reviews EXACTLY 3, price.features EXACTLY 6, faq EXACTLY 4. The 4 showcase images are GENERAL premium shots of the product (not labeled component photos), so every showcase caption/title/desc must sell a BENEFIT or quality and must NEVER claim the image shows a specific named part (no "this is the tank/handle/head"). "brand" is the manufacturer only (never a slogan); "productName" is the concise name of what the product is — keep them clearly separate and both grounded in the given product title. Every headline/desc must describe THIS product only — never mention a different product category. Real persuasive Saudi Arabic, no lorem, no English. priceMain/price.amount are digits only. Palette must suit the product and be tasteful with strong contrast.`
+RULES: benefits.items EXACTLY 6, showcase EXACTLY 4 (each a DIFFERENT real part/feature the customer should see), lifestyle.items EXACTLY 4, reviews EXACTLY 3, price.features EXACTLY 6, faq EXACTLY 4. Each showcase tile gets ITS OWN image generated from that tile's "img" prompt, so write each "img" prompt to show EXACTLY what its caption/title/desc claims — the image and the text for a tile must match. The 4 showcase "img" prompts must be visibly different from each other (different part / angle / context). "brand" is the manufacturer only (never a slogan); "productName" is the concise name of what the product is — keep them clearly separate and both grounded in the given product title. Every headline/desc must describe THIS product only — never mention a different product category. Real persuasive Saudi Arabic, no lorem, no English. priceMain/price.amount are digits only. Palette must suit the product and be tasteful with strong contrast.`
 
 async function artDirect(client: Anthropic, p: GeniusProduct) {
   const r = await client.messages.create({
@@ -103,14 +103,14 @@ async function makeCutout(seedKey: string, refUrl: string): Promise<Buffer | nul
   } catch { return null } finally { rm(dir, { recursive: true, force: true }).catch(() => {}) }
 }
 
-// Two multi-angle montage prompts. Each frame packs several angles/details of the
-// SAME product so the template can crop distinct-looking tiles out of one image.
-// Each montage must spread DISTINCT views across the frame so that zooming into
-// opposite corners yields visibly different tiles (the shell crops 200% into
-// corners). A is a lifestyle scene with the product in different spots/angles;
-// B is a detail grid where each corner is a different part/feature.
-const MONTAGE_A = 'A single wide lifestyle photo of THIS EXACT product (identical color, shape, materials, branding to the reference) appearing in TWO or THREE different spots across the frame at clearly different angles and distances — e.g. a full front view on one side and a three-quarter or in-use view on the other — set in a premium, softly-lit room that suits the product category. Each area of the image shows a genuinely different view. Photorealistic commercial photography, cinematic soft light, no text, no watermark, no collage borders. Product stays 100% identical to the reference.'
-const MONTAGE_B = 'A clean 2x2 style composition on a neutral studio background showing FOUR clearly DIFFERENT close-up detail views of THIS EXACT product — a distinct real part or feature in each corner of the frame (top-left, top-right, bottom-left, bottom-right), each visibly different from the others. Premium macro product photography, crisp even lighting, no text, no watermark, no visible grid lines. Product stays 100% identical to the reference.'
+// Fallback image prompts if the model omits a per-tile "img" (kept product-generic).
+const FALLBACK_SHOWCASE = [
+  'A premium front-facing studio shot of THIS EXACT product on a clean neutral background, soft light, product identical to the reference, no text, no watermark.',
+  'A three-quarter angle studio shot of THIS EXACT product highlighting its build quality, clean neutral background, product identical to the reference, no text, no watermark.',
+  'A close-up detail shot of a key part of THIS EXACT product, premium macro photography, clean background, product identical to the reference, no text, no watermark.',
+  'A tasteful in-use shot of THIS EXACT product in a relevant setting, premium commercial photography, product identical to the reference, no text, no watermark.',
+]
+const FALLBACK_LIFESTYLE = 'THIS EXACT product used naturally in a beautiful, aspirational room that suits it, warm cinematic light, product identical to the reference, photorealistic, no text, no watermark.'
 
 // ── palette helpers ───────────────────────────────────────────────────────────
 const hexRgb = (h: string) => { const x = h.replace('#', ''); const n = parseInt(x.length === 3 ? x.split('').map(c => c + c).join('') : x, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] }
@@ -134,7 +134,9 @@ function applyPalette(html: string, pal: any): string {
 
 const GENIUS_MARKER = '<!--GENIUS_DATA-->'
 
-// ── STAGE 1 (prepare): content + 3 images (cutout + 2 montages). ~40-70s. ─
+// ── STAGE 1 (prepare): content FIRST, then one image PER showcase tile (built from
+// that tile's own prompt) + a lifestyle scene + the cutout. Content leads the image
+// so each tile shows exactly what its copy describes. 6 generations (~48 credits). ─
 export async function prepareAssets(
   p: GeniusProduct,
   keys: { anthropic: string; seedance: string },
@@ -142,19 +144,33 @@ export async function prepareAssets(
 ): Promise<{ art: any; generated: any[]; cutoutUrl: string }> {
   const client = new Anthropic({ apiKey: keys.anthropic })
   const art = await artDirect(client, p)
-  const ref = p.images[0]
-  const ref2 = p.images[1] || ref
-  // cutout + 2 montages CONCURRENTLY = exactly 3 generations (24 credits).
-  const [cutPng, montA, montB] = await Promise.all([
+  const refs = (p.images || []).filter(Boolean)
+  const ref = refs[0]
+
+  // The 4 showcase image prompts the model wrote for its own copy (fallbacks if missing).
+  const cards: any[] = Array.isArray(art.showcase) ? art.showcase : []
+  const showcasePrompts = [0, 1, 2, 3].map(i => (cards[i]?.img && String(cards[i].img).trim()) || FALLBACK_SHOWCASE[i])
+  const lifePrompt = (art.lifestyle?.img && String(art.lifestyle.img).trim()) || FALLBACK_LIFESTYLE
+
+  // Everything concurrently. Each image uses a real product photo as reference so the
+  // product stays identical; cycle refs so different tiles can start from different shots.
+  const [cutPng, s0, s1, s2, s3, life] = await Promise.all([
     makeCutout(keys.seedance, ref),
-    editImage(keys.seedance, ref, MONTAGE_A),
-    editImage(keys.seedance, ref2, MONTAGE_B),
+    editImage(keys.seedance, refs[0] || ref, showcasePrompts[0]),
+    editImage(keys.seedance, refs[1 % Math.max(refs.length, 1)] || ref, showcasePrompts[1]),
+    editImage(keys.seedance, refs[2 % Math.max(refs.length, 1)] || ref, showcasePrompts[2]),
+    editImage(keys.seedance, refs[3 % Math.max(refs.length, 1)] || ref, showcasePrompts[3]),
+    editImage(keys.seedance, ref, lifePrompt),
   ])
   const cutoutUrl = cutPng ? await uploadCutout(cutPng) : ref
-  // Fall back to the real product photos if a montage fails, so tiles never break.
+  // Fall back to a real product photo (then cutout) if any generation fails, so tiles never break.
+  const fb = (i: number) => refs[i % Math.max(refs.length, 1)] || cutoutUrl
   const generated = [
-    { key: 'a', url: montA || ref },
-    { key: 'b', url: montB || ref2 },
+    { key: 'f0', url: s0 || fb(0) },
+    { key: 'f1', url: s1 || fb(1) },
+    { key: 'f2', url: s2 || fb(2) },
+    { key: 'f3', url: s3 || fb(3) },
+    { key: 'life', url: life || s0 || fb(0) },
   ]
   return { art, generated, cutoutUrl }
 }
@@ -170,9 +186,12 @@ export async function assembleHtml(
   const compareAt = p.compareAtPrice != null && Number(p.compareAtPrice) > (Number(art?.price?.amount) || p.price || 0)
     ? Number(p.compareAtPrice) : null
 
-  // Gallery must always show 4: real product photos first, then the AI montages
+  const showcaseImgs = ['f0', 'f1', 'f2', 'f3'].map(imgOf)
+  const lifestyleImg = imgOf('life')
+
+  // Gallery must always show 4: real product photos first, then the AI feature shots
   // (and the cutout as a last resort) so a product with few photos still fills 4.
-  const galleryPool = [...(p.images || []).filter(Boolean), imgOf('a'), imgOf('b'), cutoutUrl]
+  const galleryPool = [...(p.images || []).filter(Boolean), ...showcaseImgs, cutoutUrl]
   const gallery = Array.from(new Set(galleryPool)).slice(0, 4)
 
   const GENIUS = {
@@ -196,7 +215,7 @@ export async function assembleHtml(
     faqDesc: art.faqDesc || '',
     faq: Array.isArray(art.faq) ? art.faq : [],
     gallery,
-    images: { a: imgOf('a'), b: imgOf('b'), cutout: cutoutUrl },
+    images: { showcase: showcaseImgs, lifestyle: lifestyleImg, cutout: cutoutUrl },
   }
 
   let html = applyPalette(TEMPLATE, art.palette || {})

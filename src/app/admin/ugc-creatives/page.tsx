@@ -67,6 +67,9 @@ export default function SeedancePage() {
   const [priceInput, setPriceInput] = useState('')
   const [discountInput, setDiscountInput] = useState('')
   const [productPage, setProductPage] = useState<ProductPage | null>(null)
+  // AI Studio premium landing (self-contained HTML) — previewed via srcDoc, no live-URL iframe.
+  const [geniusHtml, setGeniusHtml] = useState<string | null>(null)
+  const [geniusConfig, setGeniusConfig] = useState<any>(null)
   const [creatives, setCreatives] = useState<Creative[]>([])
   // Launch step
   const [launchIndex, setLaunchIndex] = useState(0)
@@ -158,6 +161,30 @@ export default function SeedancePage() {
       const page = await safeJson(cp, 'فشل إنشاء صفحة الهبوط')
       if (!cp.ok) throw new Error(page.error || 'تعذّر إنشاء صفحة الهبوط')
       setProductPage(page)
+
+      // AI Studio premium landing: art-direct + AI images (prepare) → assemble + save (finish).
+      // Overwrites the basic landing on this product with the self-contained custom_html page.
+      // If it fails we keep the basic landing as a safe fallback.
+      try {
+        const gBody = {
+          title: product.title, price: parseFloat(priceInput),
+          compareAtPrice: discountInput && parseFloat(discountInput) > 0 ? parseFloat(discountInput) : null,
+          description: product.description, features: [], images: images.slice(0, 6), currency: page.currency,
+        }
+        const prep = await fetch('/api/ai/landing-genius/prepare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(gBody) })
+        const pd = await safeJson(prep, 'تعذّر تجهيز صفحة الهبوط المميزة')
+        if (!prep.ok) throw new Error(pd.error || 'تعذّر تجهيز صفحة الهبوط المميزة')
+        const fin = await fetch('/api/ai/landing-genius', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: page.productId, ...gBody, art: pd.art, generated: pd.generated, cutoutUrl: pd.cutoutUrl }),
+        })
+        const fd = await safeJson(fin, 'تعذّر إنشاء صفحة الهبوط المميزة')
+        if (!fin.ok) throw new Error(fd.error || 'تعذّر إنشاء صفحة الهبوط المميزة')
+        if (fd.html) { setGeniusHtml(fd.html); setGeniusConfig(fd.landingConfig || null) }
+      } catch (ge: any) {
+        // Non-fatal: the basic landing already exists; just log and continue with the URL preview.
+        console.warn('AI Studio landing generation failed, using basic landing:', ge?.message)
+      }
 
       // Proxy all product images ONCE — reused for every creative so generation is fast.
       const px = await fetch('/api/admin/proxy-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrls: images.slice(0, 9) }) })
@@ -276,7 +303,7 @@ export default function SeedancePage() {
     : (step === 'creating_page' || step === 'landing') ? 3
     : step === 'pricing' ? 2 : 1
   const transitioning = step === 'creating_page' || step === 'planning'
-  const statusLabel = step === 'extracting' ? 'نقرأ تفاصيل منتجك…' : step === 'creating_page' ? 'نجهّز صفحة الهبوط…' : step === 'planning' ? 'نحلّل منتجك ونبتكر ١٠ زوايا إعلانية' : ''
+  const statusLabel = step === 'extracting' ? 'نقرأ تفاصيل منتجك…' : step === 'creating_page' ? 'نصمم صفحة هبوط احترافية بالذكاء الاصطناعي…' : step === 'planning' ? 'نحلّل منتجك ونبتكر ١٠ زوايا إعلانية' : ''
   const readyCount = creatives.filter(c => c.videoUrl || c.mergedUrl).length
   // A step is reachable if its data already exists (used for the clickable rail).
   const canGoTo = (n: number) => n === 1 || (n === 2 && !!product) || (n === 3 && !!productPage) || (n === 4 && creatives.length > 0) || (n === 5 && readyCount > 0)
@@ -483,7 +510,15 @@ export default function SeedancePage() {
                     <div className="absolute top-0 inset-x-0 h-6 flex justify-center z-10 pointer-events-none">
                       <span className="mt-1.5 h-1.5 w-16 rounded-full bg-white/15" />
                     </div>
-                    <iframe src={productPage.landingUrl} title="معاينة صفحة الهبوط" className="absolute inset-0 w-full h-full bg-white" loading="lazy" />
+                    {geniusHtml ? (
+                      <iframe
+                        srcDoc={geniusHtml.replace('<head>', `<head><script>window.LANDING_CONFIG=${JSON.stringify(geniusConfig || {})};</script>`)}
+                        title="معاينة صفحة الهبوط"
+                        className="absolute inset-0 w-full h-full bg-white"
+                      />
+                    ) : (
+                      <iframe src={productPage.landingUrl} title="معاينة صفحة الهبوط" className="absolute inset-0 w-full h-full bg-white" loading="lazy" />
+                    )}
                   </div>
                 </div>
 
@@ -741,7 +776,7 @@ export default function SeedancePage() {
               {[0, 1, 2].map(d => <span key={d} className="ugc-dot h-3 w-3 rounded-full bg-gradient-to-br from-[#6366f1] to-[#e11d48]" style={{ animationDelay: `${d * 0.18}s` }} />)}
             </div>
             <h3 className="font-display text-2xl sm:text-3xl font-semibold">{statusLabel}</h3>
-            <p className="mt-2 text-[14px] text-[#9aa0b4]">{step === 'planning' ? 'ندرس المنتج ونصمم لكل زاوية فكرة ومشهدًا وتعليقًا صوتيًا مختلفًا…' : 'نرتّب الصور والتفاصيل والسعر…'}</p>
+            <p className="mt-2 text-[14px] text-[#9aa0b4]">{step === 'planning' ? 'ندرس المنتج ونصمم لكل زاوية فكرة ومشهدًا وتعليقًا صوتيًا مختلفًا…' : 'نبني صور المنتج ونركّب صفحة هبوط كاملة — قد يستغرق دقيقتين…'}</p>
           </div>
         </div>
       )}

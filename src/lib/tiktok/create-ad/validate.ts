@@ -40,13 +40,6 @@ export function validateCreatePayload(
   const adv = resolvedAdvancedSummary(payload.targeting.advanced)
   const budgetAppliesAtAdgroup = adv.budgetLevel !== 'cbo'
 
-  if (adv.campaignType === 'smart_plus') {
-    return validationFail(
-      'Smart+ campaigns cannot be created from this wizard yet. Choose Standard campaign type in Advanced settings.',
-      'invalid_objective'
-    )
-  }
-
   if (budgetAppliesAtAdgroup && budget < min) {
     return validationFail(
       `Daily budget ${budget} ${currency} is below TikTok minimum (~${min} ${currency}).`,

@@ -1210,13 +1210,48 @@ export async function createTikTokAd(opts: {
       ad_name,
       display_name,
     })
-    // Smart+ ads use /smart_plus/ad/create/, which wants ad_name at the TOP level
-    // and the creative(s) under `creative_info` (the manual /ad/create/ nests ad_name
-    // inside the creative and uses `creatives`).
+    // Smart+ ads use /smart_plus/ad/create/ — an ACO-style body (verified live against
+    // the API): identity goes in ad_configuration; the creative sits in
+    // creative_list[].creative_info (video under video_info, cover under image_info.web_uri);
+    // text/CTA/landing-url are parallel single-item lists. The manual /ad/create/ instead
+    // nests everything inside a `creatives[]` object.
     const sp = payload.targeting.advanced.campaignType === 'smart_plus'
-    const body: Record<string, unknown> = sp
-      ? { request_id: numericRequestId(), adgroup_id, ad_name, creative_info: [creativeObject] }
-      : { adgroup_id, creatives: [creativeObject] }
+    let body: Record<string, unknown>
+    if (sp) {
+      const coverIds = creative.image_ids?.length
+        ? creative.image_ids
+        : creative.cover_image_id ? [creative.cover_image_id] : []
+      const creativeInfo: Record<string, unknown> = {
+        ad_format: creative.video_id ? 'SINGLE_VIDEO' : 'SINGLE_IMAGE',
+      }
+      if (creative.video_id) {
+        creativeInfo.video_info = { video_id: creative.video_id }
+        // A Smart+ video ad REQUIRES exactly one cover image (web_uri = uploaded cover material id).
+        if (coverIds.length) creativeInfo.image_info = [{ web_uri: coverIds[0] }]
+      } else if (coverIds.length) {
+        creativeInfo.image_info = coverIds.map(id => ({ web_uri: id }))
+      }
+      const adConfiguration: Record<string, unknown> = {
+        identity_id: identity.identity_id,
+        identity_type: identity.identity_type,
+      }
+      if (identity.identity_authorized_bc_id) {
+        adConfiguration.identity_authorized_bc_id = identity.identity_authorized_bc_id
+      }
+      body = {
+        request_id: numericRequestId(),
+        adgroup_id,
+        ad_name,
+        operation_status: 'ENABLE',
+        ad_configuration: adConfiguration,
+        creative_list: [{ creative_info: creativeInfo }],
+        ad_text_list: [{ ad_text: payload.creative.caption }],
+        call_to_action_list: [{ call_to_action: mapTikTokCallToAction(payload.creative.cta) }],
+        landing_page_url_list: [{ landing_page_url: payload.product.landing_url }],
+      }
+    } else {
+      body = { adgroup_id, creatives: [creativeObject] }
+    }
     const fullRequest = {
       advertiser_id: connection.advertiser_id,
       ...body,

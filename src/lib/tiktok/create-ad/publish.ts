@@ -6,6 +6,7 @@ import {
   type ResolvedCreativeMedia,
 } from '@/lib/product-creatives/server'
 import type { ProductCreativeItem } from '@/lib/product-creatives/types'
+import { numericRequestId } from '@/lib/tiktok/create-ad/payloads'
 import { TIKTOK } from '@/lib/tiktok/server'
 import {
   materialBaseName,
@@ -1213,7 +1214,7 @@ export async function createTikTokAd(opts: {
     // (the manual /ad/create/ nests it inside the creative).
     const sp = payload.targeting.advanced.campaignType === 'smart_plus'
     const body: Record<string, unknown> = sp
-      ? { adgroup_id, ad_name, creatives: [creativeObject] }
+      ? { request_id: numericRequestId(), adgroup_id, ad_name, creatives: [creativeObject] }
       : { adgroup_id, creatives: [creativeObject] }
     const fullRequest = {
       advertiser_id: connection.advertiser_id,

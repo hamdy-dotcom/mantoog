@@ -77,9 +77,14 @@ export function buildCampaignPayload(payload: CreateAdWizardPayload) {
 // TikTok auto-manages targeting, bidding, placement and creative optimization. Fields
 // reverse-engineered live against the TikTok API (web-conversion / orders goal).
 // Campaign is created PAUSED so the admin reviews and enables it in TikTok Ads Manager.
+// Smart+ create endpoints require a numeric request_id (idempotency key). It MUST be
+// an integer string — TikTok rejects a missing/non-numeric value with code 40002.
+export const numericRequestId = () => `${Date.now()}${Math.floor(Math.random() * 100000)}`
+
 export function buildSmartPlusCampaignPayload(payload: CreateAdWizardPayload) {
   const objective = goalObjective(payload.targeting.goal) // orders → WEB_CONVERSIONS
   const body: Record<string, unknown> = {
+    request_id: numericRequestId(),
     campaign_name: buildCampaignName(payload.product.title, payload.targeting.goal),
     objective_type: objective,
     budget_mode: 'BUDGET_MODE_DYNAMIC_DAILY_BUDGET', // daily budget (NOT BUDGET_MODE_DAY, which Smart+ rejects)
@@ -101,6 +106,7 @@ export function buildSmartPlusAdgroupPayload(
     : payload.product.title
 
   const body: Record<string, unknown> = {
+    request_id: numericRequestId(),
     campaign_id: campaignId,
     adgroup_name: `${productShort} - Ad group - ${uniqueNameSuffix().slice(-8)}`,
     promotion_type: 'WEBSITE',

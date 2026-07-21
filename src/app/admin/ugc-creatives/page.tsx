@@ -70,6 +70,7 @@ export default function SeedancePage() {
   // AI Studio premium landing (self-contained HTML) — previewed via srcDoc, no live-URL iframe.
   const [geniusHtml, setGeniusHtml] = useState<string | null>(null)
   const [geniusConfig, setGeniusConfig] = useState<any>(null)
+  const [geniusWarning, setGeniusWarning] = useState<string | null>(null)
   const [creatives, setCreatives] = useState<Creative[]>([])
   // Launch step
   const [launchIndex, setLaunchIndex] = useState(0)
@@ -180,10 +181,12 @@ export default function SeedancePage() {
         })
         const fd = await safeJson(fin, 'تعذّر إنشاء صفحة الهبوط المميزة')
         if (!fin.ok) throw new Error(fd.error || 'تعذّر إنشاء صفحة الهبوط المميزة')
-        if (fd.html) { setGeniusHtml(fd.html); setGeniusConfig(fd.landingConfig || null) }
+        if (fd.html) { setGeniusHtml(fd.html); setGeniusConfig(fd.landingConfig || null); setGeniusWarning(null) }
       } catch (ge: any) {
-        // Non-fatal: the basic landing already exists; just log and continue with the URL preview.
+        // Non-fatal: the basic landing already exists. Surface WHY (e.g. رصيد غير كافٍ)
+        // so the fallback is never silent — the user always knows what happened.
         console.warn('AI Studio landing generation failed, using basic landing:', ge?.message)
+        setGeniusWarning(ge?.message || 'تعذّر إنشاء صفحة الهبوط المميزة')
       }
 
       // Proxy all product images ONCE — reused for every creative so generation is fast.
@@ -542,6 +545,13 @@ export default function SeedancePage() {
                       {Ico.ext('h-4 w-4')} فتح صفحة الهبوط في تبويب جديد
                     </a>
                   </div>
+
+                  {geniusWarning && (
+                    <div className="rounded-xl border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-4 py-3 text-[13px] text-[#fbbf24] leading-relaxed">
+                      تعذّر إنشاء صفحة الهبوط المميزة (استوديو الإعلانات) — عُرضت الصفحة الأساسية بدلاً منها.<br />
+                      <span className="text-[12px] text-[#fcd34d]/80">السبب: {geniusWarning}</span>
+                    </div>
+                  )}
 
                   {error && <div className="rounded-xl border border-[#e11d48]/30 bg-[#e11d48]/10 px-4 py-2.5 text-[13px] text-[#fb7185]">{error}</div>}
 

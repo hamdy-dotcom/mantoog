@@ -1211,10 +1211,11 @@ export async function createTikTokAd(opts: {
       display_name,
     })
     // Smart+ ads use /smart_plus/ad/create/, which wants ad_name at the TOP level
-    // (the manual /ad/create/ nests it inside the creative).
+    // and the creative(s) under `creative_info` (the manual /ad/create/ nests ad_name
+    // inside the creative and uses `creatives`).
     const sp = payload.targeting.advanced.campaignType === 'smart_plus'
     const body: Record<string, unknown> = sp
-      ? { request_id: numericRequestId(), adgroup_id, ad_name, creatives: [creativeObject] }
+      ? { request_id: numericRequestId(), adgroup_id, ad_name, creative_info: [creativeObject] }
       : { adgroup_id, creatives: [creativeObject] }
     const fullRequest = {
       advertiser_id: connection.advertiser_id,

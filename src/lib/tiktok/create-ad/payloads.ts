@@ -116,6 +116,9 @@ export function buildSmartPlusAdgroupPayload(
     schedule_start_time: localDatetimeToTikTok(payload.targeting.schedule_start),
     optimization_goal: 'CONVERT',
     billing_event: 'OCPM',
+    // Automatic (lowest-cost) bidding — Smart+ optimizes delivery itself. Without this
+    // TikTok defaults to custom bidding and rejects with "Please enter a cost per conversion".
+    bid_type: 'BID_TYPE_NO_BID',
     placement_type: 'PLACEMENT_TYPE_NORMAL',
     placements: ['PLACEMENT_TIKTOK'],
     operation_status: 'ENABLE',

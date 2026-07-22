@@ -89,7 +89,7 @@ export function buildSmartPlusCampaignPayload(payload: CreateAdWizardPayload) {
     objective_type: objective,
     budget_mode: 'BUDGET_MODE_DYNAMIC_DAILY_BUDGET', // daily budget (NOT BUDGET_MODE_DAY, which Smart+ rejects)
     budget: payload.targeting.daily_budget,
-    operation_status: 'DISABLE', // created paused for review; enable in TikTok Ads Manager
+    operation_status: 'ENABLE', // launches live — delivery starts once TikTok's ad review passes
   }
   if (objective === 'WEB_CONVERSIONS') body.sales_destination = 'WEBSITE'
   return body

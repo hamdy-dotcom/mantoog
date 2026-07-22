@@ -45,6 +45,9 @@ const Ico = {
   ext: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>),
   mic: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v4" /></svg>),
   rocket: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" /><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" /><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" /></svg>),
+  heart: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>),
+  comment: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2C6.48 2 2 5.94 2 10.8c0 2.8 1.49 5.29 3.81 6.9-.13 1.09-.52 2.55-1.55 3.62 1.98-.13 3.6-.9 4.74-1.68.96.24 1.97.36 3 .36 5.52 0 10-3.94 10-8.8S17.52 2 12 2z" /></svg>),
+  share: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M13.5 4.5v3.2C7.9 8.3 4 12 3 17.5c2.4-3.1 5.7-4.7 10.5-4.7v3.7L21 9l-7.5-4.5z" /></svg>),
 }
 
 const STEPS = [
@@ -79,7 +82,7 @@ export default function SeedancePage() {
   const [smartPlus, setSmartPlus] = useState(true)
   const [launchResult, setLaunchResult] = useState<any>(null)
   // Connected TikTok ad account — its currency drives the budget field (may differ from store currency).
-  const [adAccount, setAdAccount] = useState<{ advertiser_id: string; currency: string | null; name: string | null } | null>(null)
+  const [adAccount, setAdAccount] = useState<{ advertiser_id: string; currency: string | null; name: string | null; identity?: { display_name: string | null; profile_image: string | null } | null } | null>(null)
   const [showPixelModal, setShowPixelModal] = useState(false)
   const [pixelInput, setPixelInput] = useState('')
   const [pixelError, setPixelError] = useState<string | null>(null)
@@ -700,10 +703,10 @@ export default function SeedancePage() {
                   <h2 className="font-display text-3xl sm:text-4xl font-semibold">تم إطلاق حملتك</h2>
                   <p className="mt-2.5 text-[15px] text-[#9aa0b4] leading-relaxed">أنشأنا الحملة والمجموعة الإعلانية والإعلان على TikTok.</p>
 
-                  {/* paused-for-review notice */}
-                  <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#fbbf24]/25 bg-[#fbbf24]/10 px-4 py-2 text-[12.5px] font-bold text-[#fbbf24]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#fbbf24]" />
-                    الحملة موقوفة (Paused) — راجعها ثم فعّلها من Ads Manager
+                  {/* live-after-review notice */}
+                  <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#4ade80]/25 bg-[#4ade80]/10 px-4 py-2 text-[12.5px] font-bold text-[#4ade80]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#4ade80] animate-pulse" />
+                    الحملة نشطة — يبدأ العرض بعد اجتياز مراجعة TikTok
                   </div>
 
                   {/* launch summary */}
@@ -768,6 +771,34 @@ export default function SeedancePage() {
                     </div>
                   </div>
 
+                  <div className="grid md:grid-cols-[236px_1fr] gap-6 items-start">
+                  {/* TikTok-style preview — how the ad looks to the customer */}
+                  <div className="mx-auto md:mx-0 w-[236px] max-w-full">
+                    <div className="relative rounded-[2rem] border-8 border-[#17171f] bg-black shadow-2xl overflow-hidden" style={{ aspectRatio: '9/17' }}>
+                      {launchVideo && <video key={launchVideo} src={launchVideo} muted autoPlay loop playsInline className="absolute inset-0 h-full w-full object-cover" />}
+                      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
+                      {/* action rail */}
+                      <div className="absolute right-2 bottom-[86px] flex flex-col items-center gap-3.5 text-white">
+                        {adAccount?.identity?.profile_image
+                          ? <img src={adAccount.identity.profile_image} alt="" className="h-9 w-9 rounded-full border-2 border-white object-cover" />
+                          : <span className="grid place-items-center h-9 w-9 rounded-full border-2 border-white bg-white/20 text-[13px] font-bold">{(adAccount?.identity?.display_name || 'م').slice(0, 1)}</span>}
+                        <span className="flex flex-col items-center gap-0.5">{Ico.heart('h-6 w-6 drop-shadow')}<b className="text-[9px]">12.4K</b></span>
+                        <span className="flex flex-col items-center gap-0.5">{Ico.comment('h-6 w-6 drop-shadow')}<b className="text-[9px]">341</b></span>
+                        <span className="flex flex-col items-center gap-0.5">{Ico.share('h-6 w-6 drop-shadow')}<b className="text-[9px]">96</b></span>
+                      </div>
+                      {/* caption + CTA */}
+                      <div className="absolute bottom-2.5 left-2.5 right-12 text-white space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[12px] font-bold drop-shadow truncate">{adAccount?.identity?.display_name || productPage?.titleAr || 'متجرك'}</span>
+                          <span className="shrink-0 rounded-[3px] bg-white/25 px-1 py-px text-[7.5px] font-bold">ممول</span>
+                        </div>
+                        <p className="text-[10.5px] leading-snug text-white/90 line-clamp-2 drop-shadow">{productPage?.caption}</p>
+                        <div className="rounded-md bg-[#FE2C55] text-center text-[11px] font-bold py-1.5">اطلب الآن</div>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-center text-[10.5px] text-[#5a5f72]">معاينة تقريبية لشكل الإعلان عند العميل — قد يبدّل TikTok زر الإجراء تلقائيًا</p>
+                  </div>
+
                   <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 space-y-5">
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div>
@@ -795,7 +826,7 @@ export default function SeedancePage() {
                       </span>
                       <span className="flex-1 mr-3">
                         <span className="block text-[13.5px] font-bold text-white">حملة Smart+ (ذكية) ⚡</span>
-                        <span className="block text-[11.5px] text-[#9aa0b4] mt-0.5">تتولى TikTok الاستهداف والمزايدة والتوزيع تلقائيًا. تُنشأ الحملة موقوفة (Paused) للمراجعة — فعّلها من TikTok Ads Manager.</span>
+                        <span className="block text-[11.5px] text-[#9aa0b4] mt-0.5">تتولى TikTok الاستهداف والمزايدة والتوزيع تلقائيًا. تنطلق الحملة مباشرة ويبدأ العرض بعد اجتياز مراجعة TikTok.</span>
                       </span>
                     </button>
 
@@ -822,6 +853,7 @@ export default function SeedancePage() {
                         {step === 'launching' ? (<><span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> جاري الإطلاق…</>) : (<>{Ico.rocket('h-4 w-4')} أطلق الإعلان</>)}
                       </button>
                     </div>
+                  </div>
                   </div>
                 </>
               )}

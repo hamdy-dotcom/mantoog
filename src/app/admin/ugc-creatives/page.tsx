@@ -78,6 +78,8 @@ export default function SeedancePage() {
   const [startAt, setStartAt] = useState(defaultStartLocal())
   const [smartPlus, setSmartPlus] = useState(true)
   const [launchResult, setLaunchResult] = useState<any>(null)
+  // Connected TikTok ad account — its currency drives the budget field (may differ from store currency).
+  const [adAccount, setAdAccount] = useState<{ advertiser_id: string; currency: string | null; name: string | null } | null>(null)
   const [showPixelModal, setShowPixelModal] = useState(false)
   const [pixelInput, setPixelInput] = useState('')
   const [pixelError, setPixelError] = useState<string | null>(null)
@@ -88,6 +90,15 @@ export default function SeedancePage() {
     const s = createClient()
     s.auth.getUser().then(({ data: { user } }) => { if (!user) { router.push('/admin/login'); return } setAuthed(true) })
   }, [router])
+
+  // Load the connected ad account (currency for the budget field, id for Ads Manager links).
+  useEffect(() => {
+    if (!authed) return
+    fetch('/api/admin/tiktok-ad-account')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.advertiser_id) setAdAccount(d) })
+      .catch(() => {})
+  }, [authed])
 
   const update = useCallback((i: number, patch: Partial<Creative>) => {
     setCreatives(prev => prev.map((c, idx) => idx === i ? { ...c, ...patch } : c))
@@ -684,12 +695,50 @@ export default function SeedancePage() {
           <section key="s5" className="ugc-rise min-h-[100svh] flex flex-col justify-center px-6 pt-24 pb-16">
             <div className="max-w-3xl w-full mx-auto">
               {step === 'launched' ? (
-                <div className="text-center">
-                  <div className="mx-auto grid place-items-center h-16 w-16 rounded-full bg-[#4ade80]/15 text-[#4ade80] mb-5">{Ico.check('h-8 w-8')}</div>
-                  <h2 className="font-display text-3xl sm:text-4xl font-semibold">تم إطلاق الإعلان</h2>
-                  <p className="mt-2 text-[15px] text-[#9aa0b4]">إعلانك الآن على TikTok. {launchResult?.creditsRemaining != null && `الرصيد المتبقي: ${toAr(launchResult.creditsRemaining)}.`}</p>
-                  <pre className="mt-6 text-right text-[12px] text-[#9aa0b4] leading-relaxed whitespace-pre-wrap break-all bg-black/40 border border-white/10 rounded-2xl p-4 max-h-64 overflow-auto" dir="ltr">{JSON.stringify(launchResult, null, 2)}</pre>
-                  <button onClick={resetAll} className="mt-6 inline-flex items-center gap-2 rounded-full bg-white/8 hover:bg-white/14 px-6 py-3 text-[14px] font-bold text-white cursor-pointer transition-colors">أنشئ إعلانًا جديدًا</button>
+                <div className="max-w-lg mx-auto text-center">
+                  <div className="mx-auto grid place-items-center h-20 w-20 rounded-full bg-gradient-to-br from-[#4ade80]/25 to-[#4ade80]/5 ring-1 ring-[#4ade80]/30 text-[#4ade80] mb-6">{Ico.check('h-9 w-9')}</div>
+                  <h2 className="font-display text-3xl sm:text-4xl font-semibold">تم إطلاق حملتك</h2>
+                  <p className="mt-2.5 text-[15px] text-[#9aa0b4] leading-relaxed">أنشأنا الحملة والمجموعة الإعلانية والإعلان على TikTok.</p>
+
+                  {/* paused-for-review notice */}
+                  <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#fbbf24]/25 bg-[#fbbf24]/10 px-4 py-2 text-[12.5px] font-bold text-[#fbbf24]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#fbbf24]" />
+                    الحملة موقوفة (Paused) — راجعها ثم فعّلها من Ads Manager
+                  </div>
+
+                  {/* launch summary */}
+                  <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] overflow-hidden text-right">
+                    {[
+                      { label: 'الحملة', value: launchResult?.campaign_id },
+                      { label: 'المجموعة الإعلانية', value: launchResult?.adgroup_id },
+                      { label: 'الإعلان', value: launchResult?.ad_id },
+                    ].filter(r => r.value).map((r, i) => (
+                      <div key={r.label} className={`flex items-center justify-between gap-4 px-5 py-3.5 ${i > 0 ? 'border-t border-white/5' : ''}`}>
+                        <span className="text-[13px] font-bold text-[#9aa0b4] shrink-0">{r.label}</span>
+                        <span className="font-mono text-[12.5px] text-white/85 truncate" dir="ltr">{r.value}</span>
+                      </div>
+                    ))}
+                    {launchResult?.creditsCharged != null && (
+                      <div className="flex items-center justify-between gap-4 px-5 py-3.5 border-t border-white/5 bg-black/20">
+                        <span className="text-[13px] font-bold text-[#9aa0b4]">الرصيد</span>
+                        <span className="text-[13px] font-bold text-white">
+                          خُصم {toAr(launchResult.creditsCharged)}
+                          {launchResult?.creditsRemaining != null && <span className="text-[#9aa0b4] font-semibold"> · المتبقي {toAr(launchResult.creditsRemaining)}</span>}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-7 flex flex-col sm:flex-row-reverse items-center justify-center gap-3">
+                    <a href={`https://ads.tiktok.com/i18n/manage/campaign${adAccount?.advertiser_id ? `?aadvid=${adAccount.advertiser_id}` : ''}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-l from-[#6366f1] to-[#e11d48] px-7 py-3.5 text-[14px] font-bold text-white shadow-lg shadow-[#6366f1]/25 hover:brightness-110 cursor-pointer transition-all">
+                      {Ico.ext('h-4 w-4')} افتح TikTok Ads Manager
+                    </a>
+                    <button onClick={resetAll} className="inline-flex items-center gap-2 rounded-full border border-white/10 hover:border-white/25 px-6 py-3.5 text-[14px] font-bold text-[#c9cdda] hover:text-white cursor-pointer transition-colors">
+                      أنشئ إعلانًا جديدًا
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
@@ -722,9 +771,12 @@ export default function SeedancePage() {
                   <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 space-y-5">
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[12px] font-bold text-[#9aa0b4] mb-2">الميزانية اليومية ({productPage?.currency || 'ر.س'})</label>
+                        <label className="block text-[12px] font-bold text-[#9aa0b4] mb-2">الميزانية اليومية ({adAccount?.currency || productPage?.currency || 'ر.س'})</label>
                         <input type="number" dir="ltr" min="1" value={dailyBudget} onChange={e => setDailyBudget(e.target.value)}
                           className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3.5 text-lg font-bold text-white outline-none focus:border-[#6366f1]/60 text-right" />
+                        {adAccount?.currency && productPage?.currency && adAccount.currency !== productPage.currency && (
+                          <p className="mt-1.5 text-[11px] text-[#fbbf24]">عملة الحساب الإعلاني ({adAccount.currency}) تختلف عن عملة متجرك ({productPage.currency}) — الميزانية تُخصم بعملة الحساب الإعلاني.</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-[12px] font-bold text-[#9aa0b4] mb-2">وقت البدء</label>

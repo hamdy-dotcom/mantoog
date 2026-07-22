@@ -118,12 +118,21 @@ const toHex = (r: number, g: number, b: number) => '#' + [r, g, b].map(v => Math
 const darken = (h: string, f = 0.72) => { const [r, g, b] = hexRgb(h); return toHex(r * f, g * f, b * f) }
 const lighten = (h: string, f = 0.9) => { const [r, g, b] = hexRgb(h); return toHex(r + (255 - r) * f, g + (255 - g) * f, b + (255 - b) * f) }
 
+const luminance = (h: string) => { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255 }
+
 // Apply the art-directed palette to the fixed shell's CSS (var values + the
 // blue-tinted rgba literals baked into the stylesheet). Deterministic, instant.
+// The shell is a LIGHT design (hero/sections have light backgrounds baked in), so a
+// "dark theme" palette from the model would render light text on light bg — clamp:
+// backgrounds must stay light, text/muted must stay dark.
 function applyPalette(html: string, pal: any): string {
   let h = html
   const set = (name: string, val?: string) => { if (val) h = h.replace(new RegExp(`(--${name}:)\\s*[^;]+;`), `$1 ${val};`) }
-  set('bg', pal.bg); set('surface', pal.surface); set('primary', pal.primary); set('accent', pal.accent); set('text', pal.text); set('muted', pal.muted)
+  const bg = pal.bg && luminance(pal.bg) >= 0.55 ? pal.bg : undefined
+  const surface = pal.surface && luminance(pal.surface) >= 0.6 ? pal.surface : undefined
+  const text = pal.text ? (luminance(pal.text) <= 0.45 ? pal.text : '#1A202C') : undefined
+  const muted = pal.muted ? (luminance(pal.muted) <= 0.55 ? pal.muted : '#718096') : undefined
+  set('bg', bg); set('surface', surface); set('primary', pal.primary); set('accent', pal.accent); set('text', text); set('muted', muted)
   if (pal.primary) {
     set('primary-dark', darken(pal.primary)); set('primary-light', lighten(pal.primary))
     const [r, g, b] = hexRgb(pal.primary)

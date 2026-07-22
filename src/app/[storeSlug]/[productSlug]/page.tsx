@@ -798,8 +798,19 @@ export default function LandingPage() {
   // LANDING_CONFIG is injected live from the product/offers so it stays editable, and
   // the checkout drawer's order is routed into Mantoog's own handleSubmit.
   if (landingPage?.landing_type === 'custom_html' && landingPage?.custom_html) {
+    // Prefer the page's own (Arabic) product name from the baked GENIUS payload —
+    // the DB title can be the raw scraped English title, which would leak into the
+    // checkout drawer otherwise.
+    let geniusName: string | undefined
+    try {
+      const m = String(landingPage.custom_html).match(/window\.GENIUS = (\{[\s\S]*?\});<\/script>/)
+      if (m) {
+        const g = JSON.parse(m[1])
+        geniusName = g?.productName || g?.brand || undefined
+      }
+    } catch { /* fall back to DB title */ }
     const cfg = {
-      productName: product?.title,
+      productName: geniusName || product?.title,
       price: parseFloat(product?.price || 0),
       currency: store?.currency || 'ريال',
       showQuantity: !!store?.show_quantity,

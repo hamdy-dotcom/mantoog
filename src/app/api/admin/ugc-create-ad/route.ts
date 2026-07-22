@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const auth = await assertAdmin()
   if (!auth.ok) return auth.response
 
-  const { productId, videoUrl, caption, dailyBudget, scheduleStart, smartPlus } = await req.json().catch(() => ({}))
+  const { productId, videoUrl, caption, dailyBudget, scheduleStart, smartPlus, advanced } = await req.json().catch(() => ({}))
   if (!productId || !videoUrl) return NextResponse.json({ error: 'productId and videoUrl required' }, { status: 400 })
   const budget = Number(dailyBudget)
   if (!Number.isFinite(budget) || budget <= 0) return NextResponse.json({ error: 'valid dailyBudget required' }, { status: 400 })
@@ -113,8 +113,22 @@ export async function POST(req: NextRequest) {
       age_groups: AGE_OPTIONS.map(a => a.id), // all ages (TikTok requires them explicit)
       gender: 'GENDER_UNLIMITED',
       // Smart+ by default → dedicated /smart_plus/* endpoints (TikTok auto-optimizes
-      // targeting/bidding/placement). The Smart+ campaign is created PAUSED for review.
-      advanced: { ...DEFAULT_ADVANCED, touched: true, campaignType: smartPlus === false ? 'standard' : 'smart_plus' },
+      // targeting/bidding/placement). Optional per-launch overrides from the wizard's
+      // advanced panel (comments/download/share toggles, Pangle placement, cost cap).
+      advanced: {
+        ...DEFAULT_ADVANCED,
+        touched: true,
+        campaignType: smartPlus === false ? 'standard' : 'smart_plus',
+        comment_disabled: advanced?.commentDisabled === true,
+        video_download_disabled: advanced?.downloadDisabled === true,
+        share_disabled: advanced?.shareDisabled === true,
+        ...(advanced?.pangle === true
+          ? { placement: 'manual' as const, placements: ['PLACEMENT_TIKTOK', 'PLACEMENT_PANGLE'] }
+          : {}),
+        ...(advanced?.bidStrategy === 'cost_cap' && Number(advanced?.bidCap) > 0
+          ? { bidStrategy: 'cost_cap' as const, bidCap: Number(advanced.bidCap) }
+          : {}),
+      },
       conversion_event: 'place_an_order',
     },
     identity: { identity_id: null }, // auto-pick first available

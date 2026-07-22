@@ -45,6 +45,7 @@ const Ico = {
   ext: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>),
   mic: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v4" /></svg>),
   rocket: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" /><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" /><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" /></svg>),
+  chev: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 9l6 6 6-6" /></svg>),
   heart: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>),
   comment: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2C6.48 2 2 5.94 2 10.8c0 2.8 1.49 5.29 3.81 6.9-.13 1.09-.52 2.55-1.55 3.62 1.98-.13 3.6-.9 4.74-1.68.96.24 1.97.36 3 .36 5.52 0 10-3.94 10-8.8S17.52 2 12 2z" /></svg>),
   share: (c = '') => (<svg className={c} viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M13.5 4.5v3.2C7.9 8.3 4 12 3 17.5c2.4-3.1 5.7-4.7 10.5-4.7v3.7L21 9l-7.5-4.5z" /></svg>),
@@ -80,6 +81,15 @@ export default function SeedancePage() {
   const [dailyBudget, setDailyBudget] = useState('50')
   const [startAt, setStartAt] = useState(defaultStartLocal())
   const [smartPlus, setSmartPlus] = useState(true)
+  // Editable ad text (falls back to the AI caption) + optional advanced overrides.
+  const [adCaption, setAdCaption] = useState<string | null>(null)
+  const [advOpen, setAdvOpen] = useState(false)
+  const [optComments, setOptComments] = useState(true)   // allow comments
+  const [optDownload, setOptDownload] = useState(true)   // allow video download
+  const [optShare, setOptShare] = useState(true)         // allow sharing
+  const [optPangle, setOptPangle] = useState(false)      // extend placement to Pangle
+  const [optBidMode, setOptBidMode] = useState<'auto' | 'cost_cap'>('auto')
+  const [optBidCap, setOptBidCap] = useState('')
   const [launchResult, setLaunchResult] = useState<any>(null)
   // Connected TikTok ad account — its currency drives the budget field (may differ from store currency).
   const [adAccount, setAdAccount] = useState<{ advertiser_id: string; currency: string | null; name: string | null; identity?: { display_name: string | null; profile_image: string | null } | null } | null>(null)
@@ -269,10 +279,18 @@ export default function SeedancePage() {
         body: JSON.stringify({
           productId: productPage.productId,
           videoUrl: launchVideo,
-          caption: productPage.caption,
+          caption: (adCaption ?? productPage.caption).trim() || productPage.caption,
           dailyBudget: parseFloat(dailyBudget) || 0,
           scheduleStart: startAt,
           smartPlus,
+          advanced: {
+            commentDisabled: !optComments,
+            downloadDisabled: !optDownload,
+            shareDisabled: !optShare,
+            pangle: optPangle,
+            bidStrategy: optBidMode,
+            bidCap: optBidMode === 'cost_cap' ? parseFloat(optBidCap) || null : null,
+          },
         }),
       })
       const data = await res.json()
@@ -300,6 +318,8 @@ export default function SeedancePage() {
     setStep('idle'); setError(null); setProduct(null); setImages([]); setProxiedImages([])
     setProductPage(null); setCreatives([]); setPriceInput(''); setDiscountInput('')
     setLaunchResult(null); setLaunchIndex(0); setShowPixelModal(false); setPixelInput(''); setPixelError(null)
+    setAdCaption(null); setAdvOpen(false); setOptComments(true); setOptDownload(true); setOptShare(true)
+    setOptPangle(false); setOptBidMode('auto'); setOptBidCap('')
   }
 
   // Revisit a previous step (only ones whose content already exists).
@@ -792,7 +812,7 @@ export default function SeedancePage() {
                           <span className="text-[12px] font-bold drop-shadow truncate">{adAccount?.identity?.display_name || productPage?.titleAr || 'متجرك'}</span>
                           <span className="shrink-0 rounded-[3px] bg-white/25 px-1 py-px text-[7.5px] font-bold">ممول</span>
                         </div>
-                        <p className="text-[10.5px] leading-snug text-white/90 line-clamp-2 drop-shadow">{productPage?.caption}</p>
+                        <p className="text-[10.5px] leading-snug text-white/90 line-clamp-2 drop-shadow">{adCaption ?? productPage?.caption}</p>
                         <div className="rounded-md bg-[#FE2C55] text-center text-[11px] font-bold py-1.5">اطلب الآن</div>
                       </div>
                     </div>
@@ -816,6 +836,21 @@ export default function SeedancePage() {
                       </div>
                     </div>
 
+                    {/* editable ad text (shown under the video in the ad + live in the preview) */}
+                    <div>
+                      <label className="block text-[12px] font-bold text-[#9aa0b4] mb-2">نص الإعلان <span className="font-semibold text-[#5a5f72]">— يظهر تحت الفيديو</span></label>
+                      <textarea dir="auto" rows={2} maxLength={100}
+                        value={adCaption ?? productPage?.caption ?? ''}
+                        onChange={e => setAdCaption(e.target.value)}
+                        className="w-full resize-none rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-[13.5px] leading-relaxed text-white outline-none focus:border-[#6366f1]/60" />
+                      <div className="mt-1 flex items-center justify-between text-[10.5px] text-[#5a5f72]">
+                        <span>{toAr((adCaption ?? productPage?.caption ?? '').length)}/١٠٠</span>
+                        {adCaption != null && adCaption !== productPage?.caption && (
+                          <button onClick={() => setAdCaption(null)} className="text-[#818cf8] hover:text-[#a5b4fc] cursor-pointer transition-colors">استعادة النص الأصلي</button>
+                        )}
+                      </div>
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => setSmartPlus(v => !v)}
@@ -829,6 +864,73 @@ export default function SeedancePage() {
                         <span className="block text-[11.5px] text-[#9aa0b4] mt-0.5">تتولى TikTok الاستهداف والمزايدة والتوزيع تلقائيًا. تنطلق الحملة مباشرة ويبدأ العرض بعد اجتياز مراجعة TikTok.</span>
                       </span>
                     </button>
+
+                    {/* advanced options — optional; defaults match the proven auto setup */}
+                    <div className="rounded-xl bg-black/30 border border-white/10 overflow-hidden">
+                      <button type="button" onClick={() => setAdvOpen(v => !v)}
+                        className="w-full flex items-center justify-between px-4 py-3 text-right cursor-pointer hover:bg-white/[0.03] transition-colors">
+                        <span className={`text-[#9aa0b4] transition-transform ${advOpen ? 'rotate-180' : ''}`}>{Ico.chev('h-4 w-4')}</span>
+                        <span>
+                          <span className="block text-[13px] font-bold text-white">خيارات متقدمة</span>
+                          <span className="block text-[11px] text-[#6b7080] mt-0.5">اختياري — التعليقات، أماكن العرض، المزايدة. اتركها كما هي وتنطلق بالإعداد الموصى به.</span>
+                        </span>
+                      </button>
+                      {advOpen && (
+                        <div className="border-t border-white/5 px-4 py-4 space-y-4">
+                          {/* interaction toggles */}
+                          <div className="grid grid-cols-3 gap-2">
+                            {([
+                              { label: 'التعليقات', on: optComments, set: setOptComments },
+                              { label: 'تنزيل الفيديو', on: optDownload, set: setOptDownload },
+                              { label: 'المشاركة', on: optShare, set: setOptShare },
+                            ] as const).map(t => (
+                              <button key={t.label} type="button" onClick={() => t.set(v => !v)}
+                                className={`rounded-lg border px-2 py-2.5 text-[11.5px] font-bold cursor-pointer transition-colors ${t.on ? 'border-[#6366f1]/50 bg-[#6366f1]/15 text-white' : 'border-white/10 bg-black/20 text-[#6b7080]'}`}>
+                                {t.label}
+                                <span className={`block mt-0.5 text-[9.5px] font-semibold ${t.on ? 'text-[#a5b4fc]' : 'text-[#5a5f72]'}`}>{t.on ? 'مسموحة' : 'موقوفة'}</span>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* placement */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[12px] font-bold text-[#9aa0b4]">أماكن العرض</span>
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-full bg-white/8 px-3 py-1.5 text-[11px] font-bold text-white">TikTok</span>
+                              <button type="button" onClick={() => setOptPangle(v => !v)}
+                                className={`rounded-full px-3 py-1.5 text-[11px] font-bold cursor-pointer transition-colors ${optPangle ? 'bg-[#6366f1]/25 text-[#a5b4fc] ring-1 ring-[#6366f1]/40' : 'bg-black/25 text-[#6b7080] ring-1 ring-white/10'}`}>
+                                + Pangle
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* bidding */}
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[12px] font-bold text-[#9aa0b4]">المزايدة</span>
+                              <div className="flex items-center gap-2">
+                                <button type="button" onClick={() => setOptBidMode('auto')}
+                                  className={`rounded-full px-3 py-1.5 text-[11px] font-bold cursor-pointer transition-colors ${optBidMode === 'auto' ? 'bg-[#6366f1]/25 text-[#a5b4fc] ring-1 ring-[#6366f1]/40' : 'bg-black/25 text-[#6b7080] ring-1 ring-white/10'}`}>
+                                  تلقائية (موصى بها)
+                                </button>
+                                <button type="button" onClick={() => setOptBidMode('cost_cap')}
+                                  className={`rounded-full px-3 py-1.5 text-[11px] font-bold cursor-pointer transition-colors ${optBidMode === 'cost_cap' ? 'bg-[#6366f1]/25 text-[#a5b4fc] ring-1 ring-[#6366f1]/40' : 'bg-black/25 text-[#6b7080] ring-1 ring-white/10'}`}>
+                                  حد تكلفة
+                                </button>
+                              </div>
+                            </div>
+                            {optBidMode === 'cost_cap' && (
+                              <div className="mt-2.5">
+                                <input type="number" dir="ltr" min="1" step="any" value={optBidCap} onChange={e => setOptBidCap(e.target.value)}
+                                  placeholder={`أقصى تكلفة للطلب الواحد (${adAccount?.currency || 'ر.س'})`}
+                                  className="w-full rounded-lg bg-black/25 border border-white/10 px-3 py-2.5 text-[13px] font-bold text-white outline-none focus:border-[#6366f1]/60 text-right placeholder:font-semibold placeholder:text-[#5a5f72]" />
+                                <p className="mt-1 text-[10.5px] text-[#5a5f72]">يحاول TikTok إبقاء تكلفة الطلب تحت هذا الحد — قد يقل الوصول إذا كان الحد منخفضًا.</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="flex items-center justify-between rounded-xl bg-black/30 border border-white/10 px-4 py-3">
                       <span className="text-[13px] text-[#9aa0b4]">تكلفة هذا الإعلان</span>

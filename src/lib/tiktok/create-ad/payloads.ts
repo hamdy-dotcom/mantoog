@@ -101,9 +101,16 @@ export function buildSmartPlusAdgroupPayload(
   opts?: { numericPixelId?: string; optimizationEvent?: string }
 ) {
   const hasEnd = !!payload.targeting.schedule_end?.trim()
+  const adv = resolvedAdvanced(payload.targeting.advanced)
   const productShort = payload.product.title.length > 36
     ? `${payload.product.title.slice(0, 35)}…`
     : payload.product.title
+
+  // Manual placements honored when provided; Smart+ supports TikTok + Pangle (verified live).
+  const placements = adv.placement === 'manual' && adv.placements.length
+    ? adv.placements
+    : ['PLACEMENT_TIKTOK']
+  const useCostCap = adv.bidStrategy === 'cost_cap' && adv.bidCap != null && adv.bidCap > 0
 
   const body: Record<string, unknown> = {
     request_id: numericRequestId(),
@@ -116,13 +123,19 @@ export function buildSmartPlusAdgroupPayload(
     schedule_start_time: localDatetimeToTikTok(payload.targeting.schedule_start),
     optimization_goal: 'CONVERT',
     billing_event: 'OCPM',
-    // Automatic (lowest-cost) bidding — Smart+ optimizes delivery itself. Without this
-    // TikTok defaults to custom bidding and rejects with "Please enter a cost per conversion".
-    bid_type: 'BID_TYPE_NO_BID',
+    // Auto (lowest-cost) bidding by default — without bid_type TikTok demands a manual
+    // cost per conversion. Cost cap maps to BID_TYPE_CUSTOM + conversion_bid_price.
+    ...(useCostCap
+      ? { bid_type: 'BID_TYPE_CUSTOM', conversion_bid_price: adv.bidCap }
+      : { bid_type: 'BID_TYPE_NO_BID' }),
     placement_type: 'PLACEMENT_TYPE_NORMAL',
-    placements: ['PLACEMENT_TIKTOK'],
+    placements,
     operation_status: 'ENABLE',
   }
+  // Ad controls live on the Smart+ ADGROUP (verified live; on standard they're creative-level).
+  if (adv.comment_disabled) body.comment_disabled = true
+  if (adv.video_download_disabled) body.video_download_disabled = true
+  if (adv.share_disabled) body.share_disabled = true
   if (hasEnd && payload.targeting.schedule_end) {
     body.schedule_end_time = localDatetimeToTikTok(payload.targeting.schedule_end)
   }

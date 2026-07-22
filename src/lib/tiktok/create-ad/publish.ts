@@ -1221,8 +1221,20 @@ export async function createTikTokAd(opts: {
       const coverIds = creative.image_ids?.length
         ? creative.image_ids
         : creative.cover_image_id ? [creative.cover_image_id] : []
+      // Identity must appear BOTH in ad_configuration and inside creative_info —
+      // verified live: omitting it from creative_info fails with "identity matches
+      // your selected TikTok posts". Smart+ also rejects CUSTOMIZED_USER identities
+      // entirely (selection already prefers BC_AUTH_TT/TT_USER).
+      const identityFields: Record<string, unknown> = {
+        identity_id: identity.identity_id,
+        identity_type: identity.identity_type,
+      }
+      if (identity.identity_authorized_bc_id) {
+        identityFields.identity_authorized_bc_id = identity.identity_authorized_bc_id
+      }
       const creativeInfo: Record<string, unknown> = {
         ad_format: creative.video_id ? 'SINGLE_VIDEO' : 'SINGLE_IMAGE',
+        ...identityFields,
       }
       if (creative.video_id) {
         creativeInfo.video_info = { video_id: creative.video_id }
@@ -1231,13 +1243,15 @@ export async function createTikTokAd(opts: {
       } else if (coverIds.length) {
         creativeInfo.image_info = coverIds.map(id => ({ web_uri: id }))
       }
+      // dark_post_status ON = "only show as ads" — REQUIRED for ads-only identities
+      // (verified live: without it TikTok errors "Ads Only Mode, dark_post_status must be ON").
       const adConfiguration: Record<string, unknown> = {
-        identity_id: identity.identity_id,
-        identity_type: identity.identity_type,
+        ...identityFields,
+        dark_post_status: 'ON',
       }
-      if (identity.identity_authorized_bc_id) {
-        adConfiguration.identity_authorized_bc_id = identity.identity_authorized_bc_id
-      }
+      // ACO takes 1-3 CTAs and auto-optimizes among them.
+      const primaryCta = mapTikTokCallToAction(payload.creative.cta)
+      const ctas = [...new Set([primaryCta, 'SHOP_NOW', 'VISIT_STORE'])].slice(0, 3)
       body = {
         request_id: numericRequestId(),
         adgroup_id,
@@ -1246,7 +1260,7 @@ export async function createTikTokAd(opts: {
         ad_configuration: adConfiguration,
         creative_list: [{ creative_info: creativeInfo }],
         ad_text_list: [{ ad_text: payload.creative.caption }],
-        call_to_action_list: [{ call_to_action: mapTikTokCallToAction(payload.creative.cta) }],
+        call_to_action_list: ctas.map(call_to_action => ({ call_to_action })),
         landing_page_url_list: [{ landing_page_url: payload.product.landing_url }],
       }
     } else {

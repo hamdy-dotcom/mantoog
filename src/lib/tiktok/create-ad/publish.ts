@@ -1197,6 +1197,8 @@ function parseAdCreateResponse(
   const firstCreative = Array.isArray(nested) ? nested[0] as Record<string, unknown> | undefined : undefined
   const ad_id = String(
     data?.ad_id
+    // Smart+ /smart_plus/ad/create/ returns the id as smart_plus_ad_id (verified live).
+    || data?.smart_plus_ad_id
     || (data?.ad_ids as unknown[] | undefined)?.[0]
     || firstCreative?.ad_id
     || ''

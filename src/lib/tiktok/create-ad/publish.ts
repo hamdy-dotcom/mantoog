@@ -1079,6 +1079,47 @@ function identityFallbackDisplayName(
   return truncateDisplayName(identity.display_name || payload.product.title || 'Shop')
 }
 
+/**
+ * Smart+ web-conversion ads with an authorized TikTok identity REQUIRE a dynamic CTA
+ * portfolio (call_to_action_id) — fixed call_to_action_list values are ALL rejected with
+ * "The call to action you have selected is not supported". Official recipe (docs:
+ * "CTA recommendations > Dynamic CTAs"): GET /creative/cta/recommend/ (new_version=true)
+ * → POST /creative/portfolio/create/ (type CTA, content from recommend) → use the
+ * returned creative_portfolio_id as ad_configuration.call_to_action_id.
+ * Verified live: this produced the first successful /smart_plus/ad/create/ (code 0).
+ */
+async function createDynamicCtaPortfolio(
+  connection: Connection,
+  landingPageUrl: string
+): Promise<string | null> {
+  try {
+    const rec = await tiktokGet(connection, '/creative/cta/recommend/', {
+      new_version: 'true',
+      objective_type: 'WEB_CONVERSIONS',
+      promotion_type: 'WEBSITE',
+      landing_page_url: landingPageUrl,
+    })
+    const assets = (rec.data as Record<string, unknown> | undefined)?.recommend_assets
+    if (rec.code !== 0 || !Array.isArray(assets) || !assets.length) {
+      console.error('[tiktok/create/ad] CTA recommend failed', { code: rec.code, message: rec.message })
+      return null
+    }
+    const pf = await tiktokPost(connection, '/creative/portfolio/create/', {
+      creative_portfolio_type: 'CTA',
+      portfolio_content: assets.map((a: any) => ({ asset_content: a.asset_content, asset_ids: a.asset_ids })),
+    })
+    const id = (pf.data as Record<string, unknown> | undefined)?.creative_portfolio_id
+    if (pf.code !== 0 || !id) {
+      console.error('[tiktok/create/ad] CTA portfolio create failed', { code: pf.code, message: pf.message })
+      return null
+    }
+    return String(id)
+  } catch (e: any) {
+    console.error('[tiktok/create/ad] dynamic CTA portfolio error', e?.message)
+    return null
+  }
+}
+
 function isDisplayNameRejected(json: TikTokRawResponse): boolean {
   const text = `${json.message || ''} ${JSON.stringify(json.data ?? '')}`.toLowerCase()
   return /display.?name|displayname|identity.*name|brand.*name|app.*name/i.test(text)
@@ -1202,6 +1243,13 @@ export async function createTikTokAd(opts: {
   const storeDisplayName = preferredStoreDisplayName(payload)
   const primaryDisplayName = storeDisplayName || identityDisplayName
 
+  // Smart+: dynamic CTA portfolio is required (fixed CTAs are rejected). Created once,
+  // reused across display-name retries.
+  const spMode = payload.targeting.advanced.campaignType === 'smart_plus'
+  const ctaPortfolioId = spMode
+    ? await createDynamicCtaPortfolio(connection, payload.product.landing_url)
+    : null
+
   const postAd = async (display_name: string) => {
     const creativeObject = buildAdCreativeObject({
       payload,
@@ -1249,9 +1297,10 @@ export async function createTikTokAd(opts: {
         ...identityFields,
         dark_post_status: 'ON',
       }
-      // ACO takes 1-3 CTAs and auto-optimizes among them.
-      const primaryCta = mapTikTokCallToAction(payload.creative.cta)
-      const ctas = [...new Set([primaryCta, 'SHOP_NOW', 'VISIT_STORE'])].slice(0, 3)
+      // Dynamic CTA portfolio (auto-optimized CTAs) — required for authorized identities
+      // on WEB_CONVERSIONS + TikTok placement. Fixed call_to_action_list is only a
+      // fallback if portfolio creation failed (TikTok rejects it for this config).
+      if (ctaPortfolioId) adConfiguration.call_to_action_id = ctaPortfolioId
       body = {
         request_id: numericRequestId(),
         adgroup_id,
@@ -1260,8 +1309,12 @@ export async function createTikTokAd(opts: {
         ad_configuration: adConfiguration,
         creative_list: [{ creative_info: creativeInfo }],
         ad_text_list: [{ ad_text: payload.creative.caption }],
-        call_to_action_list: ctas.map(call_to_action => ({ call_to_action })),
         landing_page_url_list: [{ landing_page_url: payload.product.landing_url }],
+      }
+      if (!ctaPortfolioId) {
+        const primaryCta = mapTikTokCallToAction(payload.creative.cta)
+        const ctas = [...new Set([primaryCta, 'SHOP_NOW', 'VISIT_STORE'])].slice(0, 3)
+        body.call_to_action_list = ctas.map(call_to_action => ({ call_to_action }))
       }
     } else {
       body = { adgroup_id, creatives: [creativeObject] }

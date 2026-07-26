@@ -56,54 +56,74 @@ Given a product (with its REAL photos + details), invent a bespoke brand world +
 RULES: benefits.items EXACTLY 6, showcase EXACTLY 4 (each a DIFFERENT real part/feature the customer should see), lifestyle.items EXACTLY 4, reviews EXACTLY 3, price.features EXACTLY 6, faq EXACTLY 4. Each showcase tile gets ITS OWN image generated from that tile's "img" prompt, so write each "img" prompt to show EXACTLY what its caption/title/desc claims — the image and the text for a tile must match. The 4 showcase "img" prompts must be visibly different from each other (different part / angle / context). "brand" is the manufacturer only (never a slogan); "productName" is the concise name of what the product is — keep them clearly separate and both grounded in the given product title. Every headline/desc must describe THIS product only — never mention a different product category. Real persuasive Saudi Arabic, no lorem, no English. priceMain/price.amount are digits only. Palette must suit the product and be tasteful with strong contrast.`
 
 async function artDirect(client: Anthropic, p: GeniusProduct) {
-  // Arabic tokenizes heavily — 4000 tokens truncated the JSON mid-array for wordy
-  // products ("Expected ',' or ']' … in JSON"). Generous cap + one retry on bad JSON.
-  let lastErr: Error | null = null
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const r = await client.messages.create({
-      model: MODEL, max_tokens: 8192, system: ART_SYS,
-      messages: [{ role: 'user', content: `Product: ${p.title}\nPrice: ${p.price} ${p.currency || 'SAR'}\nDescription: ${p.description || ''}\nReal features: ${(p.features || []).join(' | ')}\n\nReturn the JSON.` }],
-    })
-    const t = r.content[0].type === 'text' ? r.content[0].text : ''
-    try { return jsonFrom(t) } catch (e: any) {
-      lastErr = e
-      console.error(`[landing-genius] artDirect JSON parse failed (attempt ${attempt}/2, stop=${r.stop_reason}, chars=${t.length}):`, e.message)
-    }
+  // Single attempt by design: retries belong to the CLIENT so no server invocation
+  // ever stacks two 60-90s Claude calls (that is what caused 504 timeouts).
+  const r = await client.messages.create({
+    model: MODEL, max_tokens: 8192, system: ART_SYS,
+    messages: [{ role: 'user', content: `Product: ${p.title}\nPrice: ${p.price} ${p.currency || 'SAR'}\nDescription: ${p.description || ''}\nReal features: ${(p.features || []).join(' | ')}\n\nReturn the JSON.` }],
+  })
+  const t = r.content[0].type === 'text' ? r.content[0].text : ''
+  try { return jsonFrom(t) } catch (e: any) {
+    console.error(`[landing-genius] artDirect JSON parse failed (stop=${r.stop_reason}, chars=${t.length}):`, e.message)
+    throw new Error(`art_direction_json: ${e.message}`)
   }
-  throw new Error(`art_direction_json: ${lastErr?.message || 'unparseable'}`)
+}
+
+/** Content-only stage for the staged (fast) pipeline. */
+export async function artDirectContent(p: GeniusProduct, anthropicKey: string) {
+  return artDirect(new Anthropic({ apiKey: anthropicKey }), p)
 }
 
 // ── PHASE 2: Seedance nano-banana-pro image-to-image ──────────────────────────
-async function editImage(seedKey: string, refUrl: string, prompt: string): Promise<string | null> {
-  const H = { Authorization: `Bearer ${seedKey}`, 'Content-Type': 'application/json' }
+const seedHeaders = (seedKey: string) => ({ Authorization: `Bearer ${seedKey}`, 'Content-Type': 'application/json' })
+
+/** Create an image-to-image task and return its id WITHOUT waiting for the result. */
+export async function createImageTask(seedKey: string, refUrl: string, prompt: string): Promise<string | null> {
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const res = await fetch(SEED_IMG, { method: 'POST', headers: H, body: JSON.stringify({ type: 'image-to-image', prompt, image_urls: [refUrl] }), signal: AbortSignal.timeout(60000) })
+      const res = await fetch(SEED_IMG, { method: 'POST', headers: seedHeaders(seedKey), body: JSON.stringify({ type: 'image-to-image', prompt, image_urls: [refUrl] }), signal: AbortSignal.timeout(30000) })
       const txt = await res.text()
-      if (!res.ok) { if (res.status === 429) { await new Promise(r => setTimeout(r, 4000 * attempt)); continue } return null }
-      const id = JSON.parse(txt).id
-      if (!id) return null
-      const start = Date.now()
-      while (Date.now() - start < 150000) {
-        await new Promise(r => setTimeout(r, 3000))
-        const pr = await fetch(SEED_TASK + id, { headers: H, signal: AbortSignal.timeout(20000) })
-        const d = await pr.json().catch(() => ({}))
-        if (d.status === 'completed') return d.output?.images?.[0]?.url || null
-        if (d.status === 'failed') break
-      }
-    } catch { await new Promise(r => setTimeout(r, 2000)) }
+      if (!res.ok) { if (res.status === 429) { await new Promise(r => setTimeout(r, 3000 * attempt)); continue } return null }
+      return JSON.parse(txt).id || null
+    } catch { await new Promise(r => setTimeout(r, 1500)) }
   }
   return null
 }
 
-// ── PHASE 2b: background-free cutout (magenta chroma → ffmpeg colorkey) ────────
-async function makeCutout(seedKey: string, refUrl: string): Promise<Buffer | null> {
-  const magenta = await editImage(seedKey, refUrl, 'Place THIS EXACT product perfectly centered on a completely flat solid pure magenta background (hex #FF00FF chroma screen), even flat lighting, NO shadow, NO gradient, NO reflection, product 100% identical to the reference, fills ~80% of the frame, no props, no text')
-  if (!magenta || !ffmpegPath) return null
+/** One status probe (no waiting) — for client-driven polling. */
+export async function getImageTaskResult(seedKey: string, taskId: string): Promise<{ status: 'processing' | 'completed' | 'failed'; url: string | null }> {
+  try {
+    const pr = await fetch(SEED_TASK + taskId, { headers: seedHeaders(seedKey), signal: AbortSignal.timeout(15000) })
+    const d = await pr.json().catch(() => ({}))
+    if (d.status === 'completed') return { status: 'completed', url: d.output?.images?.[0]?.url || null }
+    if (d.status === 'failed') return { status: 'failed', url: null }
+    return { status: 'processing', url: null }
+  } catch { return { status: 'processing', url: null } }
+}
+
+/** Legacy blocking edit (used by the old single-shot prepare path). */
+async function editImage(seedKey: string, refUrl: string, prompt: string): Promise<string | null> {
+  const id = await createImageTask(seedKey, refUrl, prompt)
+  if (!id) return null
+  const start = Date.now()
+  while (Date.now() - start < 150000) {
+    await new Promise(r => setTimeout(r, 3000))
+    const d = await getImageTaskResult(seedKey, id)
+    if (d.status === 'completed') return d.url
+    if (d.status === 'failed') return null
+  }
+  return null
+}
+
+export const MAGENTA_PROMPT = 'Place THIS EXACT product perfectly centered on a completely flat solid pure magenta background (hex #FF00FF chroma screen), even flat lighting, NO shadow, NO gradient, NO reflection, product 100% identical to the reference, fills ~80% of the frame, no props, no text'
+
+/** Chroma-key an already-generated magenta image URL into a transparent PNG. */
+export async function chromaKeyPng(magentaUrl: string): Promise<Buffer | null> {
+  if (!magentaUrl || !ffmpegPath) return null
   const dir = await mkdtemp(join(tmpdir(), 'cut-'))
   const inP = join(dir, 'c.png'), outP = join(dir, 'o.png')
   try {
-    await writeFile(inP, Buffer.from(await (await fetch(magenta)).arrayBuffer()))
+    await writeFile(inP, Buffer.from(await (await fetch(magentaUrl, { signal: AbortSignal.timeout(20000) })).arrayBuffer()))
     await new Promise<void>((res, rej) => {
       const proc = spawn(ffmpegPath as string, ['-y', '-i', inP, '-vf', 'colorkey=0xFF00FF:0.30:0.10,format=rgba', outP])
       proc.on('error', rej); proc.on('close', c => c === 0 ? res() : rej(new Error('ffmpeg ' + c)))
@@ -112,14 +132,21 @@ async function makeCutout(seedKey: string, refUrl: string): Promise<Buffer | nul
   } catch { return null } finally { rm(dir, { recursive: true, force: true }).catch(() => {}) }
 }
 
-// Fallback image prompts if the model omits a per-tile "img" (kept product-generic).
-const FALLBACK_SHOWCASE = [
+// ── PHASE 2b: background-free cutout (magenta chroma → ffmpeg colorkey) ────────
+async function makeCutout(seedKey: string, refUrl: string): Promise<Buffer | null> {
+  const magenta = await editImage(seedKey, refUrl, MAGENTA_PROMPT)
+  return magenta ? chromaKeyPng(magenta) : null
+}
+
+// Generic per-tile image prompts. The staged pipeline uses these so image generation
+// starts IMMEDIATELY (in parallel with the content call) instead of waiting for it.
+export const FALLBACK_SHOWCASE = [
   'A premium front-facing studio shot of THIS EXACT product on a clean neutral background, soft light, product identical to the reference, no text, no watermark.',
   'A three-quarter angle studio shot of THIS EXACT product highlighting its build quality, clean neutral background, product identical to the reference, no text, no watermark.',
   'A close-up detail shot of a key part of THIS EXACT product, premium macro photography, clean background, product identical to the reference, no text, no watermark.',
   'A tasteful in-use shot of THIS EXACT product in a relevant setting, premium commercial photography, product identical to the reference, no text, no watermark.',
 ]
-const FALLBACK_LIFESTYLE = 'THIS EXACT product used naturally in a beautiful, aspirational room that suits it, warm cinematic light, product identical to the reference, photorealistic, no text, no watermark.'
+export const FALLBACK_LIFESTYLE = 'THIS EXACT product used naturally in a beautiful, aspirational room that suits it, warm cinematic light, product identical to the reference, photorealistic, no text, no watermark.'
 
 // ── palette helpers ───────────────────────────────────────────────────────────
 const hexRgb = (h: string) => { const x = h.replace('#', ''); const n = parseInt(x.length === 3 ? x.split('').map(c => c + c).join('') : x, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] }

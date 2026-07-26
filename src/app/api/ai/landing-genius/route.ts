@@ -18,10 +18,27 @@ export async function POST(req: NextRequest) {
   const { data: store } = await supabase.from('stores').select('id, currency').eq('merchant_id', user.id).single()
   if (!store) return NextResponse.json({ error: 'no_store' }, { status: 404 })
 
-  const { productId, title, price, compareAtPrice, description, features, images, art, generated, cutoutUrl } = await req.json().catch(() => ({}))
-  if (!productId || !title || !art || !cutoutUrl) {
+  const { productId, title, price, compareAtPrice, description, features, images, art, generated, cutoutUrl: cutoutUrlIn, magentaUrl } = await req.json().catch(() => ({}))
+  if (!productId || !title || !art || (!cutoutUrlIn && !magentaUrl && !Array.isArray(images))) {
     return NextResponse.json({ error: 'productId, title and prepared assets required' }, { status: 400 })
   }
+
+  // Staged pipeline: the client sends the raw magenta render; chroma-key it here
+  // (~5-10s) into a transparent cutout. Falls back to the first product photo.
+  let cutoutUrl: string = cutoutUrlIn || ''
+  if (!cutoutUrl && magentaUrl) {
+    try {
+      const { chromaKeyPng } = await import('@/lib/landing-genius/generate')
+      const png = await chromaKeyPng(String(magentaUrl))
+      if (png) {
+        const path = `landing-genius/cut-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`
+        const up = await supabaseAdmin.storage.from('store-assets').upload(path, png, { contentType: 'image/png', upsert: true })
+        if (!up.error) cutoutUrl = supabaseAdmin.storage.from('store-assets').getPublicUrl(path).data.publicUrl
+      }
+    } catch (e) { console.error('[landing-genius] chroma-key failed:', (e as Error).message) }
+  }
+  if (!cutoutUrl) cutoutUrl = (Array.isArray(images) && images.find(Boolean)) || ''
+  if (!cutoutUrl) return NextResponse.json({ error: 'no usable cutout or product image' }, { status: 400 })
 
   const anthropic = process.env.ANTHROPIC_API_KEY
   if (!anthropic) return NextResponse.json({ error: 'AI key not configured' }, { status: 500 })

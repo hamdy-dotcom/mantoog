@@ -199,21 +199,64 @@ export default function SeedancePage() {
       if (!cp.ok) throw new Error(page.error || 'تعذّر إنشاء صفحة الهبوط')
       setProductPage(page)
 
-      // AI Studio premium landing: art-direct + AI images (prepare) → assemble + save (finish).
-      // Overwrites the basic landing on this product with the self-contained custom_html page.
-      // If it fails we keep the basic landing as a safe fallback.
+      // AI Studio premium landing — STAGED pipeline. Content (Claude) and ALL Seedance
+      // images start at the SAME time; the client polls the image tasks, then one short
+      // finish call assembles. Wall time = max(content, images) instead of the sum, and
+      // no server function runs long enough to 504. Basic landing remains the fallback.
       try {
+        const gImages = images.slice(0, 6)
         const gBody = {
           title: product.title, price: parseFloat(priceInput),
           compareAtPrice: discountInput && parseFloat(discountInput) > 0 ? parseFloat(discountInput) : null,
-          description: product.description, features: [], images: images.slice(0, 6), currency: page.currency,
+          description: product.description, features: [], images: gImages, currency: page.currency,
         }
-        const prep = await fetch('/api/ai/landing-genius/prepare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(gBody) })
-        const pd = await safeJson(prep, 'تعذّر تجهيز صفحة الهبوط المميزة')
-        if (!prep.ok) throw new Error(pd.error || 'تعذّر تجهيز صفحة الهبوط المميزة')
+        const J = { 'Content-Type': 'application/json' }
+        const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+        // 1) fire images + content simultaneously
+        const startImagesP = fetch('/api/ai/landing-genius/start-images', { method: 'POST', headers: J, body: JSON.stringify({ images: gImages }) })
+          .then(r => r.json()).catch(() => null)
+        const artOnce = async () => {
+          const r = await fetch('/api/ai/landing-genius/prepare', { method: 'POST', headers: J, body: JSON.stringify({ ...gBody, stage: 'art' }) })
+          const d = await safeJson(r, 'تعذّر تجهيز المحتوى')
+          if (!r.ok) throw new Error(d.error || 'تعذّر تجهيز المحتوى')
+          return d.art
+        }
+        const artP = artOnce().catch(() => artOnce()) // one automatic retry, client-side
+
+        // 2) poll the image tasks (every 12s — safely inside Seedance rate limits)
+        const started = await startImagesP
+        let pending: { key: string; taskId: string }[] = (started?.tasks || []).filter((t: any) => t?.taskId)
+        const resolved: Record<string, string | null> = {}
+        const deadline = Date.now() + 160_000
+        while (pending.length && Date.now() < deadline) {
+          await sleep(12_000)
+          try {
+            const st = await fetch('/api/ai/landing-genius/image-status', { method: 'POST', headers: J, body: JSON.stringify({ tasks: pending }) })
+            const sd = await st.json()
+            if (st.ok && sd.results) {
+              for (const [key, r] of Object.entries<any>(sd.results)) {
+                if (r.status === 'completed') resolved[key] = r.url
+                else if (r.status === 'failed') resolved[key] = null
+              }
+              pending = pending.filter(t => !(t.key in resolved))
+            }
+          } catch { /* transient — keep polling until deadline */ }
+        }
+
+        // 3) one short finish call — missing AI images fall back to real product photos
+        const art = await artP
+        const fb = (i: number) => gImages[i % Math.max(gImages.length, 1)] || gImages[0]
+        const generated = [
+          { key: 'f0', url: resolved.f0 || fb(0) },
+          { key: 'f1', url: resolved.f1 || fb(1) },
+          { key: 'f2', url: resolved.f2 || fb(2) },
+          { key: 'f3', url: resolved.f3 || fb(3) },
+          { key: 'life', url: resolved.life || resolved.f0 || fb(0) },
+        ]
         const fin = await fetch('/api/ai/landing-genius', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productId: page.productId, ...gBody, art: pd.art, generated: pd.generated, cutoutUrl: pd.cutoutUrl }),
+          method: 'POST', headers: J,
+          body: JSON.stringify({ productId: page.productId, ...gBody, art, generated, magentaUrl: resolved.cutout || null }),
         })
         const fd = await safeJson(fin, 'تعذّر إنشاء صفحة الهبوط المميزة')
         if (!fin.ok) throw new Error(fd.error || 'تعذّر إنشاء صفحة الهبوط المميزة')

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { title, price, compareAtPrice, description, features, images } = await req.json().catch(() => ({}))
+  const { title, price, compareAtPrice, description, features, images, stage } = await req.json().catch(() => ({}))
   if (!title || !Array.isArray(images) || !images.length) {
     return NextResponse.json({ error: 'title and images required' }, { status: 400 })
   }
@@ -46,6 +46,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Staged pipeline: content ONLY (one Claude call, ~60-90s — far under the limit).
+    // Images run in parallel via /start-images + /image-status; the sum never lives
+    // inside one invocation again (that sum is what caused the 504s).
+    if (stage === 'art') {
+      const { artDirectContent } = await import('@/lib/landing-genius/generate')
+      const art = await artDirectContent(product, anthropic)
+      return NextResponse.json({ ok: true, art })
+    }
     const { art, generated, cutoutUrl } = await prepareAssets(product, { anthropic, seedance }, uploadCutout)
     return NextResponse.json({ ok: true, art, generated, cutoutUrl })
   } catch (e: any) {

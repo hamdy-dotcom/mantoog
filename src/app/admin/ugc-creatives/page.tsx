@@ -95,6 +95,13 @@ export default function SeedancePage() {
   // Manual clean-photos flow — offered only when generation failed with person_in_image.
   const [personPhotos, setPersonPhotos] = useState<'none' | 'needed' | 'uploading' | 'done'>('none')
   const [uploadErr, setUploadErr] = useState<string | null>(null)
+  // AI agents activation (post-launch): مراقب الإنفاق + محلل الأداء
+  const [agentGuardian, setAgentGuardian] = useState(true)
+  const [agentReporter, setAgentReporter] = useState(true)
+  const [agentTargetCpa, setAgentTargetCpa] = useState('')
+  const [agentEmail, setAgentEmail] = useState('')
+  const [agentsState, setAgentsState] = useState<'idle' | 'saving' | 'done'>('idle')
+  const [agentsErr, setAgentsErr] = useState<string | null>(null)
   const [launchResult, setLaunchResult] = useState<any>(null)
   // Connected TikTok ad account — its currency drives the budget field (may differ from store currency).
   const [adAccount, setAdAccount] = useState<{ advertiser_id: string; currency: string | null; name: string | null; identity?: { display_name: string | null; profile_image: string | null } | null } | null>(null)
@@ -267,6 +274,33 @@ export default function SeedancePage() {
     } catch (e: any) { update(i, { status: 'error', error: e.message, errorCode: null }) }
   }
 
+  // Deploy the Phase-1 agents on the campaign that was just launched.
+  async function deployAgents() {
+    if (!launchResult?.campaign_id) return
+    const agents = [agentGuardian && 'guardian', agentReporter && 'reporter'].filter(Boolean)
+    if (!agents.length) { setAgentsErr('اختر وكيلًا واحدًا على الأقل'); return }
+    if (agentGuardian && !(parseFloat(agentTargetCpa) > 0)) { setAgentsErr('أدخل تكلفة الطلب المستهدفة'); return }
+    if (!/.+@.+\..+/.test(agentEmail)) { setAgentsErr('أدخل بريدًا صحيحًا للتنبيهات'); return }
+    setAgentsState('saving'); setAgentsErr(null)
+    try {
+      const r = await fetch('/api/admin/agent-deployments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaignId: launchResult.campaign_id,
+          campaignName: productPage?.titleAr || null,
+          smartPlus,
+          agents,
+          targetCpa: parseFloat(agentTargetCpa) || null,
+          alertEmail: agentEmail.trim(),
+          currency: adAccount?.currency || productPage?.currency || '',
+        }),
+      })
+      const d = await safeJson(r, 'فشل تفعيل الوكلاء')
+      if (!r.ok) throw new Error(d.error || 'تعذّر تفعيل الوكلاء')
+      setAgentsState('done')
+    } catch (e: any) { setAgentsState('idle'); setAgentsErr(e.message) }
+  }
+
   // Merchant-supplied product-only photos (offered when Seedance rejects photos with a
   // real person). Replaces the generation image set and resets the blocked angles.
   async function uploadCleanPhotos(files: FileList | null) {
@@ -350,6 +384,7 @@ export default function SeedancePage() {
     setAdCaption(null); setAdvOpen(false); setOptComments(true); setOptDownload(true); setOptShare(true)
     setOptPangle(false); setOptBidMode('auto'); setOptBidCap('')
     setPersonPhotos('none'); setUploadErr(null)
+    setAgentGuardian(true); setAgentReporter(true); setAgentTargetCpa(''); setAgentEmail(''); setAgentsState('idle'); setAgentsErr(null)
   }
 
   // Revisit a previous step (only ones whose content already exists).
@@ -803,6 +838,54 @@ export default function SeedancePage() {
                           {launchResult?.creditsRemaining != null && <span className="text-[#9aa0b4] font-semibold"> · المتبقي {toAr(launchResult.creditsRemaining)}</span>}
                         </span>
                       </div>
+                    )}
+                  </div>
+
+                  {/* AI agents — Phase 1: مراقب الإنفاق + محلل الأداء */}
+                  <div className="mt-6 rounded-3xl border border-[#6366f1]/25 bg-[#6366f1]/[0.07] p-5 text-right">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="rounded-full bg-[#6366f1]/20 px-2.5 py-1 text-[10px] font-bold text-[#a5b4fc]">جديد</span>
+                      <h3 className="text-[15px] font-bold text-white">وكلاء الذكاء لهذه الحملة</h3>
+                    </div>
+                    {agentsState === 'done' ? (
+                      <p className="text-[13px] text-[#4ade80] font-semibold leading-relaxed">تم تفعيل الوكلاء — مراقب الإنفاق يبدأ بوضع المراقبة ٤٨ ساعة (تنبيهات فقط) ثم يتصرف تلقائيًا، والتقرير اليومي يصلك صباحًا على بريدك.</p>
+                    ) : (
+                      <>
+                        <p className="text-[12.5px] text-[#9aa0b4] leading-relaxed mb-4">وكلاء يراقبون حملتك تلقائيًا على مدار الساعة:</p>
+                        <div className="space-y-2.5 mb-4">
+                          <button type="button" onClick={() => setAgentGuardian(v => !v)}
+                            className={`w-full flex items-start gap-3 rounded-xl border px-4 py-3 text-right cursor-pointer transition-colors ${agentGuardian ? 'border-[#6366f1]/50 bg-[#6366f1]/12' : 'border-white/10 bg-black/20'}`}>
+                            <span className={`mt-0.5 grid place-items-center h-5 w-5 rounded-md shrink-0 ${agentGuardian ? 'bg-[#6366f1] text-white' : 'bg-white/10 text-transparent'}`}>{Ico.check('h-3 w-3')}</span>
+                            <span className="flex-1">
+                              <span className="block text-[13px] font-bold text-white">مراقب الإنفاق</span>
+                              <span className="block text-[11.5px] text-[#9aa0b4] mt-0.5">يوقف الحملة تلقائيًا إذا صرفت دون طلبات أو تجاوزت تكلفة الطلب المستهدفة بـ ٥٠٪</span>
+                            </span>
+                          </button>
+                          <button type="button" onClick={() => setAgentReporter(v => !v)}
+                            className={`w-full flex items-start gap-3 rounded-xl border px-4 py-3 text-right cursor-pointer transition-colors ${agentReporter ? 'border-[#6366f1]/50 bg-[#6366f1]/12' : 'border-white/10 bg-black/20'}`}>
+                            <span className={`mt-0.5 grid place-items-center h-5 w-5 rounded-md shrink-0 ${agentReporter ? 'bg-[#6366f1] text-white' : 'bg-white/10 text-transparent'}`}>{Ico.check('h-3 w-3')}</span>
+                            <span className="flex-1">
+                              <span className="block text-[13px] font-bold text-white">محلل الأداء</span>
+                              <span className="block text-[11.5px] text-[#9aa0b4] mt-0.5">تقرير يومي على بريدك: الإنفاق، الطلبات الفعلية، وكل إجراء نفذه الوكلاء</span>
+                            </span>
+                          </button>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-3 mb-3">
+                          {agentGuardian && (
+                            <input type="number" dir="ltr" min="1" value={agentTargetCpa} onChange={e => setAgentTargetCpa(e.target.value)}
+                              placeholder={`تكلفة الطلب المستهدفة (${adAccount?.currency || 'ر.س'})`}
+                              className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-[13px] font-bold text-white outline-none focus:border-[#6366f1]/60 text-right placeholder:font-semibold placeholder:text-[#5a5f72]" />
+                          )}
+                          <input type="email" dir="ltr" value={agentEmail} onChange={e => setAgentEmail(e.target.value)}
+                            placeholder="بريد التنبيهات والتقارير"
+                            className={`w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-[13px] font-bold text-white outline-none focus:border-[#6366f1]/60 text-right placeholder:font-semibold placeholder:text-[#5a5f72] ${agentGuardian ? '' : 'sm:col-span-2'}`} />
+                        </div>
+                        {agentsErr && <p className="text-[12px] text-[#fb7185] mb-2" dir="auto">{agentsErr}</p>}
+                        <button onClick={deployAgents} disabled={agentsState === 'saving'}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#6366f1] hover:bg-[#5558e6] disabled:opacity-50 px-6 py-3 text-[13.5px] font-bold text-white cursor-pointer transition-colors">
+                          {agentsState === 'saving' ? (<><span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> جاري التفعيل…</>) : 'فعّل الوكلاء'}
+                        </button>
+                      </>
                     )}
                   </div>
 

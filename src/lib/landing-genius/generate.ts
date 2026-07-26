@@ -140,13 +140,15 @@ async function makeCutout(seedKey: string, refUrl: string): Promise<Buffer | nul
 
 // Generic per-tile image prompts. The staged pipeline uses these so image generation
 // starts IMMEDIATELY (in parallel with the content call) instead of waiting for it.
+// IMPORTANT: prompts must NEVER produce people — these images double as the clean
+// fallback set for video generation, and Seedance rejects any image with a person.
 export const FALLBACK_SHOWCASE = [
-  'A premium front-facing studio shot of THIS EXACT product on a clean neutral background, soft light, product identical to the reference, no text, no watermark.',
-  'A three-quarter angle studio shot of THIS EXACT product highlighting its build quality, clean neutral background, product identical to the reference, no text, no watermark.',
-  'A close-up detail shot of a key part of THIS EXACT product, premium macro photography, clean background, product identical to the reference, no text, no watermark.',
-  'A tasteful in-use shot of THIS EXACT product in a relevant setting, premium commercial photography, product identical to the reference, no text, no watermark.',
+  'A premium front-facing studio shot of THIS EXACT product on a clean neutral background, soft light, product identical to the reference, NO people, NO hands, NO faces, no text, no watermark.',
+  'A three-quarter angle studio shot of THIS EXACT product highlighting its build quality, clean neutral background, product identical to the reference, NO people, NO hands, NO faces, no text, no watermark.',
+  'A close-up detail shot of a key part of THIS EXACT product, premium macro photography, clean background, product identical to the reference, NO people, NO hands, NO faces, no text, no watermark.',
+  'THIS EXACT product displayed with its accessories and attachments neatly arranged around it, elegant top-down premium composition on a clean surface, product identical to the reference, NO people, NO hands, NO faces, no text, no watermark.',
 ]
-export const FALLBACK_LIFESTYLE = 'THIS EXACT product used naturally in a beautiful, aspirational room that suits it, warm cinematic light, product identical to the reference, photorealistic, no text, no watermark.'
+export const FALLBACK_LIFESTYLE = 'THIS EXACT product placed naturally in a beautiful, aspirational room that suits it, warm cinematic light, product identical to the reference, photorealistic, NO people, NO hands, NO faces, no text, no watermark.'
 
 // ── palette helpers ───────────────────────────────────────────────────────────
 const hexRgb = (h: string) => { const x = h.replace('#', ''); const n = parseInt(x.length === 3 ? x.split('').map(c => c + c).join('') : x, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] }

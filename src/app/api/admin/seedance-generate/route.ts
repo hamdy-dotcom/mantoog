@@ -45,10 +45,12 @@ export async function POST(req: NextRequest) {
   }
   if (!proxied.length) return NextResponse.json({ error: 'No usable product images' }, { status: 502 })
 
-  // Clean fallback set: the AI-redesigned product images already generated for this
-  // product's premium landing (studio showcase shots + lifestyle + cutout). They are
-  // product-only renders — the automatic answer when the RAW photos contain a person.
-  async function landingCleanImages(): Promise<string[]> {
+  // Clean fallback sets: the AI-redesigned product images already generated for this
+  // product's premium landing. Ordered from richest to safest — older landings' "in-use"
+  // and lifestyle shots can THEMSELVES contain an AI person (verified visually on a
+  // face-care product), so each person-rejection narrows the set. Rejected creates are
+  // free, so walking the ladder costs nothing.
+  async function landingCleanSets(): Promise<string[][]> {
     if (!productId) return []
     try {
       const { data } = await supabaseAdmin
@@ -58,14 +60,22 @@ export async function POST(req: NextRequest) {
       const m = html.match(/window\.GENIUS = (\{[\s\S]*?\});<\/script>/)
       if (!m) return []
       const g = JSON.parse(m[1])
-      const urls = [
-        ...(Array.isArray(g?.images?.showcase) ? g.images.showcase : []),
-        g?.images?.lifestyle,
-        g?.images?.cutout,
-      ].filter((u: unknown): u is string => typeof u === 'string' && /^https:\/\//.test(u))
-      return [...new Set(urls)].slice(0, 9)
+      const ok = (u: unknown): u is string => typeof u === 'string' && /^https:\/\//.test(u)
+      const showcase: string[] = (Array.isArray(g?.images?.showcase) ? g.images.showcase : []).filter(ok)
+      const lifestyle = ok(g?.images?.lifestyle) ? [g.images.lifestyle] : []
+      const cutout = ok(g?.images?.cutout) ? [g.images.cutout] : []
+      const uniq = (a: string[]) => [...new Set(a)].slice(0, 9)
+      const sets = [
+        uniq([...showcase, ...lifestyle, ...cutout]),                 // everything
+        uniq([...showcase.slice(0, 3), ...cutout]),                   // studio-only (no in-use/lifestyle)
+        uniq(cutout.length ? cutout : showcase.slice(0, 1)),          // safest single
+      ].filter(s => s.length)
+      // drop consecutive duplicates
+      return sets.filter((s, i) => i === 0 || JSON.stringify(s) !== JSON.stringify(sets[i - 1]))
     } catch { return [] }
   }
+  let cleanSets: string[][] | null = null
+  let cleanSetIdx = 0
 
   const buildBody = (urls: string[]) => JSON.stringify({
     mode: 'media-to-video',   // multiple input images
@@ -86,9 +96,8 @@ export async function POST(req: NextRequest) {
   // to just the main image — which is a clean JPEG and works for any product.
   let urls = proxied
   let reducedToMain = false
-  let triedCleanSet = false
   let lastErr = 'Seedance request failed'
-  for (let attempt = 1; attempt <= 5; attempt++) {
+  for (let attempt = 1; attempt <= 6; attempt++) {
     try {
       const res = await fetch(SEEDANCE_CREATE, {
         method: 'POST',
@@ -108,14 +117,12 @@ export async function POST(req: NextRequest) {
       // Automatic ladder: retry ONCE with the AI-redesigned landing images (product-only
       // renders we already generated). Manual upload is only surfaced if that also fails.
       if (/real person/i.test(txt)) {
-        if (!triedCleanSet) {
-          triedCleanSet = true
-          const clean = await landingCleanImages()
-          if (clean.length) {
-            console.error('[seedance-generate] person_in_image — retrying with AI landing images', { productId, count: clean.length })
-            urls = clean
-            continue
-          }
+        if (cleanSets === null) cleanSets = await landingCleanSets()
+        if (cleanSetIdx < cleanSets.length) {
+          urls = cleanSets[cleanSetIdx]
+          console.error('[seedance-generate] person_in_image — retrying with AI landing set', { productId, set: cleanSetIdx, count: urls.length })
+          cleanSetIdx++
+          continue
         }
         return NextResponse.json({
           error: 'صور هذا المنتج تحتوي على شخص حقيقي (موديل) — خدمة الفيديو ترفض الصور التي فيها أشخاص. استخدم صور المنتج فقط (بدون موديل) ثم أعد المحاولة.',

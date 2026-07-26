@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const auth = await assertAdmin()
   if (!auth.ok) return auth.response
 
-  const { imageUrls, mediaUrls, prompt } = await req.json().catch(() => ({}))
+  const { imageUrls, mediaUrls, prompt, productId } = await req.json().catch(() => ({}))
   if (!prompt) return NextResponse.json({ error: 'prompt required' }, { status: 400 })
 
   const seedKey = process.env.SEEDANCE_API_KEY
@@ -44,6 +44,28 @@ export async function POST(req: NextRequest) {
     proxied = (await Promise.all(imgs.map(u => proxyToSupabase(u)))).filter(Boolean) as string[]
   }
   if (!proxied.length) return NextResponse.json({ error: 'No usable product images' }, { status: 502 })
+
+  // Clean fallback set: the AI-redesigned product images already generated for this
+  // product's premium landing (studio showcase shots + lifestyle + cutout). They are
+  // product-only renders — the automatic answer when the RAW photos contain a person.
+  async function landingCleanImages(): Promise<string[]> {
+    if (!productId) return []
+    try {
+      const { data } = await supabaseAdmin
+        .from('landing_pages').select('custom_html')
+        .eq('product_id', productId).maybeSingle()
+      const html = String(data?.custom_html || '')
+      const m = html.match(/window\.GENIUS = (\{[\s\S]*?\});<\/script>/)
+      if (!m) return []
+      const g = JSON.parse(m[1])
+      const urls = [
+        ...(Array.isArray(g?.images?.showcase) ? g.images.showcase : []),
+        g?.images?.lifestyle,
+        g?.images?.cutout,
+      ].filter((u: unknown): u is string => typeof u === 'string' && /^https:\/\//.test(u))
+      return [...new Set(urls)].slice(0, 9)
+    } catch { return [] }
+  }
 
   const buildBody = (urls: string[]) => JSON.stringify({
     mode: 'media-to-video',   // multiple input images
@@ -64,8 +86,9 @@ export async function POST(req: NextRequest) {
   // to just the main image — which is a clean JPEG and works for any product.
   let urls = proxied
   let reducedToMain = false
+  let triedCleanSet = false
   let lastErr = 'Seedance request failed'
-  for (let attempt = 1; attempt <= 4; attempt++) {
+  for (let attempt = 1; attempt <= 5; attempt++) {
     try {
       const res = await fetch(SEEDANCE_CREATE, {
         method: 'POST',
@@ -82,8 +105,18 @@ export async function POST(req: NextRequest) {
       }
       lastErr = `Seedance ${res.status}: ${txt.slice(0, 200)}`
       // Seedance content policy: images containing a real person are rejected outright.
-      // No retry can fix this — surface a clear, actionable Arabic error instead.
+      // Automatic ladder: retry ONCE with the AI-redesigned landing images (product-only
+      // renders we already generated). Manual upload is only surfaced if that also fails.
       if (/real person/i.test(txt)) {
+        if (!triedCleanSet) {
+          triedCleanSet = true
+          const clean = await landingCleanImages()
+          if (clean.length) {
+            console.error('[seedance-generate] person_in_image — retrying with AI landing images', { productId, count: clean.length })
+            urls = clean
+            continue
+          }
+        }
         return NextResponse.json({
           error: 'صور هذا المنتج تحتوي على شخص حقيقي (موديل) — خدمة الفيديو ترفض الصور التي فيها أشخاص. استخدم صور المنتج فقط (بدون موديل) ثم أعد المحاولة.',
           code: 'person_in_image',

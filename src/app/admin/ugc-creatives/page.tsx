@@ -17,6 +17,8 @@ type Creative = {
   videoUrl?: string | null
   mergedUrl?: string | null
   error?: string | null
+  /** Set only for known, curated failure reasons (e.g. person_in_image) — gates error display. */
+  errorCode?: string | null
   showBlocks?: boolean
 }
 
@@ -90,6 +92,9 @@ export default function SeedancePage() {
   const [optPangle, setOptPangle] = useState(false)      // extend placement to Pangle
   const [optBidMode, setOptBidMode] = useState<'auto' | 'cost_cap'>('auto')
   const [optBidCap, setOptBidCap] = useState('')
+  // Manual clean-photos flow — offered only when generation failed with person_in_image.
+  const [personPhotos, setPersonPhotos] = useState<'none' | 'needed' | 'uploading' | 'done'>('none')
+  const [uploadErr, setUploadErr] = useState<string | null>(null)
   const [launchResult, setLaunchResult] = useState<any>(null)
   // Connected TikTok ad account — its currency drives the budget field (may differ from store currency).
   const [adAccount, setAdAccount] = useState<{ advertiser_id: string; currency: string | null; name: string | null; identity?: { display_name: string | null; profile_image: string | null } | null } | null>(null)
@@ -252,9 +257,33 @@ export default function SeedancePage() {
       const txt = await g.text()
       let gd: any = {}
       try { gd = JSON.parse(txt) } catch { gd = { error: txt.slice(0, 200) || `HTTP ${g.status}` } }
-      if (!g.ok) throw new Error(gd.error || `فشل الإرسال (HTTP ${g.status})`)
+      if (!g.ok) {
+        // person_in_image is unfixable by retry — offer the manual clean-photos path.
+        if (gd.code === 'person_in_image') setPersonPhotos(s => s === 'done' ? s : 'needed')
+        update(i, { status: 'error', error: gd.error || null, errorCode: gd.code || null })
+        return
+      }
       update(i, { taskId: gd.taskId })
-    } catch (e: any) { update(i, { status: 'error', error: e.message }) }
+    } catch (e: any) { update(i, { status: 'error', error: e.message, errorCode: null }) }
+  }
+
+  // Merchant-supplied product-only photos (offered when Seedance rejects photos with a
+  // real person). Replaces the generation image set and resets the blocked angles.
+  async function uploadCleanPhotos(files: FileList | null) {
+    if (!files || !files.length) return
+    setPersonPhotos('uploading'); setUploadErr(null)
+    try {
+      const fd = new FormData()
+      Array.from(files).slice(0, 9).forEach(f => fd.append('files', f))
+      const r = await fetch('/api/admin/upload-images', { method: 'POST', body: fd })
+      const d = await safeJson(r, 'فشل رفع الصور')
+      if (!r.ok) throw new Error(d.error || 'تعذّر رفع الصور')
+      setProxiedImages(d.mediaUrls || [])
+      setCreatives(prev => prev.map(c => c.errorCode === 'person_in_image'
+        ? { ...c, status: 'pending', error: null, errorCode: null }
+        : c))
+      setPersonPhotos('done')
+    } catch (e: any) { setPersonPhotos('needed'); setUploadErr(e.message) }
   }
 
   async function addVoiceover(i: number) {
@@ -320,6 +349,7 @@ export default function SeedancePage() {
     setLaunchResult(null); setLaunchIndex(0); setShowPixelModal(false); setPixelInput(''); setPixelError(null)
     setAdCaption(null); setAdvOpen(false); setOptComments(true); setOptDownload(true); setOptShare(true)
     setOptPangle(false); setOptBidMode('auto'); setOptBidCap('')
+    setPersonPhotos('none'); setUploadErr(null)
   }
 
   // Revisit a previous step (only ones whose content already exists).
@@ -621,6 +651,30 @@ export default function SeedancePage() {
                 )}
               </div>
 
+              {/* clean-photos fallback — shown only for the person_in_image rejection */}
+              {personPhotos !== 'none' && (
+                <div className={`mb-6 rounded-2xl border p-5 ${personPhotos === 'done' ? 'border-[#4ade80]/25 bg-[#4ade80]/8' : 'border-[#f59e0b]/30 bg-[#f59e0b]/10'}`}>
+                  {personPhotos === 'done' ? (
+                    <p className="text-[13.5px] font-semibold text-[#4ade80]">تم استبدال صور الفيديو بالصور المرفوعة — اضغط «أنشئ الفيديو» أو «إعادة» على أي زاوية للمتابعة.</p>
+                  ) : (
+                    <>
+                      <p className="text-[13.5px] font-bold text-[#fbbf24]">صور المنتج تحتوي على شخص (موديل) — وخدمة الفيديو ترفض الصور التي فيها أشخاص.</p>
+                      <p className="mt-1 text-[12.5px] text-[#fcd34d]/80 leading-relaxed">ارفع صور المنتج فقط (بدون موديل — مثل صورة مسطّحة أو على علاقة ملابس) وسنستخدمها للفيديو بدل صور الصفحة.</p>
+                      <div className="mt-3.5 flex items-center gap-3">
+                        <label className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold cursor-pointer transition-colors ${personPhotos === 'uploading' ? 'bg-white/10 text-[#9aa0b4] pointer-events-none' : 'bg-[#f59e0b]/20 text-[#fbbf24] hover:bg-[#f59e0b]/30'}`}>
+                          {personPhotos === 'uploading'
+                            ? (<><span className="h-3.5 w-3.5 rounded-full border-2 border-[#fbbf24]/40 border-t-[#fbbf24] animate-spin" /> جاري الرفع…</>)
+                            : 'ارفع صور المنتج (بدون موديل)'}
+                          <input type="file" accept="image/*" multiple className="hidden" disabled={personPhotos === 'uploading'}
+                            onChange={e => { uploadCleanPhotos(e.target.files); e.target.value = '' }} />
+                        </label>
+                        {uploadErr && <span className="text-[12px] text-[#fb7185]" dir="auto">{uploadErr}</span>}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-3">
                 {creatives.map((c, i) => {
                   const female = c.gender === 'female'
@@ -641,7 +695,7 @@ export default function SeedancePage() {
                             )}
                             {c.status === 'final' && <span className="text-[11px] font-bold text-[#4ade80]">جاهز بالصوت السعودي</span>}
                           </div>
-                          {c.status === 'error' && <p className="mt-1.5 text-[11px] text-[#fb7185] leading-snug" dir="auto">{c.error && !/^Seedance \d/.test(c.error) ? c.error : 'تعذّر الإنشاء — اضغط «إعادة» للمحاولة مرة ثانية'}</p>}
+                          {c.status === 'error' && <p className="mt-1.5 text-[11px] text-[#fb7185] leading-snug" dir="auto">{c.errorCode && c.error ? c.error : 'تعذّر الإنشاء — اضغط «إعادة» للمحاولة مرة ثانية'}</p>}
                         </div>
                         <div className="shrink-0 flex flex-col items-stretch gap-1">
                           {c.status === 'pending' ? (

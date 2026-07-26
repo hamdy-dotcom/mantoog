@@ -303,11 +303,25 @@ export default function SeedancePage() {
     if (!c || c.status === 'generating') return
     update(i, { status: 'generating', error: null })
     try {
-      const g = await fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaUrls: proxiedImages, imageUrls: images.slice(0, 9), prompt: c.seedancePrompt, productId: productPage?.productId || null }) })
-      const txt = await g.text()
+      const call = () => fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaUrls: proxiedImages, imageUrls: images.slice(0, 9), prompt: c.seedancePrompt, productId: productPage?.productId || null }) })
+      let g = await call()
+      let txt = await g.text()
       let gd: any = {}
-      try { gd = JSON.parse(txt) } catch { gd = { error: txt.slice(0, 200) || `HTTP ${g.status}` } }
+      let parsed = true
+      try { gd = JSON.parse(txt) } catch { parsed = false; gd = { error: txt.slice(0, 200) || `HTTP ${g.status}` } }
+      // Platform blip (mid-deploy 5xx / non-JSON body): retry once automatically —
+      // these resolve in seconds and are not a real generation failure.
+      if (!g.ok && !gd.code && (!parsed || g.status >= 500)) {
+        console.error('[ugc] seedance-generate platform blip — retrying once', g.status, txt.slice(0, 300))
+        await new Promise(r => setTimeout(r, 4000))
+        g = await call()
+        txt = await g.text()
+        parsed = true
+        try { gd = JSON.parse(txt) } catch { parsed = false; gd = { error: txt.slice(0, 200) || `HTTP ${g.status}` } }
+      }
       if (!g.ok) {
+        // Always keep the REAL reason in the console even though the UI stays curated.
+        console.error('[ugc] seedance-generate failed', g.status, txt.slice(0, 500))
         // person_in_image is unfixable by retry — offer the manual clean-photos path.
         if (gd.code === 'person_in_image') setPersonPhotos(s => s === 'done' ? s : 'needed')
         update(i, { status: 'error', error: gd.error || null, errorCode: gd.code || null })

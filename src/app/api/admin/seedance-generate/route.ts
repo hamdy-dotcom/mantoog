@@ -143,11 +143,14 @@ export async function POST(req: NextRequest) {
         reducedToMain = true
         continue
       }
+      console.error('[seedance-generate] non-retryable upstream error', { status: res.status, body: txt.slice(0, 400) })
       return NextResponse.json({ error: lastErr }, { status: 502 })
     } catch (e: any) {
       // timeout/network: the task may have been created — don't retry (avoid a double charge)
+      console.error('[seedance-generate] network/timeout during create', e?.message)
       return NextResponse.json({ error: e.message }, { status: 502 })
     }
   }
+  console.error('[seedance-generate] attempts exhausted', lastErr)
   return NextResponse.json({ error: lastErr }, { status: 502 })
 }

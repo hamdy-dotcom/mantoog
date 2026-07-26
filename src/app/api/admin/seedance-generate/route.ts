@@ -81,6 +81,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `no taskId: ${txt.slice(0, 200)}` }, { status: 502 })
       }
       lastErr = `Seedance ${res.status}: ${txt.slice(0, 200)}`
+      // Seedance content policy: images containing a real person are rejected outright.
+      // No retry can fix this — surface a clear, actionable Arabic error instead.
+      if (/real person/i.test(txt)) {
+        return NextResponse.json({
+          error: 'صور هذا المنتج تحتوي على شخص حقيقي (موديل) — خدمة الفيديو ترفض الصور التي فيها أشخاص. استخدم صور المنتج فقط (بدون موديل) ثم أعد المحاولة.',
+          code: 'person_in_image',
+        }, { status: 422 })
+      }
       if (res.status === 429 && attempt < 4) {
         // Honour the account's Retry-After (observed ~36s) so the retry actually clears the window.
         const ra = parseInt(res.headers.get('retry-after') || '', 10)

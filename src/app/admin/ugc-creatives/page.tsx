@@ -641,7 +641,7 @@ export default function SeedancePage() {
                             )}
                             {c.status === 'final' && <span className="text-[11px] font-bold text-[#4ade80]">جاهز بالصوت السعودي</span>}
                           </div>
-                          {c.status === 'error' && <p className="mt-1.5 text-[11px] text-[#fb7185] leading-snug">تعذّر الإنشاء — اضغط «إعادة» للمحاولة مرة ثانية</p>}
+                          {c.status === 'error' && <p className="mt-1.5 text-[11px] text-[#fb7185] leading-snug" dir="auto">{c.error && !/^Seedance \d/.test(c.error) ? c.error : 'تعذّر الإنشاء — اضغط «إعادة» للمحاولة مرة ثانية'}</p>}
                         </div>
                         <div className="shrink-0 flex flex-col items-stretch gap-1">
                           {c.status === 'pending' ? (

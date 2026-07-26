@@ -56,12 +56,21 @@ Given a product (with its REAL photos + details), invent a bespoke brand world +
 RULES: benefits.items EXACTLY 6, showcase EXACTLY 4 (each a DIFFERENT real part/feature the customer should see), lifestyle.items EXACTLY 4, reviews EXACTLY 3, price.features EXACTLY 6, faq EXACTLY 4. Each showcase tile gets ITS OWN image generated from that tile's "img" prompt, so write each "img" prompt to show EXACTLY what its caption/title/desc claims — the image and the text for a tile must match. The 4 showcase "img" prompts must be visibly different from each other (different part / angle / context). "brand" is the manufacturer only (never a slogan); "productName" is the concise name of what the product is — keep them clearly separate and both grounded in the given product title. Every headline/desc must describe THIS product only — never mention a different product category. Real persuasive Saudi Arabic, no lorem, no English. priceMain/price.amount are digits only. Palette must suit the product and be tasteful with strong contrast.`
 
 async function artDirect(client: Anthropic, p: GeniusProduct) {
-  const r = await client.messages.create({
-    model: MODEL, max_tokens: 4000, system: ART_SYS,
-    messages: [{ role: 'user', content: `Product: ${p.title}\nPrice: ${p.price} ${p.currency || 'SAR'}\nDescription: ${p.description || ''}\nReal features: ${(p.features || []).join(' | ')}\n\nReturn the JSON.` }],
-  })
-  const t = r.content[0].type === 'text' ? r.content[0].text : ''
-  return jsonFrom(t)
+  // Arabic tokenizes heavily — 4000 tokens truncated the JSON mid-array for wordy
+  // products ("Expected ',' or ']' … in JSON"). Generous cap + one retry on bad JSON.
+  let lastErr: Error | null = null
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const r = await client.messages.create({
+      model: MODEL, max_tokens: 8192, system: ART_SYS,
+      messages: [{ role: 'user', content: `Product: ${p.title}\nPrice: ${p.price} ${p.currency || 'SAR'}\nDescription: ${p.description || ''}\nReal features: ${(p.features || []).join(' | ')}\n\nReturn the JSON.` }],
+    })
+    const t = r.content[0].type === 'text' ? r.content[0].text : ''
+    try { return jsonFrom(t) } catch (e: any) {
+      lastErr = e
+      console.error(`[landing-genius] artDirect JSON parse failed (attempt ${attempt}/2, stop=${r.stop_reason}, chars=${t.length}):`, e.message)
+    }
+  }
+  throw new Error(`art_direction_json: ${lastErr?.message || 'unparseable'}`)
 }
 
 // ── PHASE 2: Seedance nano-banana-pro image-to-image ──────────────────────────

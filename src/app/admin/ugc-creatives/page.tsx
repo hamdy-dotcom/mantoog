@@ -619,7 +619,19 @@ export default function SeedancePage() {
                         className="absolute inset-0 w-full h-full bg-white"
                       />
                     ) : (
-                      <iframe src={productPage.landingUrl} title="معاينة صفحة الهبوط" className="absolute inset-0 w-full h-full bg-white" loading="lazy" />
+                      // Basic-landing fallback: the live URL can be blocked cross-frame,
+                      // so show the product visual instead of a browser error page.
+                      <div className="absolute inset-0 bg-white flex flex-col">
+                        {images[0]
+                          ? <img src={images[0]} alt="" className="flex-1 w-full object-cover min-h-0" />
+                          : <div className="flex-1 bg-gray-100" />}
+                        <div className="shrink-0 px-3 py-3 text-center">
+                          <div className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2" dir="auto">{productPage.titleAr}</div>
+                          <div className="mt-1.5 text-[13px] font-extrabold text-gray-900" dir="ltr">{productPage.price} {productPage.currency}</div>
+                          <div className="mt-2 rounded-lg bg-blue-600 text-white text-[11px] font-bold py-1.5">اطلب الآن</div>
+                          <div className="mt-1.5 text-[9px] text-gray-400">افتح الصفحة من الرابط أعلاه للمعاينة الكاملة</div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>

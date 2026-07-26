@@ -49,6 +49,11 @@ export async function POST(req: NextRequest) {
     const { art, generated, cutoutUrl } = await prepareAssets(product, { anthropic, seedance }, uploadCutout)
     return NextResponse.json({ ok: true, art, generated, cutoutUrl })
   } catch (e: any) {
-    return NextResponse.json({ error: `Prepare failed: ${e.message}` }, { status: 502 })
+    // Curated Arabic only — raw technical detail goes to server logs, never the UI.
+    console.error('[landing-genius/prepare] failed:', e?.message)
+    const msg = /art_direction_json/.test(String(e?.message))
+      ? 'رد الذكاء الاصطناعي وصل غير مكتمل — أعد المحاولة وغالبًا ستنجح.'
+      : 'تعذّر تجهيز الصفحة المميزة — أعد المحاولة بعد قليل.'
+    return NextResponse.json({ error: msg }, { status: 502 })
   }
 }

@@ -306,6 +306,9 @@ export function extractProductDataFromHtml(html: string, platform: string) {
   }
 
   images = [...new Set(images)]
+    // Force https: scraped pages often carry http:// or protocol-relative URLs, which
+    // cause Mixed Content on our https pages and break server-side fetchers.
+    .map(src => src.startsWith('//') ? `https:${src}` : src.replace(/^http:\/\//i, 'https://'))
     .filter(
       src =>
         src &&

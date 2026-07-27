@@ -98,7 +98,12 @@ export default function SeedancePage() {
   // AI agents activation (post-launch): مراقب الإنفاق + محلل الأداء
   const [agentGuardian, setAgentGuardian] = useState(true)
   const [agentReporter, setAgentReporter] = useState(true)
+  const [agentPnl, setAgentPnl] = useState(true)       // مدير الأرباح (+ مدقق الطلبات implicitly)
+  const [agentScaler, setAgentScaler] = useState(true) // محرك النمو
   const [agentTargetCpa, setAgentTargetCpa] = useState('')
+  const [agentCost, setAgentCost] = useState('')       // COGS per unit
+  const [agentMargin, setAgentMargin] = useState('20') // desired profit %
+  const [agentCeiling, setAgentCeiling] = useState('') // max daily budget
   const [agentEmail, setAgentEmail] = useState('')
   const [agentsState, setAgentsState] = useState<'idle' | 'saving' | 'done'>('idle')
   const [agentsErr, setAgentsErr] = useState<string | null>(null)
@@ -334,12 +339,17 @@ export default function SeedancePage() {
   // Deploy the Phase-1 agents on the campaign that was just launched.
   async function deployAgents() {
     if (!launchResult?.campaign_id) return
-    const agents = [agentGuardian && 'guardian', agentReporter && 'reporter'].filter(Boolean)
+    const agents = [
+      agentGuardian && 'guardian', agentReporter && 'reporter',
+      agentPnl && 'pnl', agentPnl && 'auditor', agentScaler && 'scaler',
+    ].filter(Boolean)
     if (!agents.length) { setAgentsErr('اختر وكيلًا واحدًا على الأقل'); return }
     if (agentGuardian && !(parseFloat(agentTargetCpa) > 0)) { setAgentsErr('أدخل تكلفة الطلب المستهدفة'); return }
+    if (agentPnl && !(parseFloat(agentCost) > 0)) { setAgentsErr('أدخل تكلفة المنتج (لمدير الأرباح)'); return }
     if (!/.+@.+\..+/.test(agentEmail)) { setAgentsErr('أدخل بريدًا صحيحًا للتنبيهات'); return }
     setAgentsState('saving'); setAgentsErr(null)
     try {
+      const budgetNum = parseFloat(dailyBudget) || 0
       const r = await fetch('/api/admin/agent-deployments', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -350,6 +360,11 @@ export default function SeedancePage() {
           targetCpa: parseFloat(agentTargetCpa) || null,
           alertEmail: agentEmail.trim(),
           currency: adAccount?.currency || productPage?.currency || '',
+          productId: productPage?.productId || null,
+          costPrice: agentPnl ? parseFloat(agentCost) || null : null,
+          desiredMarginPct: agentPnl ? parseFloat(agentMargin) || 20 : null,
+          budgetCeiling: agentScaler ? (parseFloat(agentCeiling) || budgetNum * 3 || null) : null,
+          currentBudget: budgetNum || null,
         }),
       })
       const d = await safeJson(r, 'فشل تفعيل الوكلاء')
@@ -441,7 +456,8 @@ export default function SeedancePage() {
     setAdCaption(null); setAdvOpen(false); setOptComments(true); setOptDownload(true); setOptShare(true)
     setOptPangle(false); setOptBidMode('auto'); setOptBidCap('')
     setPersonPhotos('none'); setUploadErr(null)
-    setAgentGuardian(true); setAgentReporter(true); setAgentTargetCpa(''); setAgentEmail(''); setAgentsState('idle'); setAgentsErr(null)
+    setAgentGuardian(true); setAgentReporter(true); setAgentPnl(true); setAgentScaler(true)
+    setAgentTargetCpa(''); setAgentCost(''); setAgentMargin('20'); setAgentCeiling(''); setAgentEmail(''); setAgentsState('idle'); setAgentsErr(null)
   }
 
   // Revisit a previous step (only ones whose content already exists).
@@ -921,33 +937,47 @@ export default function SeedancePage() {
                     ) : (
                       <>
                         <p className="text-[12.5px] text-[#9aa0b4] leading-relaxed mb-4">وكلاء يراقبون حملتك تلقائيًا على مدار الساعة:</p>
-                        <div className="space-y-2.5 mb-4">
-                          <button type="button" onClick={() => setAgentGuardian(v => !v)}
-                            className={`w-full flex items-start gap-3 rounded-xl border px-4 py-3 text-right cursor-pointer transition-colors ${agentGuardian ? 'border-[#6366f1]/50 bg-[#6366f1]/12' : 'border-white/10 bg-black/20'}`}>
-                            <span className={`mt-0.5 grid place-items-center h-5 w-5 rounded-md shrink-0 ${agentGuardian ? 'bg-[#6366f1] text-white' : 'bg-white/10 text-transparent'}`}>{Ico.check('h-3 w-3')}</span>
-                            <span className="flex-1">
-                              <span className="block text-[13px] font-bold text-white">مراقب الإنفاق</span>
-                              <span className="block text-[11.5px] text-[#9aa0b4] mt-0.5">يوقف الحملة تلقائيًا إذا صرفت دون طلبات أو تجاوزت تكلفة الطلب المستهدفة بـ ٥٠٪</span>
-                            </span>
-                          </button>
-                          <button type="button" onClick={() => setAgentReporter(v => !v)}
-                            className={`w-full flex items-start gap-3 rounded-xl border px-4 py-3 text-right cursor-pointer transition-colors ${agentReporter ? 'border-[#6366f1]/50 bg-[#6366f1]/12' : 'border-white/10 bg-black/20'}`}>
-                            <span className={`mt-0.5 grid place-items-center h-5 w-5 rounded-md shrink-0 ${agentReporter ? 'bg-[#6366f1] text-white' : 'bg-white/10 text-transparent'}`}>{Ico.check('h-3 w-3')}</span>
-                            <span className="flex-1">
-                              <span className="block text-[13px] font-bold text-white">محلل الأداء</span>
-                              <span className="block text-[11.5px] text-[#9aa0b4] mt-0.5">تقرير يومي على بريدك: الإنفاق، الطلبات الفعلية، وكل إجراء نفذه الوكلاء</span>
-                            </span>
-                          </button>
+                        <div className="grid sm:grid-cols-2 gap-2.5 mb-4">
+                          {([
+                            { on: agentPnl, set: setAgentPnl, name: 'مدير الأرباح', desc: 'يحسب ربحك الحقيقي (تكلفة، تأكيد، تسليم) ويحدد أهداف باقي الوكلاء تلقائيًا' },
+                            { on: agentScaler, set: setAgentScaler, name: 'محرك النمو', desc: 'يرفع ميزانية الحملة الرابحة +٢٠٪ كل ٤٨ ساعة ضمن حد أقصى تحدده' },
+                            { on: agentGuardian, set: setAgentGuardian, name: 'مراقب الإنفاق', desc: 'يوقف الحملة تلقائيًا إذا صرفت دون طلبات أو تجاوزت تكلفة الطلب المستهدفة' },
+                            { on: agentReporter, set: setAgentReporter, name: 'محلل الأداء', desc: 'تقرير يومي: الإنفاق، الطلبات الفعلية، وكل إجراء نفذه الوكلاء' },
+                          ] as const).map(a => (
+                            <button key={a.name} type="button" onClick={() => a.set(v => !v)}
+                              className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-right cursor-pointer transition-colors ${a.on ? 'border-[#6366f1]/50 bg-[#6366f1]/12' : 'border-white/10 bg-black/20'}`}>
+                              <span className={`mt-0.5 grid place-items-center h-5 w-5 rounded-md shrink-0 ${a.on ? 'bg-[#6366f1] text-white' : 'bg-white/10 text-transparent'}`}>{Ico.check('h-3 w-3')}</span>
+                              <span className="flex-1">
+                                <span className="block text-[13px] font-bold text-white">{a.name}</span>
+                                <span className="block text-[11px] text-[#9aa0b4] mt-0.5 leading-relaxed">{a.desc}</span>
+                              </span>
+                            </button>
+                          ))}
                         </div>
                         <div className="grid sm:grid-cols-2 gap-3 mb-3">
+                          {agentPnl && (
+                            <input type="number" dir="ltr" min="0.01" step="any" value={agentCost} onChange={e => setAgentCost(e.target.value)}
+                              placeholder={`تكلفة المنتج للقطعة (${adAccount?.currency || 'ر.س'})`}
+                              className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-[13px] font-bold text-white outline-none focus:border-[#6366f1]/60 text-right placeholder:font-semibold placeholder:text-[#5a5f72]" />
+                          )}
+                          {agentPnl && (
+                            <input type="number" dir="ltr" min="1" max="80" value={agentMargin} onChange={e => setAgentMargin(e.target.value)}
+                              placeholder="هامش الربح المستهدف ٪"
+                              className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-[13px] font-bold text-white outline-none focus:border-[#6366f1]/60 text-right placeholder:font-semibold placeholder:text-[#5a5f72]" />
+                          )}
+                          {agentScaler && (
+                            <input type="number" dir="ltr" min="1" value={agentCeiling} onChange={e => setAgentCeiling(e.target.value)}
+                              placeholder={`أقصى ميزانية يومية (${(parseFloat(dailyBudget) || 0) * 3 || ''} ${adAccount?.currency || ''})`}
+                              className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-[13px] font-bold text-white outline-none focus:border-[#6366f1]/60 text-right placeholder:font-semibold placeholder:text-[#5a5f72]" />
+                          )}
                           {agentGuardian && (
                             <input type="number" dir="ltr" min="1" value={agentTargetCpa} onChange={e => setAgentTargetCpa(e.target.value)}
-                              placeholder={`تكلفة الطلب المستهدفة (${adAccount?.currency || 'ر.س'})`}
+                              placeholder={`تكلفة الطلب المستهدفة (${adAccount?.currency || 'ر.س'})${agentPnl ? ' — سيضبطها مدير الأرباح تلقائيًا' : ''}`}
                               className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-[13px] font-bold text-white outline-none focus:border-[#6366f1]/60 text-right placeholder:font-semibold placeholder:text-[#5a5f72]" />
                           )}
                           <input type="email" dir="ltr" value={agentEmail} onChange={e => setAgentEmail(e.target.value)}
                             placeholder="بريد التنبيهات والتقارير"
-                            className={`w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-[13px] font-bold text-white outline-none focus:border-[#6366f1]/60 text-right placeholder:font-semibold placeholder:text-[#5a5f72] ${agentGuardian ? '' : 'sm:col-span-2'}`} />
+                            className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-[13px] font-bold text-white outline-none focus:border-[#6366f1]/60 text-right placeholder:font-semibold placeholder:text-[#5a5f72]" />
                         </div>
                         {agentsErr && <p className="text-[12px] text-[#fb7185] mb-2" dir="auto">{agentsErr}</p>}
                         <button onClick={deployAgents} disabled={agentsState === 'saving'}

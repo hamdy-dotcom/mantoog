@@ -2,7 +2,7 @@ import {
   activeDeployments, campaignStats, logAction, pauseCampaign,
   storeConnection, touchDeployment, utcDate,
 } from '@/lib/agents/core'
-import { sendAgentEmail } from '@/lib/agents/notify'
+import { buildGuardianAlertHtml, sendEmailHtml } from '@/lib/agents/notify'
 
 // مراقب الإنفاق — Budget Guardian.
 // Static-threshold rules (Phase 1; مدير الأرباح will supply dynamic targets in Phase 2):
@@ -46,6 +46,11 @@ export async function runGuardian(): Promise<{ checked: number; acted: number; e
 
         const observing = d.observe_until != null && new Date(d.observe_until) > new Date()
         const name = d.campaign_name || d.campaign_id
+        const adsManagerUrl = `https://ads.tiktok.com/i18n/manage/campaign?aadvid=${connection.advertiser_id}`
+        const alertHtml = (isObserving: boolean) => buildGuardianAlertHtml({
+          campaignName: name, reason: breach!, observing: isObserving,
+          stats: { spend: s.spend, conversions: s.conversions, cpa: s.cpa }, currency, adsManagerUrl,
+        })
 
         if (observing) {
           await logAction({
@@ -53,10 +58,7 @@ export async function runGuardian(): Promise<{ checked: number; acted: number; e
             action: 'would_pause', reason: breach, data: { stats: s, observe: true },
           })
           if (d.config.alertEmail) {
-            await sendAgentEmail(d.config.alertEmail, `⚠️ مراقب الإنفاق — وضع المراقبة: ${name}`, [
-              `الحملة <strong style="color:#fff">${name}</strong> تجاوزت الحدود:`, breach,
-              'الوكيل في وضع المراقبة (أول ٤٨ ساعة) — لم يوقف الحملة، هذا تنبيه فقط.',
-            ])
+            await sendEmailHtml(d.config.alertEmail, `⚠️ مراقب الإنفاق — تنبيه: ${name}`, alertHtml(true))
           }
           continue
         }
@@ -73,10 +75,7 @@ export async function runGuardian(): Promise<{ checked: number; acted: number; e
           acted++
           await touchDeployment(d.id, { status: 'done' })
           if (d.config.alertEmail) {
-            await sendAgentEmail(d.config.alertEmail, `⛔ مراقب الإنفاق أوقف حملة: ${name}`, [
-              `الحملة <strong style="color:#fff">${name}</strong> تم إيقافها مؤقتًا (Paused).`, `السبب: ${breach}`,
-              'يمكنك إعادة تفعيلها من TikTok Ads Manager في أي وقت.',
-            ])
+            await sendEmailHtml(d.config.alertEmail, `⛔ مراقب الإنفاق أوقف حملة: ${name}`, alertHtml(false))
           }
         } else {
           errors++

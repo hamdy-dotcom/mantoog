@@ -20,6 +20,7 @@ export type AgentDeployment = {
   }
   observe_until: string | null
   last_run_at: string | null
+  created_at: string
 }
 
 export type CampaignStats = {

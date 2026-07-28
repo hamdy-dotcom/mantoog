@@ -676,6 +676,21 @@ export default function LandingPage() {
   const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', border: `1px solid ${th.cardBorder}`, borderRadius: 8, fontSize: 15, boxSizing: 'border-box', direction: m.dir as any, fontFamily: th.font, outline: 'none', background: th.cardBg, color: th.text }
   const images = product?.images || []
 
+  // Global Google tag (loads on EVERY landing view, not only at purchase) — Google Ads
+  // requires the tag on page load to verify the site and optimize Maximize Conversions;
+  // the purchase event later reuses the same gtag with a transaction_id for dedup.
+  const googleTag = store?.google_ads_conversion_id ? (
+    <>
+      <Script src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(store.google_ads_conversion_id)}`} strategy="afterInteractive" />
+      <Script id="google-tag-config" strategy="afterInteractive">{`
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '${String(store.google_ads_conversion_id).replace(/'/g, "\\'")}');
+      `}</Script>
+    </>
+  ) : null
+
   const REVIEWS_DATA = {
     ar: {
       names: [
@@ -821,6 +836,8 @@ export default function LandingPage() {
     }
     const injected = String(landingPage.custom_html).replace('<head>', `<head><script>window.LANDING_CONFIG=${JSON.stringify(cfg)};</script>`)
     return (
+      <>
+      {googleTag}
       <iframe
         title={product?.title || 'landing'}
         srcDoc={injected}
@@ -832,12 +849,15 @@ export default function LandingPage() {
           } catch { /* cross-origin never happens for srcDoc */ }
         }}
       />
+      </>
     )
   }
 
   // Store theme product page — merchant chose "يتبع قالب المتجر"
   if (store?.theme === 'store_theme' && store?.store_theme) {
     return (
+      <>
+      {googleTag}
       <ThemedProductPage
         store={store}
         product={product}
@@ -850,6 +870,7 @@ export default function LandingPage() {
         onBack={() => window.history.back()}
         onSubmit={handleSubmit}
       />
+      </>
     )
   }
 
@@ -866,6 +887,8 @@ export default function LandingPage() {
 
   if (store?.theme === 'fashion') {
     return (
+      <>
+      {googleTag}
       <FashionTheme
         store={store}
         product={product}
@@ -882,11 +905,14 @@ export default function LandingPage() {
           await handleSubmit({ name, phone, address, note, qty })
         }}
       />
+      </>
     )
   }
 
   if (store?.theme === 'beauty') {
     return (
+      <>
+      {googleTag}
       <BeautyTheme
         store={store}
         product={product}
@@ -903,11 +929,14 @@ export default function LandingPage() {
           await handleSubmit({ name, phone, address, note, qty })
         }}
       />
+      </>
     )
   }
 
   if (store?.theme === 'home') {
     return (
+      <>
+      {googleTag}
       <HomeTheme
         store={store}
         product={product}
@@ -924,11 +953,13 @@ export default function LandingPage() {
           await handleSubmit({ name, phone, address, note, qty })
         }}
       />
+      </>
     )
   }
 
   return (
     <>
+      {googleTag}
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
       <Script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" strategy="lazyOnload" onLoad={() => {
         if (!(window as any).L || !(store?.address_mode === 'map' || (!store?.address_mode && store?.enable_location))) return

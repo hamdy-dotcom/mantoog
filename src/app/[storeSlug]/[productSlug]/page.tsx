@@ -676,17 +676,20 @@ export default function LandingPage() {
   const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', border: `1px solid ${th.cardBorder}`, borderRadius: 8, fontSize: 15, boxSizing: 'border-box', direction: m.dir as any, fontFamily: th.font, outline: 'none', background: th.cardBg, color: th.text }
   const images = product?.images || []
 
-  // Global Google tag (loads on EVERY landing view, not only at purchase) — Google Ads
-  // requires the tag on page load to verify the site and optimize Maximize Conversions;
-  // the purchase event later reuses the same gtag with a transaction_id for dedup.
-  const googleTag = store?.google_ads_conversion_id ? (
+  // Global Google tag — loads on EVERY landing view (not only at purchase).
+  // Configures both Google Ads conversion tracking and Google Analytics 4 if present.
+  const googleTag = store?.google_ads_conversion_id || store?.google_analytics_measurement_id ? (
     <>
-      <Script src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(store.google_ads_conversion_id)}`} strategy="afterInteractive" />
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(store?.google_ads_conversion_id || store?.google_analytics_measurement_id || '')}`}
+        strategy="afterInteractive"
+      />
       <Script id="google-tag-config" strategy="afterInteractive">{`
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', '${String(store.google_ads_conversion_id).replace(/'/g, "\\'")}');
+        ${store?.google_ads_conversion_id ? `gtag('config', '${String(store.google_ads_conversion_id).replace(/'/g, "\\'")}');` : ''}
+        ${store?.google_analytics_measurement_id ? `gtag('config', '${String(store.google_analytics_measurement_id).replace(/'/g, "\\'")}');` : ''}
       `}</Script>
     </>
   ) : null

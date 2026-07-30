@@ -678,18 +678,19 @@ export default function LandingPage() {
 
   // Global Google tag — loads on EVERY landing view (not only at purchase).
   // Configures both Google Ads conversion tracking and Google Analytics 4 if present.
-  const googleTag = store?.google_ads_conversion_id || store?.google_analytics_measurement_id ? (
+  const storeAny = store as any
+  const googleTag = storeAny?.google_ads_conversion_id || storeAny?.google_analytics_measurement_id ? (
     <>
       <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(store?.google_ads_conversion_id || store?.google_analytics_measurement_id || '')}`}
+        src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(storeAny?.google_ads_conversion_id || storeAny?.google_analytics_measurement_id || '')}`}
         strategy="afterInteractive"
       />
       <Script id="google-tag-config" strategy="afterInteractive">{`
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        ${store?.google_ads_conversion_id ? `gtag('config', '${String(store.google_ads_conversion_id).replace(/'/g, "\\'")}');` : ''}
-        ${store?.google_analytics_measurement_id ? `gtag('config', '${String(store.google_analytics_measurement_id).replace(/'/g, "\\'")}');` : ''}
+        ${storeAny?.google_ads_conversion_id ? `gtag('config', '${String(storeAny.google_ads_conversion_id).replace(/'/g, "\\'")}');` : ''}
+        ${storeAny?.google_analytics_measurement_id ? `gtag('config', '${String(storeAny.google_analytics_measurement_id).replace(/'/g, "\\'")}');` : ''}
       `}</Script>
     </>
   ) : null

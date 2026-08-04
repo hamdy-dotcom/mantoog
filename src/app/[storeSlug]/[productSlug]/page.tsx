@@ -335,6 +335,26 @@ export default function LandingPage() {
     (window as any).__setPickedLocation = setPickedLocation
   }, [])
 
+  useEffect(() => {
+    if (!product?.id) return
+    const fire = () => {
+      const ttq = (window as any).ttq
+      if (ttq) {
+        ttq.page()
+        ttq.track('ViewContent', { content_id: product.id, content_name: product.title || '', value: product.price || 0, currency: store?.currency })
+      }
+    }
+    // If ttq is already loaded fire immediately, otherwise wait for the pixel script
+    if ((window as any).ttq) {
+      fire()
+    } else {
+      const interval = setInterval(() => {
+        if ((window as any).ttq) { clearInterval(interval); fire() }
+      }, 100)
+      return () => clearInterval(interval)
+    }
+  }, [product?.id])
+
   const formatTimer = (s: number) => {
     const days = Math.floor(s / 86400)
     const h = Math.floor((s % 86400) / 3600).toString().padStart(2, '0')
@@ -1047,8 +1067,6 @@ export default function LandingPage() {
                   a.parentNode.insertBefore(o,a)
                 };
                 ${tiktokIds.map((id: string) => `ttq.load("${id.replace(/"/g, '\\"')}");`).join('\n                ')}
-                ttq.page();
-                ttq.track("ViewContent", {content_id: "${product.id}", content_name: "${product.title?.replace(/"/g, '\\"') || ''}", value: ${product.price || 0}, currency: "${store.currency}"});
               }(window,document,"ttq");
             `}
           </Script>

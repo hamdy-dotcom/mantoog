@@ -461,6 +461,18 @@ export default function LandingPage() {
     setFormError('')
     setSubmitting(true)
     const orderQty = selectedOffer ? selectedOffer.quantity : (store?.show_quantity ? submitQty : 1)
+    const checkoutTotalPrice = selectedOffer
+      ? selectedOffer.price
+      : (store?.show_quantity ? parseFloat(product?.price || 0) * submitQty : parseFloat(product?.price || 0))
+    const checkoutQtyForPixel = selectedOffer ? selectedOffer.quantity : (store?.show_quantity ? submitQty : 1)
+    if (typeof window !== 'undefined') {
+      if ((window as any).fbq) {
+        (window as any).fbq('track', 'InitiateCheckout', { currency: store.currency, value: checkoutTotalPrice })
+      }
+      if ((window as any).ttq) {
+        (window as any).ttq.track('InitiateCheckout', { content_id: product.id, content_name: product.title, currency: store.currency, value: checkoutTotalPrice, quantity: checkoutQtyForPixel })
+      }
+    }
     const bumpAmt = bumpChecked && upsellConfig?.type === 'bump' ? (upsellConfig.sale_price || 0) : 0
     const orderTotal = (selectedOffer ? selectedOffer.price : product.price * orderQty) + bumpAmt + shippingCost
     const upsellItem = bumpChecked && upsellProduct && upsellConfig?.type === 'bump' ? {
@@ -1690,21 +1702,7 @@ export default function LandingPage() {
               <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', color: '#ef4444', fontSize: 13 }}>{formError}</div>
             )}
             <button
-              onClick={() => {
-                const totalPrice = selectedOffer
-                  ? selectedOffer.price
-                  : (store?.show_quantity ? parseFloat(product?.price || 0) * qty : parseFloat(product?.price || 0))
-                const checkoutQty = selectedOffer ? selectedOffer.quantity : (store?.show_quantity ? qty : 1)
-                if (typeof window !== 'undefined') {
-                  if ((window as any).fbq) {
-                    (window as any).fbq('track', 'InitiateCheckout', { currency: store.currency, value: totalPrice })
-                  }
-                  if ((window as any).ttq) {
-                    (window as any).ttq.track('InitiateCheckout', { content_id: product.id, content_name: product.title, currency: store.currency, value: totalPrice, quantity: checkoutQty })
-                  }
-                }
-                handleSubmit()
-              }}
+              onClick={() => { handleSubmit() }}
               disabled={submitting}
               style={{ background: submitting ? '#9ca3af' : th.accent, color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontSize: 18, fontWeight: 800, cursor: submitting ? 'not-allowed' : 'pointer', width: '100%' }}
             >

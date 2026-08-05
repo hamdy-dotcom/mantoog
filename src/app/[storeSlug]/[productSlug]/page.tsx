@@ -458,6 +458,7 @@ export default function LandingPage() {
   const benefits: string[] = sections?.benefits || []
 
   const handleSubmit = async (overrides?: { name?: string; phone?: string; address?: string; note?: string; qty?: number }) => {
+    if (submitted || submitting) return
     const submitName = overrides?.name ?? name
     const submitPhone = overrides?.phone ?? phone
     const submitAddress = overrides?.address ?? address

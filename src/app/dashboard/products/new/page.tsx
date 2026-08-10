@@ -13,7 +13,7 @@ export default function NewProductPage() {
   const { lang, dir } = useLang()
   const tr = t[lang]
   const [store, setStore] = useState<any>(null)
-  const [mode, setMode] = useState<'url' | 'manual'>('url')
+  const [mode, setMode] = useState<'url' | 'manual' | 'genius'>('url')
   const [url, setUrl] = useState('')
   const [sellingPrice, setSellingPrice] = useState('')
   const [discountPercent, setDiscountPercent] = useState('')
@@ -46,6 +46,10 @@ export default function NewProductPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  const GENIUS_COST = 200
+  const [credits, setCredits] = useState<number | null>(null)
+  const [geniusBusy, setGeniusBusy] = useState(false)
+
   useEffect(() => {
     const getStore = async () => {
       const ctx = await loadMerchantStore(supabase, router, '*')
@@ -53,6 +57,12 @@ export default function NewProductPage() {
       setStore(ctx.store)
     }
     getStore()
+    ;(async () => {
+      const u = await getAuthenticatedUser(supabase)
+      if (!u) return
+      const { data } = await supabase.from('order_credits').select('credits_total, credits_used').eq('merchant_id', u.id)
+      if (data) setCredits(data.reduce((s: number, r: any) => s + (Number(r.credits_total) - Number(r.credits_used)), 0))
+    })()
   }, [])
 
   const getOriginalPrice = () => {
@@ -352,6 +362,55 @@ export default function NewProductPage() {
     router.push('/dashboard/products')
   }
 
+  // Premium "AI Genius" flow (3rd tab): scrape → create product → generate bespoke landing (200 credits)
+  const handleGenius = async () => {
+    if (!url.trim()) { setError('الصق رابط المنتج'); return }
+    const priceNum = parseFloat(sellingPrice)
+    if (!priceNum || priceNum <= 0) { setError('أدخل سعر البيع'); return }
+    if (credits != null && credits < GENIUS_COST) { setError('رصيدك غير كافٍ — تحتاج ٢٠٠ رصيد'); return }
+    setError(''); setGeniusBusy(true)
+    try {
+      const user = await getAuthenticatedUser(supabase)
+      if (!user) { await signOutAndGoToLogin(router); return }
+
+      let title = productName, imgs = scrapedImages
+      if (!imgs.length) {
+        const sc = await fetch('/api/products/fetch-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: url.trim() }) })
+        const sd = await sc.json().catch(() => ({}))
+        if (!sc.ok || !sd.success || !(sd.images?.length)) { setError(sd.error || 'تعذّر قراءة المنتج من الرابط — جرّب رابطاً آخر'); setGeniusBusy(false); return }
+        title = sd.title || title; imgs = sd.images
+      }
+      const finalImages = imgs.slice(0, 6)
+      const compare = getOriginalPrice()
+
+      const { data: product, error: pErr } = await supabase.from('products').insert({
+        store_id: store.id, merchant_id: user.id, title: title || 'منتج', description: '',
+        price: priceNum, compare_at_price: compare ? parseFloat(compare) : null, currency: store.currency,
+        images: finalImages, source_url: url.trim(), source_platform: 'url', status: 'active', ai_generated: true,
+        shipping_type: needsShipping ? productShipping : store.shipping_type,
+        shipping_cost: needsShipping ? (productShipping === 'free' ? 0 : parseFloat(productShippingCost) || 0) : (store.static_shipping_cost || 0),
+      }).select('id').single()
+      if (pErr || !product) { setError('تعذّر حفظ المنتج'); setGeniusBusy(false); return }
+
+      const H = { 'Content-Type': 'application/json' }
+      const body = { title, price: priceNum, compareAtPrice: compare ? parseFloat(compare) : null, description: '', features: [], images: finalImages, currency: store.currency }
+
+      // Stage 1 — prepare assets (art-direction + AI images + cutout)
+      const prep = await fetch('/api/ai/landing-genius/prepare', { method: 'POST', headers: H, body: JSON.stringify(body) })
+      const pd = await prep.json().catch(() => ({}))
+      if (!prep.ok) { setError(pd.error || 'تعذّر تجهيز صور المنتج'); setGeniusBusy(false); return }
+
+      // Stage 2 — assemble the page (body re-skin + palette), charge credits, save
+      const res = await fetch('/api/ai/landing-genius', {
+        method: 'POST', headers: H,
+        body: JSON.stringify({ productId: product.id, ...body, art: pd.art, generated: pd.generated, cutoutUrl: pd.cutoutUrl }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(d.error || 'تعذّر إنشاء الصفحة المميزة'); setGeniusBusy(false); return }
+      router.push('/dashboard/products')
+    } catch (e: any) { setError('حدث خطأ: ' + e.message); setGeniusBusy(false) }
+  }
+
   if (!store) {
     return (
       <div className="min-h-screen bg-[#0f1117] flex items-center justify-center">
@@ -371,6 +430,18 @@ export default function NewProductPage() {
   return (
     <div className="min-h-screen bg-[#0f1117] flex" dir={dir}>
       <Sidebar store={store} />
+
+      {geniusBusy && (
+        <div className="fixed inset-0 z-50 bg-[#0f1117]/95 backdrop-blur flex items-center justify-center">
+          <div className="text-center max-w-sm px-6">
+            <div className="mx-auto mb-5 flex items-center justify-center gap-2">
+              {[0, 1, 2].map(i => <span key={i} className="w-3 h-3 rounded-full bg-gradient-to-br from-[#a855f7] to-[#ec4899] animate-pulse" style={{ animationDelay: `${i * 0.15}s` }} />)}
+            </div>
+            <h3 className="text-white font-bold text-lg mb-2">جاري إنشاء صفحتك المميّزة…</h3>
+            <p className="text-[#8b8fa8] text-sm leading-relaxed">نحلّل منتجك، ننشئ صوراً احترافية بالذكاء الاصطناعي، ثم نصمّم الصفحة كاملة. تستغرق ٣–٤ دقائق — لا تُغلق الصفحة.</p>
+          </div>
+        </div>
+      )}
 
       <main className={`${DASHBOARD_MAIN_CLASS} flex flex-col items-center`}>
         <div className="mb-8 flex items-center gap-4">
@@ -401,6 +472,12 @@ export default function NewProductPage() {
                 className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'manual' ? 'bg-[#3b82f6] text-white' : 'text-[#8b8fa8] hover:text-white'}`}
               >
                 {tr.manual}
+              </button>
+              <button
+                onClick={() => { setMode('genius'); setError('') }}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all inline-flex items-center gap-1.5 ${mode === 'genius' ? 'bg-gradient-to-l from-[#a855f7] to-[#ec4899] text-white' : 'text-[#c4b5fd] hover:text-white'}`}
+              >
+                <span>✨</span> استوديو الإعلانات AI
               </button>
             </div>
 
@@ -784,6 +861,44 @@ export default function NewProductPage() {
                   className="w-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium py-3 rounded-lg transition-colors"
                 >
                   {saving ? tr.saving : tr.saveProduct}
+                </button>
+              </div>
+            )}
+
+            {/* GENIUS MODE — premium AI landing page (200 credits) */}
+            {mode === 'genius' && (
+              <div className="rounded-xl p-6 space-y-5" style={{ background: 'linear-gradient(#160f22,#160f22) padding-box, linear-gradient(135deg,#a855f7,#ec4899) border-box', border: '1.6px solid transparent' }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-white font-bold text-lg mb-1">✨ استوديو الإعلانات AI</h2>
+                    <p className="text-[#c4b5fd] text-sm leading-relaxed">صفحة هبوط سينمائية مصممة خصيصاً لمنتجك: صور احترافية بالذكاء الاصطناعي + هوية وألوان ونصوص بيعية + شيك آوت مدمج بالعروض.</p>
+                  </div>
+                  <span className="text-[#e9d5ff] text-[11px] font-extrabold bg-[#a855f7]/25 px-2.5 py-1 rounded-full whitespace-nowrap shrink-0">٢٠٠ رصيد</span>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[#c4b5fd] uppercase tracking-wider">رابط المنتج</label>
+                  <input type="url" value={url} onChange={e => setUrl(e.target.value)} onBlur={handleScrapeUrl} placeholder={tr.productUrlPlaceholder}
+                    className="mt-1.5 w-full bg-[#0f0a17] border border-[#3a2d4d] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#6b5b82] focus:outline-none focus:border-[#a855f7] transition-colors" />
+                </div>
+                {scraping && <div className="text-xs text-[#c4b5fd] animate-pulse">🔍 نقرأ المنتج…</div>}
+                {scrapedImages.length > 0 && <div className="text-xs text-[#4ade80]">✓ تم العثور على {scrapedImages.length} صورة</div>}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-[#c4b5fd] uppercase tracking-wider">{tr.sellingPrice} ({store.currency})</label>
+                    <input type="number" value={sellingPrice} onChange={e => setSellingPrice(e.target.value)} placeholder="e.g. 199"
+                      className="mt-1.5 w-full bg-[#0f0a17] border border-[#3a2d4d] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#a855f7]" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-[#c4b5fd] uppercase tracking-wider">{tr.discountPercent}</label>
+                    <input type="number" value={discountPercent} onChange={e => setDiscountPercent(e.target.value)} placeholder="e.g. 30" min="1" max="99"
+                      className="mt-1.5 w-full bg-[#0f0a17] border border-[#3a2d4d] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#a855f7]" />
+                  </div>
+                </div>
+                <div className="text-[11px] text-[#8b8fa8]">رصيدك: <span className="text-white font-bold">{credits ?? '…'}</span> رصيد{credits != null && credits < GENIUS_COST && <span className="text-[#f87171]"> — غير كافٍ</span>} · التصميم يستغرق ٣–٤ دقائق</div>
+                {error && <div className="bg-[#3a1414] border border-[#f87171]/20 rounded-lg px-3 py-2.5"><p className="text-[#f87171] text-sm">{error}</p></div>}
+                <button onClick={handleGenius} disabled={geniusBusy || !url.trim() || !sellingPrice.trim() || (credits != null && credits < GENIUS_COST)}
+                  className="w-full bg-gradient-to-l from-[#a855f7] to-[#ec4899] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold py-3 rounded-lg transition-all">
+                  ✨ أنشئ الصفحة المميزة (٢٠٠ رصيد)
                 </button>
               </div>
             )}

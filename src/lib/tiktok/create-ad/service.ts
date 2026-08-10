@@ -1,5 +1,10 @@
 import { tiktokPost } from '@/lib/tiktok/mutations'
-import { buildAdgroupPayload, buildCampaignPayload } from '@/lib/tiktok/create-ad/payloads'
+import {
+  buildAdgroupPayload,
+  buildCampaignPayload,
+  buildSmartPlusAdgroupPayload,
+  buildSmartPlusCampaignPayload,
+} from '@/lib/tiktok/create-ad/payloads'
 import {
   buildCreateFlowError,
   logTikTokCreateCall,
@@ -30,6 +35,13 @@ import { withPublicProductLandingUrl } from '@/lib/tiktok/create-ad/landing-url'
 import type { LaunchAdResult, LaunchSuccess } from '@/lib/tiktok/create-ad/launch-types'
 
 type Connection = { advertiser_id: string; access_token: string }
+
+// Smart+ (Upgraded Smart Performance Campaign) uses a dedicated /smart_plus/* endpoint
+// set instead of the manual /campaign|/adgroup|/ad create endpoints.
+export const isSmartPlus = (p: CreateAdWizardPayload) =>
+  p.targeting.advanced.campaignType === 'smart_plus'
+const spPath = (sp: boolean, entity: 'campaign' | 'adgroup' | 'ad', action: string) =>
+  `${sp ? '/smart_plus' : ''}/${entity}/${action}/`
 
 function isVideoCreativeSource(source: CreateAdWizardPayload['creative']['source']) {
   return source === 'product_video' || source === 'upload'
@@ -168,7 +180,7 @@ async function launchVideoAdsInGroup(opts: {
       const dupId = [...distinctVideoIds][0]
       const rollback = await rollbackCreated(connection, {
         campaignId: campaign.campaign_id,
-        adgroupId: adgroup.adgroup_id,
+        adgroupId: adgroup.adgroup_id, smartPlus: isSmartPlus(payload),
       })
       return {
         error: 'validation_error',
@@ -191,7 +203,7 @@ async function launchVideoAdsInGroup(opts: {
       if (priorUrl && priorUrl !== url) {
         const rollback = await rollbackCreated(connection, {
           campaignId: campaign.campaign_id,
-          adgroupId: adgroup.adgroup_id,
+          adgroupId: adgroup.adgroup_id, smartPlus: isSmartPlus(payload),
         })
         return {
           error: 'validation_error',
@@ -244,7 +256,7 @@ async function launchVideoAdsInGroup(opts: {
   if (!succeeded.length) {
     const rollback = await rollbackCreated(connection, {
       campaignId: campaign.campaign_id,
-      adgroupId: adgroup.adgroup_id,
+      adgroupId: adgroup.adgroup_id, smartPlus: isSmartPlus(payload),
     })
     const firstError = adResults.find(r => r.error)?.error || 'All ads failed to create.'
     return {
@@ -286,15 +298,15 @@ async function postLogged(
   return json
 }
 
-async function deleteCampaign(connection: Connection, campaignId: string) {
-  return postLogged(connection, 'rollback_campaign', '/campaign/status/update/', {
+async function deleteCampaign(connection: Connection, campaignId: string, sp = false) {
+  return postLogged(connection, 'rollback_campaign', spPath(sp, 'campaign', 'status/update'), {
     campaign_ids: [campaignId],
     operation_status: 'DELETE',
   })
 }
 
-async function deleteAdgroup(connection: Connection, adgroupId: string) {
-  return postLogged(connection, 'rollback_adgroup', '/adgroup/status/update/', {
+async function deleteAdgroup(connection: Connection, adgroupId: string, sp = false) {
+  return postLogged(connection, 'rollback_adgroup', spPath(sp, 'adgroup', 'status/update'), {
     adgroup_ids: [adgroupId],
     operation_status: 'DELETE',
   })
@@ -304,8 +316,9 @@ export async function createTikTokCampaign(
   connection: Connection,
   payload: CreateAdWizardPayload
 ) {
-  const body = buildCampaignPayload(payload)
-  const json = await postLogged(connection, 'campaign', '/campaign/create/', body)
+  const sp = isSmartPlus(payload)
+  const body = sp ? buildSmartPlusCampaignPayload(payload) : buildCampaignPayload(payload)
+  const json = await postLogged(connection, 'campaign', spPath(sp, 'campaign', 'create'), body)
   if (json.code !== 0) {
     return buildCreateFlowError('campaign', json)
   }
@@ -370,12 +383,12 @@ export async function createTikTokAdgroup(
   let lastBody: Record<string, unknown> | null = null
   const primaryEvent = optimizationEvent
 
+  const sp = isSmartPlus(payload)
   for (const event of eventsToTry.length ? eventsToTry : [undefined]) {
-    const body = buildAdgroupPayload(campaignId, payload, {
-      numericPixelId,
-      optimizationEvent: event,
-    })
-    const json = await postLogged(connection, 'adgroup', '/adgroup/create/', body)
+    const body = sp
+      ? buildSmartPlusAdgroupPayload(campaignId, payload, { numericPixelId, optimizationEvent: event })
+      : buildAdgroupPayload(campaignId, payload, { numericPixelId, optimizationEvent: event })
+    const json = await postLogged(connection, 'adgroup', spPath(sp, 'adgroup', 'create'), body)
     lastJson = json
     lastBody = body
 
@@ -417,17 +430,18 @@ export async function createTikTokAdgroup(
 
 async function rollbackCreated(
   connection: Connection,
-  ids: { campaignId?: string; adgroupId?: string }
+  ids: { campaignId?: string; adgroupId?: string; smartPlus?: boolean }
 ): Promise<{ rolled_back: boolean; rollback_error?: string }> {
   const errors: string[] = []
+  const sp = !!ids.smartPlus
   if (ids.adgroupId) {
-    const delAg = await deleteAdgroup(connection, ids.adgroupId)
+    const delAg = await deleteAdgroup(connection, ids.adgroupId, sp)
     if (delAg.code !== 0) {
       errors.push(`adgroup delete: ${delAg.message || delAg.code}`)
     }
   }
   if (ids.campaignId) {
-    const delCamp = await deleteCampaign(connection, ids.campaignId)
+    const delCamp = await deleteCampaign(connection, ids.campaignId, sp)
     if (delCamp.code !== 0) {
       errors.push(`campaign delete: ${delCamp.message || delCamp.code}`)
     }
@@ -515,7 +529,7 @@ export async function launchCreateAdAtomic(
     { numericPixelId, optimizationEvent, availablePixelEvents }
   )
   if (!('ok' in adgroup) || !adgroup.ok) {
-    const rollback = await rollbackCreated(connection, { campaignId: campaign.campaign_id })
+    const rollback = await rollbackCreated(connection, { campaignId: campaign.campaign_id, smartPlus: isSmartPlus(payload) })
     const flowErr = adgroup as CreateFlowError
     return {
       ...flowErr,
@@ -529,7 +543,7 @@ export async function launchCreateAdAtomic(
   if (!('ok' in identityRes) || !identityRes.ok) {
     const rollback = await rollbackCreated(connection, {
       campaignId: campaign.campaign_id,
-      adgroupId: adgroup.adgroup_id,
+      adgroupId: adgroup.adgroup_id, smartPlus: isSmartPlus(payload),
     })
     const flowErr = identityRes as CreateFlowError
     return { ...flowErr, rolled_back: rollback.rolled_back, rollback_error: rollback.rollback_error }
@@ -557,7 +571,7 @@ export async function launchCreateAdAtomic(
   if (!('ok' in uploadRes) || !uploadRes.ok) {
     const rollback = await rollbackCreated(connection, {
       campaignId: campaign.campaign_id,
-      adgroupId: adgroup.adgroup_id,
+      adgroupId: adgroup.adgroup_id, smartPlus: isSmartPlus(payload),
     })
     const flowErr = uploadRes as CreateFlowError
     return { ...flowErr, rolled_back: rollback.rolled_back, rollback_error: rollback.rollback_error }
@@ -575,7 +589,7 @@ export async function launchCreateAdAtomic(
   if (!('ok' in adRes) || !adRes.ok) {
     const rollback = await rollbackCreated(connection, {
       campaignId: campaign.campaign_id,
-      adgroupId: adgroup.adgroup_id,
+      adgroupId: adgroup.adgroup_id, smartPlus: isSmartPlus(payload),
     })
     const flowErr = adRes as CreateFlowError
     return { ...flowErr, rolled_back: rollback.rolled_back, rollback_error: rollback.rollback_error }

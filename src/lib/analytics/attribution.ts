@@ -8,6 +8,7 @@ const FIRST_TOUCH_PARAMS = [
   'utm_term',
   'ttclid',
   'fbclid',
+  'sccid',
 ] as const
 
 type FirstTouchParam = (typeof FIRST_TOUCH_PARAMS)[number]
@@ -28,6 +29,7 @@ export type OrderAttributionPayload = {
   utm_term?: string | null
   ttclid?: string | null
   fbclid?: string | null
+  sccid?: string | null
   referrer?: string | null
   landing_page?: string | null
   session_seconds?: number | null
@@ -123,6 +125,13 @@ export function initAttributionFromLanding(): void {
     if (value && !session[key]) session[key] = value
   }
 
+  // Snapchat's click-id URL param is `ScCid` (capitalized) and query params are
+  // case-sensitive; also accept the lowercase / underscore variants some setups use.
+  if (!session.sccid) {
+    const sc = params.get('ScCid') || params.get('sccid') || params.get('sc_click_id')
+    if (sc) session.sccid = sc
+  }
+
   if (!session.referrer) session.referrer = document.referrer || null
   if (!session.landing_page) session.landing_page = window.location.href
 
@@ -145,6 +154,7 @@ export function getOrderAttributionPayload(): OrderAttributionPayload {
   const utm_term = session?.utm_term ?? null
   const ttclid = session?.ttclid ?? null
   const fbclid = session?.fbclid ?? null
+  const sccid = session?.sccid ?? null
   const referrer = session?.referrer ?? null
   const landing_page = session?.landing_page ?? null
 
@@ -161,6 +171,7 @@ export function getOrderAttributionPayload(): OrderAttributionPayload {
     utm_term,
     ttclid,
     fbclid,
+    sccid,
     referrer,
     landing_page,
     session_seconds,

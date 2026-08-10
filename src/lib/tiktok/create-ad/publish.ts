@@ -6,6 +6,7 @@ import {
   type ResolvedCreativeMedia,
 } from '@/lib/product-creatives/server'
 import type { ProductCreativeItem } from '@/lib/product-creatives/types'
+import { numericRequestId } from '@/lib/tiktok/create-ad/payloads'
 import { TIKTOK } from '@/lib/tiktok/server'
 import {
   materialBaseName,
@@ -1078,6 +1079,47 @@ function identityFallbackDisplayName(
   return truncateDisplayName(identity.display_name || payload.product.title || 'Shop')
 }
 
+/**
+ * Smart+ web-conversion ads with an authorized TikTok identity REQUIRE a dynamic CTA
+ * portfolio (call_to_action_id) — fixed call_to_action_list values are ALL rejected with
+ * "The call to action you have selected is not supported". Official recipe (docs:
+ * "CTA recommendations > Dynamic CTAs"): GET /creative/cta/recommend/ (new_version=true)
+ * → POST /creative/portfolio/create/ (type CTA, content from recommend) → use the
+ * returned creative_portfolio_id as ad_configuration.call_to_action_id.
+ * Verified live: this produced the first successful /smart_plus/ad/create/ (code 0).
+ */
+async function createDynamicCtaPortfolio(
+  connection: Connection,
+  landingPageUrl: string
+): Promise<string | null> {
+  try {
+    const rec = await tiktokGet(connection, '/creative/cta/recommend/', {
+      new_version: 'true',
+      objective_type: 'WEB_CONVERSIONS',
+      promotion_type: 'WEBSITE',
+      landing_page_url: landingPageUrl,
+    })
+    const assets = (rec.data as Record<string, unknown> | undefined)?.recommend_assets
+    if (rec.code !== 0 || !Array.isArray(assets) || !assets.length) {
+      console.error('[tiktok/create/ad] CTA recommend failed', { code: rec.code, message: rec.message })
+      return null
+    }
+    const pf = await tiktokPost(connection, '/creative/portfolio/create/', {
+      creative_portfolio_type: 'CTA',
+      portfolio_content: assets.map((a: any) => ({ asset_content: a.asset_content, asset_ids: a.asset_ids })),
+    })
+    const id = (pf.data as Record<string, unknown> | undefined)?.creative_portfolio_id
+    if (pf.code !== 0 || !id) {
+      console.error('[tiktok/create/ad] CTA portfolio create failed', { code: pf.code, message: pf.message })
+      return null
+    }
+    return String(id)
+  } catch (e: any) {
+    console.error('[tiktok/create/ad] dynamic CTA portfolio error', e?.message)
+    return null
+  }
+}
+
 function isDisplayNameRejected(json: TikTokRawResponse): boolean {
   const text = `${json.message || ''} ${JSON.stringify(json.data ?? '')}`.toLowerCase()
   return /display.?name|displayname|identity.*name|brand.*name|app.*name/i.test(text)
@@ -1155,6 +1197,8 @@ function parseAdCreateResponse(
   const firstCreative = Array.isArray(nested) ? nested[0] as Record<string, unknown> | undefined : undefined
   const ad_id = String(
     data?.ad_id
+    // Smart+ /smart_plus/ad/create/ returns the id as smart_plus_ad_id (verified live).
+    || data?.smart_plus_ad_id
     || (data?.ad_ids as unknown[] | undefined)?.[0]
     || firstCreative?.ad_id
     || ''
@@ -1201,6 +1245,13 @@ export async function createTikTokAd(opts: {
   const storeDisplayName = preferredStoreDisplayName(payload)
   const primaryDisplayName = storeDisplayName || identityDisplayName
 
+  // Smart+: dynamic CTA portfolio is required (fixed CTAs are rejected). Created once,
+  // reused across display-name retries.
+  const spMode = payload.targeting.advanced.campaignType === 'smart_plus'
+  const ctaPortfolioId = spMode
+    ? await createDynamicCtaPortfolio(connection, payload.product.landing_url)
+    : null
+
   const postAd = async (display_name: string) => {
     const creativeObject = buildAdCreativeObject({
       payload,
@@ -1209,15 +1260,73 @@ export async function createTikTokAd(opts: {
       ad_name,
       display_name,
     })
-    const body: Record<string, unknown> = {
-      adgroup_id,
-      creatives: [creativeObject],
+    // Smart+ ads use /smart_plus/ad/create/ — an ACO-style body (verified live against
+    // the API): identity goes in ad_configuration; the creative sits in
+    // creative_list[].creative_info (video under video_info, cover under image_info.web_uri);
+    // text/CTA/landing-url are parallel single-item lists. The manual /ad/create/ instead
+    // nests everything inside a `creatives[]` object.
+    const sp = payload.targeting.advanced.campaignType === 'smart_plus'
+    let body: Record<string, unknown>
+    if (sp) {
+      const coverIds = creative.image_ids?.length
+        ? creative.image_ids
+        : creative.cover_image_id ? [creative.cover_image_id] : []
+      // Identity must appear BOTH in ad_configuration and inside creative_info —
+      // verified live: omitting it from creative_info fails with "identity matches
+      // your selected TikTok posts". Smart+ also rejects CUSTOMIZED_USER identities
+      // entirely (selection already prefers BC_AUTH_TT/TT_USER).
+      const identityFields: Record<string, unknown> = {
+        identity_id: identity.identity_id,
+        identity_type: identity.identity_type,
+      }
+      if (identity.identity_authorized_bc_id) {
+        identityFields.identity_authorized_bc_id = identity.identity_authorized_bc_id
+      }
+      const creativeInfo: Record<string, unknown> = {
+        ad_format: creative.video_id ? 'SINGLE_VIDEO' : 'SINGLE_IMAGE',
+        ...identityFields,
+      }
+      if (creative.video_id) {
+        creativeInfo.video_info = { video_id: creative.video_id }
+        // A Smart+ video ad REQUIRES exactly one cover image (web_uri = uploaded cover material id).
+        if (coverIds.length) creativeInfo.image_info = [{ web_uri: coverIds[0] }]
+      } else if (coverIds.length) {
+        creativeInfo.image_info = coverIds.map(id => ({ web_uri: id }))
+      }
+      // dark_post_status ON = "only show as ads" — REQUIRED for ads-only identities
+      // (verified live: without it TikTok errors "Ads Only Mode, dark_post_status must be ON").
+      const adConfiguration: Record<string, unknown> = {
+        ...identityFields,
+        dark_post_status: 'ON',
+      }
+      // Dynamic CTA portfolio (auto-optimized CTAs) — required for authorized identities
+      // on WEB_CONVERSIONS + TikTok placement. Fixed call_to_action_list is only a
+      // fallback if portfolio creation failed (TikTok rejects it for this config).
+      if (ctaPortfolioId) adConfiguration.call_to_action_id = ctaPortfolioId
+      body = {
+        request_id: numericRequestId(),
+        adgroup_id,
+        ad_name,
+        operation_status: 'ENABLE',
+        ad_configuration: adConfiguration,
+        creative_list: [{ creative_info: creativeInfo }],
+        ad_text_list: [{ ad_text: payload.creative.caption }],
+        landing_page_url_list: [{ landing_page_url: payload.product.landing_url }],
+      }
+      if (!ctaPortfolioId) {
+        const primaryCta = mapTikTokCallToAction(payload.creative.cta)
+        const ctas = [...new Set([primaryCta, 'SHOP_NOW', 'VISIT_STORE'])].slice(0, 3)
+        body.call_to_action_list = ctas.map(call_to_action => ({ call_to_action }))
+      }
+    } else {
+      body = { adgroup_id, creatives: [creativeObject] }
     }
     const fullRequest = {
       advertiser_id: connection.advertiser_id,
       ...body,
     }
-    console.error('[tiktok/create/ad] POST /ad/create/ request body (full JSON)', JSON.stringify(fullRequest, null, 2))
+    const adPath = sp ? '/smart_plus/ad/create/' : '/ad/create/'
+    console.error(`[tiktok/create/ad] POST ${adPath} request body (full JSON)`, JSON.stringify(fullRequest, null, 2))
     console.error('[tiktok/create/ad] creative identity + video check', {
       identity_id: identity.identity_id,
       identity_type: identity.identity_type,
@@ -1227,7 +1336,7 @@ export async function createTikTokAd(opts: {
       image_ids: creativeObject.image_ids ?? null,
       ad_format: creativeObject.ad_format ?? null,
     })
-    return postLogged(connection, 'ad', '/ad/create/', body)
+    return postLogged(connection, 'ad', adPath, body)
   }
 
   let json = await postAd(primaryDisplayName)

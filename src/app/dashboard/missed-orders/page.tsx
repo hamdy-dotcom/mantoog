@@ -367,90 +367,74 @@ export default function MissedOrdersPage() {
             <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl overflow-hidden min-w-[800px]">
 
               {/* Table header */}
-              <div className="grid grid-cols-13 gap-3 px-5 py-3 border-b border-[#2a2d35]" style={{ gridTemplateColumns: '2fr 2fr 3fr 1fr 1fr 1fr 2fr 2fr' }}>
-                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الهاتف' : 'Phone'}</span>
-                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الاسم' : 'Name'}</span>
-                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'المنتج' : 'Product'}</span>
-                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الكمية' : 'Qty'}</span>
-                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'القيمة' : 'Value'}</span>
-                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الوقت' : 'Time'}</span>
-                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الحالة' : 'Status'}</span>
-                <span className="text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الإجراء' : 'Action'}</span>
+              <div className="grid grid-cols-12 gap-3 px-5 py-3 border-b border-[#2a2d35]">
+                <span className="col-span-3 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'العميل' : 'Customer'}</span>
+                <span className="col-span-4 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'المنتج' : 'Product'}</span>
+                <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'القيمة' : 'Value'}</span>
+                <span className="col-span-1 text-xs font-medium text-[#4a4e60] uppercase tracking-wider">{lang === 'ar' ? 'الحالة' : 'Status'}</span>
+                <span className="col-span-2 text-xs font-medium text-[#4a4e60] uppercase tracking-wider text-end">{lang === 'ar' ? 'الإجراء' : 'Action'}</span>
               </div>
 
               {filtered.map((o, i) => (
                 <div
                   key={o.id}
-                  className={`grid gap-3 px-5 py-4 border-b border-[#2a2d35] last:border-0 items-center transition-colors ${
+                  className={`grid grid-cols-12 gap-3 px-5 py-4 border-b border-[#2a2d35] last:border-0 items-center transition-colors ${
                     o.recovered ? 'opacity-50 hover:opacity-70' : o.contacted ? 'opacity-60 hover:opacity-80' : 'hover:bg-[#1f2229]'
                   } ${i % 2 !== 0 ? 'bg-[#0f1117]/30' : ''}`}
-                  style={{ gridTemplateColumns: '2fr 2fr 3fr 1fr 1fr 1fr 2fr 2fr' }}
                 >
-                  {/* Phone */}
-                  <div>
+                  {/* Customer: name + phone + time */}
+                  <div className="col-span-3 min-w-0">
                     <div className="flex items-center gap-1.5">
                       {!o.contacted && !o.recovered && (
                         <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] flex-shrink-0" />
                       )}
-                      <span className="text-sm text-white font-mono">{o.customer_phone}</span>
+                      <span className="text-sm text-white font-medium truncate">{o.customer_name || (lang === 'ar' ? 'بدون اسم' : 'No name')}</span>
                     </div>
+                    <div className="text-xs text-[#8b8fa8] font-mono truncate mt-0.5">{o.customer_phone}</div>
+                    <div className="text-[10px] text-[#4a4e60] mt-0.5">{timeAgo(o.created_at)}</div>
                   </div>
 
-                  {/* Name */}
-                  <div className="text-sm text-[#8b8fa8] truncate">
-                    {o.customer_name || '—'}
-                  </div>
-
-                  {/* Product */}
-                  <div className="flex items-center gap-2 min-w-0">
+                  {/* Product + address */}
+                  <div className="col-span-4 flex items-center gap-2 min-w-0">
                     {o.products?.images?.[0] && (
-                      <img src={o.products.images[0]} alt="" className="w-8 h-8 rounded-lg object-cover border border-[#2a2d35] shrink-0" />
+                      <img src={o.products.images[0]} alt="" className="w-9 h-9 rounded-lg object-cover border border-[#2a2d35] shrink-0" />
                     )}
                     <div className="min-w-0">
-                      <span className="text-xs text-[#8b8fa8] truncate block">{o.products?.title || '—'}</span>
+                      <span className="text-sm text-white truncate block">{o.products?.title || '—'}</span>
                       {o.customer_address && (
-                        <span className="text-[10px] text-[#4a4e60] truncate block">{o.customer_address}</span>
+                        <span className="text-xs text-[#4a4e60] truncate block mt-0.5">{o.customer_address}</span>
                       )}
                     </div>
                   </div>
 
-                  {/* Qty */}
-                  <div className="text-sm text-[#8b8fa8]">×{o.qty}</div>
-
-                  {/* Value */}
-                  <div>
-                    <span className="text-sm text-[#fbbf24] font-medium">
+                  {/* Value + qty */}
+                  <div className="col-span-2 min-w-0">
+                    <div className="text-sm text-[#fbbf24] font-medium truncate">
                       {o.total_price ? Number(o.total_price).toLocaleString() : '—'}
-                    </span>
-                    {o.total_price && (
-                      <span className="text-xs text-[#4a4e60] ms-1">{store?.currency || ''}</span>
-                    )}
-                  </div>
-
-                  {/* Time */}
-                  <div className="text-xs text-[#4a4e60] whitespace-nowrap">
-                    {timeAgo(o.created_at)}
+                      {o.total_price && <span className="text-xs text-[#4a4e60] ms-1">{store?.currency || ''}</span>}
+                    </div>
+                    <div className="text-xs text-[#4a4e60] mt-0.5">×{o.qty}</div>
                   </div>
 
                   {/* Status */}
-                  <div>
+                  <div className="col-span-1">
                     {o.recovered ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#14321f] text-[#4ade80] whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#14321f] text-[#4ade80] whitespace-nowrap">
                         ✓ {lang === 'ar' ? 'مُغطى' : 'Covered'}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#3a1414] text-[#f87171] whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#3a1414] text-[#f87171] whitespace-nowrap">
                         ● {lang === 'ar' ? 'غير مُغطى' : 'Uncovered'}
                       </span>
                     )}
                   </div>
 
                   {/* Action */}
-                  <div>
+                  <div className="col-span-2 flex justify-end">
                     {o.recovered ? (
                       <span className="text-xs text-[#4a4e60]">—</span>
                     ) : o.contacted ? (
-                      <span className="text-xs text-[#4ade80] flex items-center gap-1">
+                      <span className="text-xs text-[#4ade80] flex items-center gap-1 whitespace-nowrap">
                         ✓ {lang === 'ar' ? 'تم التواصل' : 'Contacted'}
                       </span>
                     ) : (

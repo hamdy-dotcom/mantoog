@@ -335,6 +335,26 @@ export default function LandingPage() {
     (window as any).__setPickedLocation = setPickedLocation
   }, [])
 
+  useEffect(() => {
+    if (!product?.id) return
+    const fire = () => {
+      const ttq = (window as any).ttq
+      if (ttq) {
+        ttq.page()
+        ttq.track('ViewContent', { content_id: product.id, content_name: product.title || '', value: product.price || 0, currency: store?.currency })
+      }
+    }
+    // If ttq is already loaded fire immediately, otherwise wait for the pixel script
+    if ((window as any).ttq) {
+      fire()
+    } else {
+      const interval = setInterval(() => {
+        if ((window as any).ttq) { clearInterval(interval); fire() }
+      }, 100)
+      return () => clearInterval(interval)
+    }
+  }, [product?.id])
+
   const formatTimer = (s: number) => {
     const days = Math.floor(s / 86400)
     const h = Math.floor((s % 86400) / 3600).toString().padStart(2, '0')
@@ -438,6 +458,7 @@ export default function LandingPage() {
   const benefits: string[] = sections?.benefits || []
 
   const handleSubmit = async (overrides?: { name?: string; phone?: string; address?: string; note?: string; qty?: number }) => {
+    if (submitted || submitting) return
     const submitName = overrides?.name ?? name
     const submitPhone = overrides?.phone ?? phone
     const submitAddress = overrides?.address ?? address
@@ -461,6 +482,18 @@ export default function LandingPage() {
     setFormError('')
     setSubmitting(true)
     const orderQty = selectedOffer ? selectedOffer.quantity : (store?.show_quantity ? submitQty : 1)
+    const checkoutTotalPrice = selectedOffer
+      ? selectedOffer.price
+      : (store?.show_quantity ? parseFloat(product?.price || 0) * submitQty : parseFloat(product?.price || 0))
+    const checkoutQtyForPixel = selectedOffer ? selectedOffer.quantity : (store?.show_quantity ? submitQty : 1)
+    if (typeof window !== 'undefined') {
+      if ((window as any).fbq) {
+        (window as any).fbq('track', 'InitiateCheckout', { currency: store.currency, value: checkoutTotalPrice })
+      }
+      if ((window as any).ttq) {
+        (window as any).ttq.track('InitiateCheckout', { content_id: product.id, content_name: product.title, currency: store.currency, value: checkoutTotalPrice, quantity: checkoutQtyForPixel })
+      }
+    }
     const bumpAmt = bumpChecked && upsellConfig?.type === 'bump' ? (upsellConfig.sale_price || 0) : 0
     const orderTotal = (selectedOffer ? selectedOffer.price : product.price * orderQty) + bumpAmt + shippingCost
     const upsellItem = bumpChecked && upsellProduct && upsellConfig?.type === 'bump' ? {
@@ -472,6 +505,7 @@ export default function LandingPage() {
       quantity: 1,
     } : null
     let orderOk = false
+    let dbOrderId: string | null = null
     try {
       const response = await fetch('/api/orders/create', {
         method: 'POST',
@@ -504,16 +538,22 @@ export default function LandingPage() {
       })
       const result = await response.json()
       orderOk = response.ok && result.success
-      if (orderOk && result.orderId) setLastOrderId(result.orderId)
+      if (orderOk && result.orderId) {
+        dbOrderId = String(result.orderId)
+        setLastOrderId(result.orderId)
+      }
     } catch {
       orderOk = false
     }
     setSubmitting(false)
     if (orderOk) {
       if (typeof window !== 'undefined') {
-        const orderId = typeof crypto !== 'undefined' && crypto.randomUUID
+        // Prefer the real DB order id so the browser pixel and the server-side
+        // Snapchat CAPI event share one dedup id (Snap merges them into a single
+        // high-quality event instead of double-counting).
+        const orderId = dbOrderId || (typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
-          : String(Date.now())
+          : String(Date.now()))
 
         if ((window as any).fbq) {
           (window as any).fbq('track', 'Purchase', {
@@ -545,7 +585,7 @@ export default function LandingPage() {
                 u.parentNode.insertBefore(r,u);
               }(window,document,'https://sc-static.net/scevent.min.js');
               ${snapIds.map((id: string) => `snaptr('init', '${id.replace(/'/g, "\\'")}');
-              snaptr('track', 'PURCHASE', { price: ${orderTotal}, currency: '${store.currency || 'SAR'}', transaction_id: '${orderId}' });`).join('\n              ')}
+              snaptr('track', 'PURCHASE', { price: ${orderTotal}, currency: '${store.currency || 'SAR'}', transaction_id: '${orderId}', client_dedup_id: '${orderId}' });`).join('\n              ')}
             `
             document.head.appendChild(script)
           }
@@ -669,6 +709,25 @@ export default function LandingPage() {
   const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', border: `1px solid ${th.cardBorder}`, borderRadius: 8, fontSize: 15, boxSizing: 'border-box', direction: m.dir as any, fontFamily: th.font, outline: 'none', background: th.cardBg, color: th.text }
   const images = product?.images || []
 
+  // Global Google tag — loads on EVERY landing view (not only at purchase).
+  // Configures both Google Ads conversion tracking and Google Analytics 4 if present.
+  const storeAny = store as any
+  const googleTag = storeAny?.google_ads_conversion_id || storeAny?.google_analytics_measurement_id ? (
+    <>
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(storeAny?.google_ads_conversion_id || storeAny?.google_analytics_measurement_id || '')}`}
+        strategy="afterInteractive"
+      />
+      <Script id="google-tag-config" strategy="afterInteractive">{`
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        ${storeAny?.google_ads_conversion_id ? `gtag('config', '${String(storeAny.google_ads_conversion_id).replace(/'/g, "\\'")}');` : ''}
+        ${storeAny?.google_analytics_measurement_id ? `gtag('config', '${String(storeAny.google_analytics_measurement_id).replace(/'/g, "\\'")}');` : ''}
+      `}</Script>
+    </>
+  ) : null
+
   const REVIEWS_DATA = {
     ar: {
       names: [
@@ -787,9 +846,55 @@ export default function LandingPage() {
     return { reviews, reviewCount }
   }
 
+  // AI Genius premium landing — self-contained generated HTML, isolated in an iframe.
+  // LANDING_CONFIG is injected live from the product/offers so it stays editable, and
+  // the checkout drawer's order is routed into Mantoog's own handleSubmit.
+  if (landingPage?.landing_type === 'custom_html' && landingPage?.custom_html) {
+    // Prefer the page's own (Arabic) product name from the baked GENIUS payload —
+    // the DB title can be the raw scraped English title, which would leak into the
+    // checkout drawer otherwise.
+    let geniusName: string | undefined
+    try {
+      const m = String(landingPage.custom_html).match(/window\.GENIUS = (\{[\s\S]*?\});<\/script>/)
+      if (m) {
+        const g = JSON.parse(m[1])
+        geniusName = g?.productName || g?.brand || undefined
+      }
+    } catch { /* fall back to DB title */ }
+    const cfg = {
+      productName: geniusName || product?.title,
+      price: parseFloat(product?.price || 0),
+      currency: store?.currency || 'ريال',
+      showQuantity: !!store?.show_quantity,
+      showNote: !!store?.show_note,
+      shipping: shippingCost || 0,
+      offers: (activeOffers || []).map((o: any) => ({ id: o.id, quantity: o.quantity, price: o.price })),
+      bump: null,
+    }
+    const injected = String(landingPage.custom_html).replace('<head>', `<head><script>window.LANDING_CONFIG=${JSON.stringify(cfg)};</script>`)
+    return (
+      <>
+      {googleTag}
+      <iframe
+        title={product?.title || 'landing'}
+        srcDoc={injected}
+        style={{ border: 'none', width: '100%', height: '100vh', display: 'block' }}
+        onLoad={(e) => {
+          try {
+            const w = (e.currentTarget as HTMLIFrameElement).contentWindow as any
+            if (w) w.onLandingOrder = (order: any) => handleSubmit({ name: order.name, phone: order.phone, address: order.address, note: order.note, qty: order.qty })
+          } catch { /* cross-origin never happens for srcDoc */ }
+        }}
+      />
+      </>
+    )
+  }
+
   // Store theme product page — merchant chose "يتبع قالب المتجر"
   if (store?.theme === 'store_theme' && store?.store_theme) {
     return (
+      <>
+      {googleTag}
       <ThemedProductPage
         store={store}
         product={product}
@@ -802,6 +907,7 @@ export default function LandingPage() {
         onBack={() => window.history.back()}
         onSubmit={handleSubmit}
       />
+      </>
     )
   }
 
@@ -818,6 +924,8 @@ export default function LandingPage() {
 
   if (store?.theme === 'fashion') {
     return (
+      <>
+      {googleTag}
       <FashionTheme
         store={store}
         product={product}
@@ -834,11 +942,14 @@ export default function LandingPage() {
           await handleSubmit({ name, phone, address, note, qty })
         }}
       />
+      </>
     )
   }
 
   if (store?.theme === 'beauty') {
     return (
+      <>
+      {googleTag}
       <BeautyTheme
         store={store}
         product={product}
@@ -855,11 +966,14 @@ export default function LandingPage() {
           await handleSubmit({ name, phone, address, note, qty })
         }}
       />
+      </>
     )
   }
 
   if (store?.theme === 'home') {
     return (
+      <>
+      {googleTag}
       <HomeTheme
         store={store}
         product={product}
@@ -876,11 +990,13 @@ export default function LandingPage() {
           await handleSubmit({ name, phone, address, note, qty })
         }}
       />
+      </>
     )
   }
 
   return (
     <>
+      {googleTag}
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
       <Script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" strategy="lazyOnload" onLoad={() => {
         if (!(window as any).L || !(store?.address_mode === 'map' || (!store?.address_mode && store?.enable_location))) return
@@ -952,8 +1068,6 @@ export default function LandingPage() {
                   a.parentNode.insertBefore(o,a)
                 };
                 ${tiktokIds.map((id: string) => `ttq.load("${id.replace(/"/g, '\\"')}");`).join('\n                ')}
-                ttq.page();
-                ttq.track("ViewContent", {content_id: "${product.id}", content_name: "${product.title?.replace(/"/g, '\\"') || ''}", value: ${product.price || 0}, currency: "${store.currency}"});
               }(window,document,"ttq");
             `}
           </Script>
@@ -1607,21 +1721,7 @@ export default function LandingPage() {
               <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', color: '#ef4444', fontSize: 13 }}>{formError}</div>
             )}
             <button
-              onClick={() => {
-                const totalPrice = selectedOffer
-                  ? selectedOffer.price
-                  : (store?.show_quantity ? parseFloat(product?.price || 0) * qty : parseFloat(product?.price || 0))
-                const checkoutQty = selectedOffer ? selectedOffer.quantity : (store?.show_quantity ? qty : 1)
-                if (typeof window !== 'undefined') {
-                  if ((window as any).fbq) {
-                    (window as any).fbq('track', 'InitiateCheckout', { currency: store.currency, value: totalPrice })
-                  }
-                  if ((window as any).ttq) {
-                    (window as any).ttq.track('InitiateCheckout', { content_id: product.id, content_name: product.title, currency: store.currency, value: totalPrice, quantity: checkoutQty })
-                  }
-                }
-                handleSubmit()
-              }}
+              onClick={() => { handleSubmit() }}
               disabled={submitting}
               style={{ background: submitting ? '#9ca3af' : th.accent, color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontSize: 18, fontWeight: 800, cursor: submitting ? 'not-allowed' : 'pointer', width: '100%' }}
             >

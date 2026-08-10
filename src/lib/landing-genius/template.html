@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مكنسة كهربائية رطبة وجافة من كولن — 20 لتر، 1600 واط</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F0F4F8;
+    --surface: #FFFFFF;
+    --primary: #1A5FA8;
+    --accent: #F5A623;
+    --text: #1A202C;
+    --muted: #718096;
+    --primary-dark: #0D3D6E;
+    --primary-light: #E8F0FB;
+    --shadow: 0 4px 24px rgba(26,95,168,0.10);
+    --shadow-lg: 0 12px 48px rgba(26,95,168,0.15);
+    --radius: 16px;
+    --radius-sm: 10px;
+    --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Almarai', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4 { font-family: 'Cairo', sans-serif; line-height: 1.3; }
+
+  img { display: block; max-width: 100%; }
+
+  a { text-decoration: none; color: inherit; }
+
+  /* ── SCROLL REVEAL ── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.65s ease, transform 0.65s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-left {
+    opacity: 0;
+    transform: translateX(32px);
+    transition: opacity 0.65s ease, transform 0.65s ease;
+  }
+  .reveal-left.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal, .reveal-left { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(26,95,168,0.10);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    box-shadow: 0 2px 12px rgba(26,95,168,0.07);
+  }
+  .nav-brand {
+    font-family: 'Cairo', sans-serif;
+    font-weight: 900;
+    font-size: 1.05rem;
+    color: var(--primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 62%;
+  }
+  .nav-brand-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+    vertical-align: middle;
+    margin-inline-end: 7px;
+  }
+  .nav-cta {
+    background: var(--primary);
+    color: #fff;
+    flex-shrink: 0;
+    padding: 9px 22px;
+    border-radius: 50px;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 700;
+    font-size: 0.88rem;
+    transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+    box-shadow: 0 2px 12px rgba(26,95,168,0.25);
+  }
+  .nav-cta:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(26,95,168,0.35);
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+    padding: 26px 20px 44px;
+    background: radial-gradient(125% 95% at 50% 0%, var(--primary-light) 0%, #EEF3FA 45%, #DCE8F6 100%);
+  }
+  .hero-glow {
+    position: absolute; left: 50%; top: 50%;
+    width: 640px; height: 620px; max-width: 92vw;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(26,95,168,0.22) 0%, transparent 62%);
+    z-index: 0; pointer-events: none;
+  }
+  .hero-inner { position: relative; z-index: 2; max-width: 800px; margin: 0 auto; }
+  .hero-stage { position: relative; width: 100%; max-width: 430px; margin: -4px auto 62px; }
+  .hero-cutout {
+    display: block; width: 100%; height: auto; border-radius: 20px;
+    filter: drop-shadow(0 34px 44px rgba(26,95,168,0.30));
+    animation: heroFloat 5.5s ease-in-out infinite;
+  }
+  @keyframes heroFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+  /* Price tag hangs off the bottom-start CORNER (mostly below the image edge) so it
+     reads as a sticker and never covers the product — works for transparent cutouts
+     and photo fallbacks alike. */
+  .hero-price-badge {
+    position: absolute; bottom: 0; inset-inline-start: 12px;
+    width: 92px; height: 92px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff; border: 4px solid #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: 0 14px 30px rgba(26,95,168,0.42); transform: rotate(-8deg) translateY(52%); z-index: 3;
+  }
+  .hero-price-badge b { font-family: 'Cairo', sans-serif; font-size: 1.6rem; font-weight: 900; line-height: 1; }
+  .hero-price-badge span { font-size: 0.7rem; margin-top: 1px; }
+  .hero-price-badge small { font-size: 0.56rem; opacity: 0.85; margin-top: 2px; }
+  .hero-sub { margin-left: auto; margin-right: auto; }
+  .hero-actions { justify-content: center; }
+  .hero-trust { justify-content: center; }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--primary-light);
+    border: 1px solid var(--accent);
+    color: var(--primary);
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 6px 16px;
+    border-radius: 50px;
+    margin-bottom: 14px;
+  }
+  .hero-badge span { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); display: inline-block; }
+  .hero h1 {
+    font-size: clamp(1.8rem, 4vw, 3.2rem);
+    font-weight: 900;
+    color: var(--text);
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--primary);
+    position: relative;
+  }
+  .hero-sub {
+    font-size: clamp(1rem, 1.8vw, 1.2rem);
+    color: var(--muted);
+    margin-bottom: 36px;
+    font-weight: 400;
+    max-width: 480px;
+  }
+  .hero-price-block {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .hero-price {
+    font-family: 'Cairo', sans-serif;
+    font-size: 2.4rem;
+    font-weight: 900;
+    color: var(--primary);
+  }
+  .hero-price sup { font-size: 1.1rem; vertical-align: super; }
+  .hero-price-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    padding: 16px 36px;
+    border-radius: 50px;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 800;
+    font-size: 1.05rem;
+    border: none;
+    cursor: pointer;
+    transition: transform var(--transition), box-shadow var(--transition);
+    box-shadow: 0 6px 28px rgba(26,95,168,0.32);
+    white-space: nowrap;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 36px rgba(26,95,168,0.42); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--primary);
+    padding: 16px 28px;
+    border-radius: 50px;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border: 2px solid var(--primary);
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+  }
+  .btn-secondary:hover { background: var(--primary-light); }
+  .hero-visual {
+    height: 100%;
+    min-height: 92vh;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-visual img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transition: transform 0.8s ease;
+  }
+  .hero-visual:hover img { transform: scale(1.03); }
+  .hero-visual-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, rgba(240,244,248,0.5) 0%, transparent 40%);
+  }
+  .hero-trust {
+    margin-top: 28px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .hero-trust-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .hero-trust-item svg { flex-shrink: 0; }
+
+  /* ── PROBLEM ── */
+  .problem-section {
+    background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: #fff;
+    padding: 80px 24px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .problem-section::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: 50%; transform: translateX(-50%);
+    width: 800px; height: 400px;
+    background: radial-gradient(ellipse, rgba(245,166,35,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .problem-section h2 {
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    font-weight: 900;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .problem-section p {
+    max-width: 700px;
+    margin: 0 auto;
+    font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+    opacity: 0.9;
+    line-height: 1.9;
+    position: relative;
+  }
+  .problem-icons {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-top: 48px;
+    flex-wrap: wrap;
+  }
+  .problem-icon-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.88rem;
+    opacity: 0.85;
+    font-weight: 600;
+    max-width: 120px;
+    text-align: center;
+  }
+  .problem-icon-circle {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  /* ── SECTION WRAPPER ── */
+  .section { padding: 96px 24px; }
+  .section-inner { max-width: 1100px; margin: 0 auto; }
+  .section-label {
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 12px;
+    display: block;
+  }
+  .section-title {
+    font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+    font-weight: 900;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+  .section-title span { color: var(--primary); }
+  .section-desc {
+    font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+    color: var(--muted);
+    max-width: 600px;
+    margin-bottom: 56px;
+  }
+
+  /* ── BENEFITS ── */
+  .benefits-section { background: var(--surface); }
+  .benefits-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .benefit-card {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 18px 18px;
+    border: 1px solid rgba(26,95,168,0.08);
+    transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+  .benefit-card::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 60px; height: 60px;
+    background: linear-gradient(135deg, var(--accent), transparent);
+    opacity: 0.15;
+    border-radius: 0 var(--radius) 0 60px;
+  }
+  .benefit-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent);
+  }
+  .benefit-icon {
+    width: 40px; height: 40px;
+    border-radius: 11px;
+    background: var(--primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .benefit-icon svg { width: 20px; height: 20px; }
+  .benefit-card h3 {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 5px;
+  }
+  .benefit-card p { font-size: 0.85rem; color: var(--muted); line-height: 1.55; }
+
+  /* ── SHOWCASE ── */
+  .showcase-section { background: var(--bg); }
+  .showcase-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+  }
+  .showcase-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(26,95,168,0.07);
+    transition: transform var(--transition), box-shadow var(--transition);
+    display: flex;
+    flex-direction: column;
+  }
+  .showcase-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+  }
+  .showcase-img-wrap {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 4/3;
+    background: var(--primary-light);
+  }
+  .showcase-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.6s ease;
+  }
+  .showcase-card:hover .showcase-img-wrap img { transform: scale(1.05); }
+  .showcase-caption-badge {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    background: rgba(26,95,168,0.85);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 5px 14px;
+    border-radius: 50px;
+    backdrop-filter: blur(4px);
+  }
+  .showcase-body {
+    padding: 24px 26px 28px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .showcase-body h3 {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .showcase-body p { font-size: 0.92rem; color: var(--muted); line-height: 1.7; }
+
+  /* ── LIFESTYLE ── */
+  .lifestyle-section { background: var(--surface); }
+  .lifestyle-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: center;
+  }
+  .lifestyle-img-wrap {
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+  }
+  .lifestyle-img-wrap img {
+    width: 100%;
+    aspect-ratio: 4/5;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.6s ease;
+  }
+  .lifestyle-img-wrap:hover img { transform: scale(1.04); }
+  .lifestyle-img-overlay {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 24px;
+    background: linear-gradient(transparent, rgba(13,61,110,0.80));
+    color: #fff;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  .lifestyle-content h2 {
+    font-size: clamp(1.7rem, 3vw, 2.4rem);
+    font-weight: 900;
+    margin-bottom: 20px;
+  }
+  .lifestyle-content p {
+    font-size: 1rem;
+    color: var(--muted);
+    margin-bottom: 28px;
+    line-height: 1.9;
+  }
+  .lifestyle-list { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+  .lifestyle-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 0.95rem;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .lifestyle-list li .check-icon {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ── SOCIAL PROOF ── */
+  .proof-section { background: linear-gradient(180deg, var(--bg) 0%, var(--primary-light) 100%); }
+  .stars-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+  .proof-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .proof-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+    border: 1px solid rgba(26,95,168,0.10);
+    box-shadow: var(--shadow);
+    transition: transform var(--transition), box-shadow var(--transition);
+    position: relative;
+  }
+  .proof-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+  }
+  .proof-card::before {
+    content: '"';
+    position: absolute;
+    top: 16px; left: 24px;
+    font-size: 5rem;
+    line-height: 1;
+    color: var(--accent);
+    opacity: 0.2;
+    font-family: Georgia, serif;
+  }
+  .proof-quote {
+    font-size: 0.95rem;
+    color: var(--text);
+    line-height: 1.8;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .proof-author {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .proof-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 900;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .proof-author-info { font-size: 0.85rem; }
+  .proof-author-name { font-weight: 800; color: var(--text); }
+  .proof-author-city { color: var(--muted); }
+
+  /* ── THUMBNAIL GALLERY ── */
+  .gallery-section { background: var(--surface); padding: 72px 24px; }
+  .thumb-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-top: 40px;
+  }
+  .thumb-item {
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    aspect-ratio: 1;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color var(--transition), transform var(--transition);
+  }
+  .thumb-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+  }
+  .thumb-item:hover {
+    border-color: var(--primary);
+    transform: scale(1.03);
+  }
+  .thumb-item:hover img { transform: scale(1.08); }
+
+  /* ── PRICE ── */
+  .price-section { background: var(--bg); }
+  .price-card {
+    max-width: 580px;
+    margin: 0 auto;
+    background: var(--surface);
+    border-radius: 24px;
+    padding: 52px 48px;
+    box-shadow: var(--shadow-lg);
+    border: 2px solid var(--accent);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .price-card::before {
+    content: '';
+    position: absolute;
+    top: -100px; right: -100px;
+    width: 280px; height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245,166,35,0.12), transparent 70%);
+    pointer-events: none;
+  }
+  .price-badge-top {
+    display: inline-block;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 0.82rem;
+    font-weight: 800;
+    padding: 6px 20px;
+    border-radius: 50px;
+    margin-bottom: 24px;
+    border: 1px solid var(--accent);
+  }
+  .price-amount {
+    font-family: 'Cairo', sans-serif;
+    font-size: 4rem;
+    font-weight: 900;
+    color: var(--primary);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .price-amount sup { font-size: 1.6rem; vertical-align: super; }
+  .price-sub { font-size: 0.9rem; color: var(--muted); margin-bottom: 32px; }
+  .price-features { list-style: none; text-align: right; margin-bottom: 36px; display: flex; flex-direction: column; gap: 12px; }
+  .price-features li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.95rem;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .price-features li .pf-icon {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .price-cta {
+    width: 100%;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 18px 0;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 900;
+    font-size: 1.15rem;
+    cursor: pointer;
+    transition: transform var(--transition), box-shadow var(--transition);
+    box-shadow: 0 8px 32px rgba(26,95,168,0.35);
+  }
+  .price-cta:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(26,95,168,0.45); }
+
+  /* ── GUARANTEE ── */
+  .guarantee-section {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    padding: 72px 24px;
+    text-align: center;
+  }
+  .guarantee-icon {
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    border: 3px solid rgba(255,255,255,0.3);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 28px;
+  }
+  .guarantee-section h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 900; margin-bottom: 16px; }
+  .guarantee-section p { max-width: 580px; margin: 0 auto; font-size: 1rem; opacity: 0.9; line-height: 1.8; }
+
+  /* ── URGENCY / COUNTDOWN ── */
+  .urgency-section {
+    background: #FFF8E1;
+    border-top: 3px solid #F9A825;
+    border-bottom: 3px solid #F9A825;
+    padding: 48px 24px;
+    text-align: center;
+  }
+  .urgency-text {
+    font-family: 'Cairo', sans-serif;
+    font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+    font-weight: 800;
+    color: #E65100;
+    margin-bottom: 28px;
+  }
+  .countdown-row {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .countdown-box {
+    background: var(--primary);
+    color: #fff;
+    border-radius: 14px;
+    padding: 18px 28px;
+    min-width: 80px;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 900;
+    box-shadow: 0 4px 18px rgba(26,95,168,0.25);
+  }
+  .countdown-num { font-size: 2.2rem; line-height: 1; display: block; }
+  .countdown-lbl { font-size: 0.72rem; opacity: 0.8; font-weight: 600; display: block; margin-top: 4px; }
+
+  /* ── FAQ ── */
+  .faq-section { background: var(--surface); }
+  .faq-list { display: flex; flex-direction: column; gap: 0; max-width: 760px; margin: 0 auto; }
+  .faq-item {
+    border-bottom: 1px solid rgba(26,95,168,0.12);
+    overflow: hidden;
+  }
+  .faq-item:first-child { border-top: 1px solid rgba(26,95,168,0.12); }
+  .faq-q {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 22px 24px;
+    text-align: right;
+    font-family: 'Cairo', sans-serif;
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    transition: color var(--transition);
+  }
+  .faq-q:hover { color: var(--primary); }
+  .faq-arrow {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: transform var(--transition), background var(--transition);
+  }
+  .faq-item.open .faq-arrow { transform: rotate(180deg); background: var(--primary); }
+  .faq-item.open .faq-arrow svg path { stroke: #fff; }
+  .faq-a {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4,0,0.2,1), padding 0.3s;
+    font-size: 0.95rem;
+    color: var(--muted);
+    padding: 0 24px;
+    line-height: 1.8;
+  }
+  .faq-item.open .faq-a { max-height: 200px; padding: 0 24px 20px; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--text);
+    color: rgba(255,255,255,0.7);
+    padding: 56px 24px 80px;
+    text-align: center;
+  }
+  .footer-brand {
+    font-family: 'Cairo', sans-serif;
+    font-weight: 900;
+    font-size: 1.4rem;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  footer p { font-size: 0.88rem; line-height: 1.8; max-width: 480px; margin: 0 auto 24px; }
+  .footer-links { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; }
+  .footer-links a { font-size: 0.85rem; color: rgba(255,255,255,0.5); transition: color var(--transition); }
+  .footer-links a:hover { color: var(--accent); }
+  .footer-divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 28px auto; max-width: 400px; }
+  .footer-copy { font-size: 0.78rem; color: rgba(255,255,255,0.35); }
+
+  /* ── STICKY MOBILE CTA ── */
+  .sticky-cta {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 99;
+    background: rgba(255,255,255,0.97);
+    backdrop-filter: blur(10px);
+    padding: 12px 20px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
+    border-top: 1px solid rgba(26,95,168,0.15);
+  }
+  .sticky-cta a {
+    display: block;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    text-align: center;
+    padding: 16px;
+    border-radius: 50px;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 900;
+    font-size: 1rem;
+    box-shadow: 0 4px 20px rgba(26,95,168,0.35);
+    transition: transform var(--transition);
+  }
+  .sticky-cta a:hover { transform: scale(1.01); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; min-height: auto; }
+    .hero-content { padding: 48px 24px 36px; order: 2; }
+    .hero-visual { min-height: 50vw; order: 1; }
+    .benefits-grid { grid-template-columns: 1fr 1fr; }
+    .showcase-grid { grid-template-columns: 1fr 1fr; }
+    .lifestyle-inner { grid-template-columns: 1fr; gap: 40px; }
+    .proof-grid { grid-template-columns: 1fr; }
+    .thumb-grid { grid-template-columns: repeat(2, 1fr); }
+    .sticky-cta { display: block; }
+    footer { padding-bottom: 100px; }
+  }
+  @media (max-width: 600px) {
+    .benefits-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .showcase-grid { grid-template-columns: 1fr; }
+    .price-card { padding: 36px 24px; }
+    .countdown-row { gap: 12px; }
+    .countdown-box { min-width: 65px; padding: 14px 16px; }
+    .countdown-num { font-size: 1.8rem; }
+    nav { padding: 0 16px; }
+    .hero-content { padding: 36px 20px 28px; }
+    .problem-icons { gap: 24px; }
+  }
+
+  /* ── DIVIDER ── */
+  .wave-divider { display: block; width: 100%; overflow: hidden; line-height: 0; }
+</style>
+</head>
+<body>
+
+<!--GENIUS_BODY_START-->
+<!-- ══════════════ NAV ══════════════ -->
+<nav>
+  <div class="nav-brand">
+    <span class="nav-brand-dot"></span>
+    كولن باور — مكنسة رطبة وجافة
+  </div>
+  <a href="#price" class="nav-cta">اطلب الآن</a>
+</nav>
+
+<!-- ══════════════ HERO ══════════════ -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-inner">
+    <div class="hero-content">
+    <div class="hero-badge reveal">
+      <span></span>
+      مكنسة كولن — 20 لتر، 1600 واط
+    </div>
+    <h1 class="reveal">
+      قوة 1600 واط تلتهم الأوساخ<br>
+      <em>رطبة كانت أم جافة!</em>
+    </h1>
+    <div class="hero-stage reveal">
+      <img class="hero-cutout" src="hero-cutout.png" alt="مكنسة كولن الكهربائية">
+      <div class="hero-price-badge"><b>229</b><span>ريال</span><small>شامل الضريبة</small></div>
+    </div>
+    <p class="hero-sub reveal">مكنسة كولن 20 لتر بهيكل فولاذي صلب — الرفيق الأمثل للنظافة الحقيقية في منزلك</p>
+    <div class="hero-actions reveal">
+      <a href="#price" class="btn-primary">اطلب الآن بـ 229 ريال</a>
+      <a href="#features" class="btn-secondary">اعرف أكثر</a>
+    </div>
+    <div class="hero-trust reveal">
+      <div class="hero-trust-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        هيكل فولاذي متين
+      </div>
+      <div class="hero-trust-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zM9 12l2 2 4-4" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        فلتر قابل للغسل
+      </div>
+      <div class="hero-trust-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        رطب وجاف في جهاز واحد
+      </div>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- ══════════════ PROBLEM ══════════════ -->
+<section class="problem-section">
+  <div style="max-width:800px;margin:0 auto;position:relative;">
+    <h2 class="reveal">هل تعبت من المكانس الضعيفة التي تعطل بعد أشهر قليلة؟</h2>
+    <p class="reveal">هل تعبت من المكانس الضعيفة التي تعطل بعد أشهر قليلة؟ أو تلك التي تعجز أمام السوائل المسكوبة والأتربة العميقة؟ منزلك يستحق أكثر من حلول مؤقتة.</p>
+    <div class="problem-icons reveal">
+      <div class="problem-icon-item">
+        <div class="problem-icon-circle">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.8)" stroke-width="2"/>
+            <path d="M12 6v6l4 2" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        أعطال متكررة
+      </div>
+      <div class="problem-icon-item">
+        <div class="problem-icon-circle">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        شفط ضعيف
+      </div>
+      <div class="problem-icon-item">
+        <div class="problem-icon-circle">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M3 12h18M3 6h18M3 18h18" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        تكاليف الأكياس
+      </div>
+      <div class="problem-icon-item">
+        <div class="problem-icon-circle">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        عجز عن السوائل
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ BENEFITS ══════════════ -->
+<section class="section benefits-section" id="benefits">
+  <div class="section-inner">
+    <span class="section-label reveal">المزايا</span>
+    <h2 class="section-title reveal">كل ما تحتاجه <span>في مكنسة واحدة</span></h2>
+    <p class="section-desc reveal">مكنسة كولن ليست مجرد جهاز تنظيف — إنها حل شامل يتعامل مع كل أنواع الأوساخ رطبةً كانت أم جافة، ويوفّر عليك الوقت والمال.</p>
+    <div class="benefits-grid">
+
+      <div class="benefit-card reveal">
+        <div class="benefit-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>تتعامل مع كل شيء</h3>
+        <p>سوائل مسكوبة، غبار، فتات، رمل — مكنسة واحدة تحل المشكلة بالكامل دون الحاجة لأجهزة متعددة</p>
+      </div>
+
+      <div class="benefit-card reveal">
+        <div class="benefit-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="var(--primary)" stroke-width="2"/>
+            <path d="M12 6v6l4 2" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h3>سعة ضخمة 20 لتر</h3>
+        <p>تنظيف طويل دون توقف متكرر لتفريغ الخزان، مثالية للمساحات الكبيرة والمنازل الواسعة</p>
+      </div>
+
+      <div class="benefit-card reveal">
+        <div class="benefit-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>قوة شفط لا تُضاهى</h3>
+        <p>محرك 1600 واط يمنحك شفطاً عميقاً يصل إلى أدق الزوايا وأكثر الأماكن صعوبةً</p>
+      </div>
+
+      <div class="benefit-card reveal">
+        <div class="benefit-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>توفير حقيقي على المدى البعيد</h3>
+        <p>الفلتر القماشي القابل للغسل يغنيك عن شراء أكياس استهلاكية باستمرار — وفّر مالك</p>
+      </div>
+
+      <div class="benefit-card reveal">
+        <div class="benefit-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="18" height="18" rx="3" stroke="var(--primary)" stroke-width="2"/>
+            <path d="M9 9h6M9 12h6M9 15h4" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h3>متانة تدوم سنوات</h3>
+        <p>الهيكل الفولاذي الصلب مصنوع ليتحمل الاستخدام اليومي المكثف دون تشقق أو تلف</p>
+      </div>
+
+      <div class="benefit-card reveal">
+        <div class="benefit-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <path d="M7 16.5l-5-3 5-3v6zm5-13l5 3-5 3V3.5zm5 13l-5-3 5-3v6z" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>تنظيم وترتيب مريح</h3>
+        <p>مشبك تعليق السلك الذكي يحافظ على مكانك مرتباً وخالياً من الفوضى بعد كل استخدام</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ FEATURE SHOWCASE ══════════════ -->
+<section class="section showcase-section" id="features">
+  <div class="section-inner">
+    <span class="section-label reveal">المواصفات</span>
+    <h2 class="section-title reveal">مصنوعة بدقة <span>لمنزلك</span></h2>
+    <p class="section-desc reveal">كل تفصيلة في مكنسة كولن صُمِّمت لتجعل تجربتك أفضل — من الهيكل الفولاذي إلى الفلتر القابل للغسل ومشبك تعليق السلك الذكي.</p>
+    <div class="showcase-grid">
+
+      <!-- f1: هيكل فولاذي عالي الجودة -->
+      <div class="showcase-card reveal">
+        <div class="showcase-img-wrap">
+          <img src="https://cdn.seedance2ai.io/imagegenerator/images/2026-07/gempix2-1784033736052-bddba188-79c7-48c2-9a54-c4ac5e9fd2c9.png" alt="هيكل فولاذي متين يدوم طويلاً" loading="lazy">
+          <span class="showcase-caption-badge">هيكل فولاذي متين يدوم طويلاً</span>
+        </div>
+        <div class="showcase-body">
+          <h3>هيكل فولاذي عالي الجودة</h3>
+          <p>مصنوع من الفولاذ المتين الذي يتحمل الصدمات والاستخدام اليومي القاسي، ويضمن عمراً افتراضياً طويلاً للجهاز.</p>
+        </div>
+      </div>
+
+      <!-- f2: فلتر قماشي قابل للغسل -->
+      <div class="showcase-card reveal">
+        <div class="showcase-img-wrap">
+          <img src="https://cdn.seedance2ai.io/imagegenerator/images/2026-07/gempix2-1784033797431-54773f3a-0a7d-416d-9e47-5050b28aeb6b.png" alt="فلتر قماشي قابل للغسل وإعادة الاستخدام" loading="lazy">
+          <span class="showcase-caption-badge">فلتر قماشي قابل للغسل وإعادة الاستخدام</span>
+        </div>
+        <div class="showcase-body">
+          <h3>فلتر قماشي قابل للغسل</h3>
+          <p>ببساطة اغسل الفلتر وأعد استخدامه — لا تكاليف إضافية ولا بحث عن قطع غيار، صديق للبيئة ولجيبك.</p>
+        </div>
+      </div>
+
+      <!-- f3: مشبك ذكي لتعليق السلك -->
+      <div class="showcase-card reveal">
+        <div class="showcase-img-wrap">
+          <img src="https://cdn.seedance2ai.io/imagegenerator/images/2026-07/gempix2-1784033878149-aa028227-e1cc-455c-84fd-66cf008cc15a.png" alt="مشبك السلك العملي لتخزين أنيق" loading="lazy">
+          <span class="showcase-caption-badge">مشبك السلك العملي لتخزين أنيق</span>
+        </div>
+        <div class="showcase-body">
+          <h3>مشبك ذكي لتعليق السلك</h3>
+          <p>احتفظ بسلك الجهاز ملفوفاً بإحكام على المشبك المدمج — لا تشابك، لا فوضى، جاهز دائماً للاستخدام.</p>
+        </div>
+      </div>
+
+      <!-- f4: سعة 20 لتر وقدرة 1600 واط -->
+      <div class="showcase-card reveal">
+        <div class="showcase-img-wrap">
+          <img src="https://cdn.seedance2ai.io/imagegenerator/images/2026-07/gempix2-1784033975877-4e8a22a2-0f82-4695-94ad-4ae02a9c2be4.png" alt="20 لتر سعة وقدرة 1600 واط — للرطب والجاف" loading="lazy">
+          <span class="showcase-caption-badge">20 لتر سعة وقدرة 1600 واط — للرطب والجاف</span>
+        </div>
+        <div class="showcase-body">
+          <h3>سعة 20 لتر وقدرة 1600 واط</h3>
+          <p>خزان واسع ومحرك قوي يوفران شفطاً عميقاً وفعالاً لكل أنواع الأوساخ الرطبة والجافة في وقت قياسي.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ LIFESTYLE ══════════════ -->
+<section class="section lifestyle-section">
+  <div class="section-inner">
+    <div class="lifestyle-inner">
+      <div class="lifestyle-img-wrap reveal-left">
+        <img src="https://cdn.seedance2ai.io/imagegenerator/images/2026-07/gempix2-1784033688863-db8e7e77-5fd8-4c32-88cf-a5307fb61945.png" alt="نظافة شاملة لكل ركن في منزلك" loading="lazy">
+        <div class="lifestyle-img-overlay">نظافة شاملة لكل ركن في منزلك</div>
+      </div>
+      <div class="lifestyle-content reveal">
+        <span class="section-label">تجربة حياة</span>
+        <h2 class="section-title">نظافة لا تتوقف — <span>رطباً كان أم جافاً</span></h2>
+        <p>تخيّل منزلاً نظيفاً من الألف إلى الياء دون عناء الأجهزة المتعددة والأكياس المستهلكة — هذا ما تصنعه مكنسة كولن كل يوم في آلاف المنازل السعودية.</p>
+        <ul class="lifestyle-list">
+          <li>
+            <div class="check-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            سعة 20 لتر تُنهي تنظيف المنزل بالكامل دون توقف
+          </li>
+          <li>
+            <div class="check-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            تصميم فولاذي بلون أزرق احترافي يناسب كل منزل
+          </li>
+          <li>
+            <div class="check-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            عجلات مريحة تتيح تحريكها بسهولة في كل أنحاء المنزل
+          </li>
+          <li>
+            <div class="check-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            فلتر قابل للغسل يوفّر عليك المصاريف المتكررة
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ SOCIAL PROOF ══════════════ -->
+<section class="section proof-section" id="reviews">
+  <div class="section-inner">
+    <span class="section-label reveal" style="text-align:center;display:block;">آراء العملاء</span>
+    <h2 class="section-title reveal" style="text-align:center;">ماذا يقول <span>عملاؤنا</span>؟</h2>
+    <p class="section-desc reveal" style="text-align:center;margin:0 auto 48px;">آلاف الأسر في المملكة اختارت مكنسة كولن — إليك ما يقولونه بصدق.</p>
+    <div class="proof-grid">
+
+      <div class="proof-card reveal">
+        <div class="stars-row">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <p class="proof-quote">اشتريتها من شهرين وما خذلتني ولا مرة. شفطت ماء مسكوب على السجادة وأزالت الغبار من الأركان — والله خير صفقة سوّيتها!</p>
+        <div class="proof-author">
+          <div class="proof-avatar">أ</div>
+          <div class="proof-author-info">
+            <div class="proof-author-name">أم عبدالله الغامدي</div>
+            <div class="proof-author-city">الرياض</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="proof-card reveal">
+        <div class="stars-row">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <p class="proof-quote">الهيكل الفولاذي واضح إنه متين ومش بلاستيك رخيص. الفلتر القماشي وفّر عليّ فلوس كثيرة. أنصح فيها بشدة.</p>
+        <div class="proof-author">
+          <div class="proof-avatar">م</div>
+          <div class="proof-author-info">
+            <div class="proof-author-name">محمد الزهراني</div>
+            <div class="proof-author-city">جدة</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="proof-card reveal">
+        <div class="stars-row">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#F9A825"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <p class="proof-quote">كنت أتردد بسبب السعر بس بعد التجربة اتضح إنها تستاهل أكثر. سعة 20 لتر كبيرة جداً وما احتجت أوقف تنظيفي حتى خلصت كل البيت.</p>
+        <div class="proof-author">
+          <div class="proof-avatar">ن</div>
+          <div class="proof-author-info">
+            <div class="proof-author-name">نورة العتيبي</div>
+            <div class="proof-author-city">الدمام</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ THUMBNAIL GALLERY ══════════════ -->
+<section class="gallery-section">
+  <div class="section-inner" style="max-width:1100px;margin:0 auto;">
+    <span class="section-label reveal" style="text-align:center;display:block;">معرض الصور</span>
+    <h2 class="section-title reveal" style="text-align:center;">شوفها <span>عن قرب</span></h2>
+    <div class="thumb-grid">
+      <div class="thumb-item reveal">
+        <img src="https://m.media-amazon.com/images/I/61cxMIkbcTL._AC_SL1500_.jpg" alt="مكنسة كولن - صورة 1" loading="lazy">
+      </div>
+      <div class="thumb-item reveal">
+        <img src="https://m.media-amazon.com/images/I/61N2jA2FX+L._AC_SL1500_.jpg" alt="مكنسة كولن - صورة 2" loading="lazy">
+      </div>
+      <div class="thumb-item reveal">
+        <img src="https://m.media-amazon.com/images/I/71jYWuYhNBL._AC_SL1500_.jpg" alt="مكنسة كولن - صورة 3" loading="lazy">
+      </div>
+      <div class="thumb-item reveal">
+        <img src="https://m.media-amazon.com/images/I/71tITJfAjOL._AC_SL1500_.jpg" alt="مكنسة كولن - صورة 4" loading="lazy">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ URGENCY / COUNTDOWN ══════════════ -->
+<section class="urgency-section" id="urgency">
+  <p class="urgency-text reveal">⚡ عرض محدود — الكمية المتوفرة على وشك النفاد. اطلب الآن بـ 229 ريال فقط!</p>
+  <div class="countdown-row reveal">
+    <div class="countdown-box">
+      <span class="countdown-num" id="cd-hours">08</span>
+      <span class="countdown-lbl">ساعات</span>
+    </div>
+    <div class="countdown-box">
+      <span class="countdown-num" id="cd-mins">47</span>
+      <span class="countdown-lbl">دقائق</span>
+    </div>
+    <div class="countdown-box">
+      <span class="countdown-num" id="cd-secs">33</span>
+      <span class="countdown-lbl">ثوانٍ</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ PRICE ══════════════ -->
+<section class="section price-section" id="price">
+  <div class="section-inner">
+    <span class="section-label reveal" style="text-align:center;display:block;">السعر</span>
+    <h2 class="section-title reveal" style="text-align:center;">استثمر في <span>نظافة منزلك</span> اليوم</h2>
+    <div class="price-card reveal">
+      <div class="price-badge-top">عرض خاص — كميات محدودة</div>
+      <div class="price-amount"><sup>SAR</sup>229</div>
+      <p class="price-sub">سعر شامل الضريبة • توصيل سريع لجميع مناطق المملكة</p>
+      <ul class="price-features">
+        <li>
+          <div class="pf-icon">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          مكنسة كولن رطبة وجافة — 20 لتر، لون أزرق
+        </li>
+        <li>
+          <div class="pf-icon">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          محرك 1600 واط بشفط عالي الكفاءة
+        </li>
+        <li>
+          <div class="pf-icon">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          هيكل فولاذي متين يتحمل الاستخدام المكثف
+        </li>
+        <li>
+          <div class="pf-icon">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          فلتر قماشي قابل للغسل وإعادة الاستخدام
+        </li>
+        <li>
+          <div class="pf-icon">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          مشبك ذكي لتعليق السلك وتنظيم التخزين
+        </li>
+        <li>
+          <div class="pf-icon">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          ضمان جودة كامل من كولن باور
+        </li>
+      </ul>
+      <button class="price-cta" onclick="window.scrollTo({top:0,behavior:'smooth'})">اطلب الآن بـ 229 ريال فقط 🛒</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ GUARANTEE ══════════════ -->
+<section class="guarantee-section">
+  <div class="guarantee-icon reveal">
+    <svg width="46" height="46" viewBox="0 0 24 24" fill="none">
+      <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <h2 class="reveal">ضمان الجودة — إذا لم تكن راضياً، نحن هنا لحل مشكلتك</h2>
+  <p class="reveal">نحن واثقون تماماً من جودة مكنسة كولن — إذا لم تكن راضياً عن المنتج لأي سبب، تواصل معنا وسنحرص على حل مشكلتك بأسرع وقت ممكن. رضاك هو أولويتنا القصوى.</p>
+</section>
+
+<!-- ══════════════ FAQ ══════════════ -->
+<section class="section faq-section" id="faq">
+  <div class="section-inner">
+    <span class="section-label reveal" style="text-align:center;display:block;">الأسئلة الشائعة</span>
+    <h2 class="section-title reveal" style="text-align:center;">أسئلتك <span>مجاوبة</span></h2>
+    <p class="section-desc reveal" style="text-align:center;margin:0 auto 48px;">كل ما تحتاج معرفته عن مكنسة كولن في مكان واحد.</p>
+    <div class="faq-list">
+
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false">
+          هل تشتغل على الأرضيات الرطبة والجافة معاً؟
+          <span class="faq-arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M6 9l6 6 6-6" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </button>
+        <div class="faq-a">نعم! مكنسة كولن مصممة خصيصاً للعمل على كلا الحالتين — تشفط السوائل والمياه المسكوبة بنفس الكفاءة التي تشفط فيها الأتربة الجافة.</div>
+      </div>
+
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false">
+          كيف أنظف الفلتر القماشي؟
+          <span class="faq-arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M6 9l6 6 6-6" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </button>
+        <div class="faq-a">ببساطة أخرج الفلتر، اغسله بالماء والصابون، اتركه يجف جيداً ثم أعد تركيبه. لا تكاليف إضافية ولا حاجة لشراء بديل.</div>
+      </div>
+
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false">
+          هل الهيكل الفولاذي ثقيل الوزن ويصعب تحريكه؟
+          <span class="faq-arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M6 9l6 6 6-6" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </button>
+        <div class="faq-a">الجهاز مزود بعجلات تجعل تحريكه سهلاً ومريحاً رغم الهيكل الفولاذي المتين، يمكنك سحبه بيسر في كل أنحاء المنزل.</div>
+      </div>
+
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false">
+          هل يناسب المنازل الكبيرة؟
+          <span class="faq-arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M6 9l6 6 6-6" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </button>
+        <div class="faq-a">بالتأكيد! سعة 20 لتر وقدرة 1600 واط تجعله مثالياً للمنازل والمساحات الكبيرة، ستنتهي من التنظيف بكفاءة ووقت أقل.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ FOOTER ══════════════ -->
+<footer>
+  <div class="footer-brand">كولن باور — مكنسة رطبة وجافة</div>
+  <p>نظافة لا تتوقف — رطباً كان أم جافاً. مكنسة كولن 20 لتر، 1600 واط، الخيار الاحترافي لمنزلك.</p>
+  <hr class="footer-divider">
+  <p class="footer-copy">© 2025 كولن باور للأجهزة المنزلية — جميع الحقوق محفوظة</p>
+</footer>
+
+<!-- ══════════════ STICKY MOBILE CTA ══════════════ -->
+<div class="sticky-cta">
+  <a href="#price">اطلب الآن بـ 229 ريال فقط 🛒</a>
+</div>
+
+<!--GENIUS_BODY_END-->
+<!--GENIUS_DATA-->
+<!-- ══════════════ GENIUS HYDRATE ══════════════ -->
+<script>
+/* Pour window.GENIUS content into the fixed shell. No-op in the standalone demo
+   (window.GENIUS undefined → sample content stays). Colors are swapped server-side. */
+(function(){
+  var G = window.GENIUS; if(!G) return;
+  var d=document;
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function q(sel,root){ return (root||d).querySelector(sel); }
+  function qa(sel,root){ return Array.prototype.slice.call((root||d).querySelectorAll(sel)); }
+  function txt(sel,v,root){ var e=q(sel,root); if(e&&v!=null&&v!=='') e.textContent=v; }
+  function label(e,v){ if(!e||v==null||v==='') return; for(var i=e.childNodes.length-1;i>=0;i--){ if(e.childNodes[i].nodeType===3) e.removeChild(e.childNodes[i]); } e.appendChild(d.createTextNode(' '+v)); }
+  function titleAccent(e,t,acc){ if(!e) return; if(acc) e.innerHTML=esc(t||'')+' <span>'+esc(acc)+'</span>'; else if(t) e.textContent=t; }
+
+  // Brand
+  var nb=q('.nav-brand'); if(nb&&G.brand) nb.innerHTML='<span class="nav-brand-dot"></span> '+esc(G.brand);
+  txt('.footer-brand', G.brand);
+  if(G.tagline){ var fp=q('footer p'); if(fp) fp.textContent=G.tagline; }
+
+  // Hero
+  var H=G.hero||{};
+  label(q('.hero-badge'), H.badge);
+  // Big title = product name; the creative headline becomes a smaller subheader.
+  var h1=q('.hero h1'); if(h1){ var pname=G.productName||G.brand||''; var hook=esc(H.h1||'')+(H.h1em?' <em style="color:var(--primary);font-style:italic">'+esc(H.h1em)+'</em>':''); h1.innerHTML=esc(pname)+((H.h1||H.h1em)?'<span style="display:block;font-size:.44em;font-weight:600;line-height:1.5;margin-top:14px;color:var(--muted)">'+hook+'</span>':''); }
+  txt('.hero-sub', H.sub);
+  var pb=q('.hero-price-badge'); if(pb&&H.priceMain){ var was=G.compareAt?'<small style="text-decoration:line-through;opacity:.6">'+esc(G.compareAt)+' '+esc(G.currency||'')+'</small>':''; pb.innerHTML='<b>'+esc(H.priceMain)+'</b><span>'+esc(G.currency||'')+'</span>'+was+(H.priceNote?'<small>'+esc(H.priceNote)+'</small>':''); }
+  var ha=qa('.hero-actions a'); if(ha[0]&&H.ctaPrimary) ha[0].textContent=H.ctaPrimary; if(ha[1]&&H.ctaSecondary) ha[1].textContent=H.ctaSecondary;
+  qa('.hero-trust-item').forEach(function(el,i){ if(H.trust&&H.trust[i]) label(el,H.trust[i]); });
+
+  // Cutout (server already swaps the URL; set again so the mock renders too)
+  if(G.images&&G.images.cutout) qa('.hero-cutout, #ordImg').forEach(function(im){ im.src=G.images.cutout; });
+
+  // Problem
+  var P=G.problem||{};
+  txt('.problem-section h2', P.title); txt('.problem-section p', P.para);
+  qa('.problem-icon-item').forEach(function(el,i){ if(P.icons&&P.icons[i]) label(el,P.icons[i]); });
+
+  // Benefits
+  var B=G.benefits||{};
+  titleAccent(q('.benefits-section .section-title'), B.title, B.titleAccent);
+  txt('.benefits-section .section-desc', B.desc);
+  qa('.benefit-card').forEach(function(card,i){ var it=(B.items||[])[i]; if(!it) return; txt('h3',it.title,card); txt('p',it.desc,card); });
+
+  // Showcase head (was leaking sample text) + 4 tiles. Montages are ~4:3 (same as
+  // the tile box) so object-fit cover shows the WHOLE image identically — instead we
+  // zoom 200% into a different CORNER of the wrap background per tile, so each tile
+  // shows a genuinely different region. Two corners from montage A, two from B.
+  var SH=G.showcaseHead||{};
+  titleAccent(q('.showcase-section .section-title'), SH.title, SH.titleAccent);
+  txt('.showcase-section .section-desc', SH.desc);
+  var SC=G.showcase||[], img=G.images||{}, scImgs=img.showcase||[];
+  qa('.showcase-card').forEach(function(card,i){ var it=SC[i]||{}; txt('.showcase-caption-badge',it.caption,card); txt('.showcase-body h3',it.title,card); txt('.showcase-body p',it.desc,card);
+    var im=q('.showcase-img-wrap img',card); var u=scImgs[i]; if(im&&u){ im.src=u; im.style.display=''; im.style.objectPosition='center'; if(it.caption) im.alt=it.caption; }
+  });
+
+  // Lifestyle
+  var L=G.lifestyle||{};
+  var lc=q('.lifestyle-content'); if(lc){ titleAccent(q('.section-title',lc), L.title, L.titleAccent); txt('p',L.para,lc); qa('.lifestyle-list li',lc).forEach(function(li,i){ if(L.items&&L.items[i]) label(li,L.items[i]); }); }
+  txt('.lifestyle-img-overlay', L.overlay);
+  var lim=q('.lifestyle-img-wrap img'); if(lim){ if(img.lifestyle) lim.src=img.lifestyle; lim.style.objectPosition='center'; if(L.overlay) lim.alt=L.overlay; }
+
+  // Reviews (desc was leaking sample text)
+  txt('.proof-section .section-desc', G.reviewsDesc);
+  qa('.proof-card').forEach(function(card,i){ var r=(G.reviews||[])[i]; if(!r) return; txt('.proof-quote',r.quote,card); txt('.proof-author-name',r.name,card); txt('.proof-author-city',r.city,card); var av=q('.proof-avatar',card); if(av&&r.name) av.textContent=String(r.name).trim().charAt(0); });
+
+  // Gallery — fill all 4 tiles (real photos padded with the AI montages); hide any extra
+  qa('.thumb-item').forEach(function(t,i){ var u=(G.gallery||[])[i], im=q('img',t); if(u&&im){ im.src=u; im.alt=G.productName||''; t.style.display=''; } else { t.style.display='none'; } });
+
+  // Urgency
+  txt('.urgency-text', G.urgency);
+
+  // Price (heading was leaking sample text) + discount
+  var PR=G.price||{}, PH=G.priceHead||{};
+  titleAccent(q('.price-section .section-title'), PH.title, PH.titleAccent);
+  txt('.price-badge-top', PR.badge);
+  var pa=q('.price-amount'); if(pa&&PR.amount){ var cur=esc(PR.currency||G.currency||''); var oldp=G.compareAt?' <s style="font-size:.42em;opacity:.55;font-weight:600">'+esc(G.compareAt)+' '+cur+'</s>':''; pa.innerHTML='<sup>'+cur+'</sup>'+esc(PR.amount)+oldp; }
+  txt('.price-sub', PR.sub);
+  qa('.price-features li').forEach(function(li,i){ if(PR.features&&PR.features[i]) label(li,PR.features[i]); });
+  var pcta=q('.price-cta'); if(pcta&&PR.cta) pcta.textContent=PR.cta;
+
+  // Guarantee
+  var GU=G.guarantee||{}; txt('.guarantee-section h2', GU.title); txt('.guarantee-section p', GU.para);
+
+  // FAQ (desc was leaking sample text; question text sits before the arrow span)
+  txt('.faq-section .section-desc', G.faqDesc);
+  qa('.faq-item').forEach(function(item,i){ var f=(G.faq||[])[i]; if(!f) return; var btn=q('.faq-q',item); if(btn&&f.q){ var arrow=q('.faq-arrow',btn); for(var j=btn.childNodes.length-1;j>=0;j--){ if(btn.childNodes[j].nodeType===3) btn.removeChild(btn.childNodes[j]); } var tn=d.createTextNode(f.q+' '); if(arrow) btn.insertBefore(tn,arrow); else btn.appendChild(tn); } txt('.faq-a',f.a,item); });
+
+  // Sticky mobile CTA + footer copyright (both were leaking the sample price/brand)
+  var sc=q('.sticky-cta a'); if(sc&&H.ctaPrimary) sc.textContent=H.ctaPrimary;
+  var fc=q('.footer-copy'); if(fc&&G.brand) fc.textContent='© 2025 '+G.brand;
+})();
+</script>
+<!-- ══════════════ SCRIPTS ══════════════ -->
+<script>
+  // ── Scroll Reveal ──
+  (function() {
+    var elements = document.querySelectorAll('.reveal, .reveal-left');
+    if (!window.IntersectionObserver) {
+      elements.forEach(function(el) { el.classList.add('visible'); });
+      return;
+    }
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    elements.forEach(function(el) { observer.observe(el); });
+  })();
+
+  // ── FAQ Accordion ──
+  (function() {
+    var items = document.querySelectorAll('.faq-item');
+    items.forEach(function(item) {
+      var btn = item.querySelector('.faq-q');
+      btn.addEventListener('click', function() {
+        var isOpen = item.classList.contains('open');
+        items.forEach(function(i) {
+          i.classList.remove('open');
+          i.querySelector('.faq-q').setAttribute('aria-expanded', 'false');
+        });
+        if (!isOpen) {
+          item.classList.add('open');
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+    });
+  })();
+
+  // ── Countdown Timer ──
+  (function() {
+    var endTime = Date.now() + (8 * 3600 + 47 * 60 + 33) * 1000;
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+    function tick() {
+      var diff = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      var h = Math.floor(diff / 3600);
+      var m = Math.floor((diff % 3600) / 60);
+      var s = diff % 60;
+      var hEl = document.getElementById('cd-hours');
+      var mEl = document.getElementById('cd-mins');
+      var sEl = document.getElementById('cd-secs');
+      if (hEl) hEl.textContent = pad(h);
+      if (mEl) mEl.textContent = pad(m);
+      if (sEl) sEl.textContent = pad(s);
+      if (diff > 0) setTimeout(tick, 1000);
+    }
+    tick();
+  })();
+</script>
+
+<!-- ══════════ CHECKOUT DRAWER (opens from every CTA — never buried) ══════════ -->
+<style>
+  .order-overlay{position:fixed;inset:0;z-index:300;background:rgba(18,28,42,.55);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center;opacity:0;visibility:hidden;transition:opacity .25s}
+  .order-overlay.open{opacity:1;visibility:visible}
+  .order-sheet{position:relative;background:#fff;width:100%;max-width:470px;border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom));transform:translateY(40px);transition:transform .3s cubic-bezier(.22,1,.36,1);max-height:94vh;overflow:auto;box-shadow:0 -12px 44px rgba(0,0,0,.22)}
+  .order-overlay.open .order-sheet{transform:none}
+  @media(min-width:560px){.order-overlay{align-items:center}.order-sheet{border-radius:24px}}
+  .order-grip{width:44px;height:5px;border-radius:5px;background:#e2e6ec;margin:0 auto 14px}
+  .order-close{position:absolute;top:16px;inset-inline-start:18px;width:34px;height:34px;border:none;background:#f1f4f8;border-radius:50%;font-size:20px;color:#667;cursor:pointer;line-height:1}
+  .order-title{font-family:'Cairo',sans-serif;font-size:1.4rem;font-weight:900;color:var(--text);text-align:center}
+  .order-sub{font-size:.82rem;color:var(--muted);text-align:center;margin:4px 0 18px}
+  .order-summary{display:flex;align-items:center;gap:14px;background:var(--primary-light);border-radius:14px;padding:12px 14px;margin-bottom:16px}
+  .order-summary img{width:56px;height:56px;object-fit:contain;flex-shrink:0}
+  .os-name{font-weight:800;font-size:.92rem;color:var(--text);line-height:1.4}
+  .os-price{font-size:.85rem;color:var(--primary);font-weight:800;margin-top:2px}
+  .order-fields{display:flex;flex-direction:column;gap:10px}
+  .order-fields input{width:100%;padding:14px 15px;border:1.5px solid #dce2ea;border-radius:12px;font-family:inherit;font-size:1rem;background:#fbfcfe;outline:none;transition:border-color .2s}
+  .order-fields input:focus{border-color:var(--primary)}
+  .order-qty{display:flex;align-items:center;justify-content:space-between;background:#fbfcfe;border:1.5px solid #dce2ea;border-radius:12px;padding:9px 15px}
+  .order-qty>span{font-size:.95rem;color:#556}
+  .qty-ctrl{display:flex;align-items:center;gap:16px}
+  .qty-ctrl button{width:34px;height:34px;border-radius:9px;border:1.5px solid #dce2ea;background:#fff;font-size:20px;cursor:pointer;color:var(--primary);font-family:inherit}
+  .qty-ctrl b{min-width:20px;text-align:center;font-size:1.05rem}
+  .order-total-row{display:flex;justify-content:space-between;align-items:center;margin:16px 2px;font-size:1rem}
+  .order-total-row b{font-family:'Cairo',sans-serif;font-size:1.5rem;font-weight:900;color:var(--primary)}
+  .order-confirm{width:100%;padding:17px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;font-family:'Cairo',sans-serif;font-weight:800;font-size:1.08rem;cursor:pointer;box-shadow:0 8px 26px rgba(26,95,168,.35)}
+  .order-confirm:active{transform:scale(.99)}
+  .order-trust{text-align:center;font-size:.76rem;color:var(--muted);margin-top:12px;line-height:1.9}
+  .order-offers{margin-bottom:14px}
+  .offers-title{font-size:.85rem;font-weight:800;color:var(--text);margin-bottom:8px}
+  .offer-opt{display:flex;align-items:center;gap:10px;border:2px solid #e0e5ec;border-radius:12px;padding:11px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s,background .15s}
+  .offer-opt.sel{border-color:var(--primary);background:var(--primary-light)}
+  .offer-radio{width:18px;height:18px;border-radius:50%;border:2px solid #c3ccd6;flex-shrink:0;position:relative}
+  .offer-opt.sel .offer-radio{border-color:var(--primary)}
+  .offer-opt.sel .offer-radio::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--primary)}
+  .offer-label{flex:1;font-size:.92rem;font-weight:700}
+  .offer-save{font-size:.7rem;background:#e7f6ee;color:#22a05a;font-weight:800;border-radius:6px;padding:2px 7px}
+  .offer-price{font-size:.9rem;font-weight:800;color:var(--primary)}
+  #ordNote{width:100%;padding:14px 15px;border:1.5px solid #dce2ea;border-radius:12px;font-family:inherit;font-size:.95rem;background:#fbfcfe;outline:none;resize:none}
+  .order-bump{border:2px dashed #f0a500;border-radius:12px;overflow:hidden;cursor:pointer;margin-bottom:14px;display:none}
+  .order-bump.on{border-color:var(--primary)}
+  .bump-head{background:#f0a500;color:#fff;font-size:.76rem;font-weight:800;padding:7px 14px}
+  .order-bump.on .bump-head{background:var(--primary)}
+  .bump-body{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fff}
+  .bump-body img{width:52px;height:52px;object-fit:contain;border-radius:8px}
+  .bump-info{flex:1}.bump-name{font-size:.85rem;font-weight:700}.bump-info s{color:#aaa;font-size:.8rem;margin-inline-start:6px}
+  .bump-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--primary);flex-shrink:0;position:relative}
+  .order-bump.on .bump-check{background:var(--primary)}.order-bump.on .bump-check::after{content:'✓';color:#fff;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900}
+  .order-bill{background:#f6f8fb;border-radius:12px;padding:12px 14px;margin:14px 0}
+  .bill-row{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;color:#667}
+  .bill-total{font-size:1.05rem;color:var(--text);font-weight:800;margin-top:6px}
+  .bill-total b{font-family:'Cairo',sans-serif;font-size:1.4rem;color:var(--primary)}
+  .order-done{text-align:center;padding:16px 6px 8px}
+  .od-check{width:66px;height:66px;border-radius:50%;background:#e7f6ee;color:#22a05a;font-size:34px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+  .order-done h3{font-family:'Cairo',sans-serif;font-size:1.3rem;font-weight:900;margin-bottom:8px}
+  .order-done p{color:var(--muted);font-size:.95rem;line-height:1.7;margin-bottom:20px}
+</style>
+<div class="order-overlay" id="orderOverlay" onclick="if(event.target===this)closeOrder()">
+  <div class="order-sheet" role="dialog" aria-modal="true" aria-label="إتمام الطلب">
+    <div class="order-grip"></div>
+    <button class="order-close" onclick="closeOrder()" aria-label="إغلاق">&times;</button>
+    <div id="orderForm">
+      <h3 class="order-title">أكمل طلبك</h3>
+      <p class="order-sub">الدفع عند الاستلام • شحن آمن ومضمون</p>
+      <div class="order-summary">
+        <img src="hero-cutout.png" alt="" id="ordImg">
+        <div><div class="os-name" id="ordProdName">مكنسة كولن الكهربائية رطبة وجافة — 20 لتر</div><div class="os-price"><span id="ordUnit">229</span> <span class="cur">ريال</span> / القطعة</div></div>
+      </div>
+      <div id="ordOffers" class="order-offers"></div>
+      <div class="order-fields">
+        <input id="ordName" placeholder="الاسم الكامل" autocomplete="name">
+        <input id="ordPhone" type="tel" dir="ltr" style="text-align:right" placeholder="رقم الجوال" autocomplete="tel">
+        <input id="ordAddr" placeholder="العنوان تفصيلي (المدينة، الحي، الشارع)" autocomplete="street-address">
+        <div class="order-qty" id="ordQtyWrap"><span>الكمية</span><div class="qty-ctrl"><button type="button" onclick="ordQty(-1)">−</button><b id="ordQ">1</b><button type="button" onclick="ordQty(1)">+</button></div></div>
+        <textarea id="ordNote" rows="2" placeholder="ملاحظات إضافية (اختياري)" style="display:none"></textarea>
+      </div>
+      <div id="ordBump" class="order-bump"></div>
+      <div class="order-bill">
+        <div class="bill-row" id="ordShipRow"><span>الشحن</span><b id="ordShip">مجاني ✓</b></div>
+        <div class="bill-row bill-total"><span>الإجمالي</span><b><span id="ordTotal">229</span> <span class="cur">ريال</span></b></div>
+      </div>
+      <button class="order-confirm" onclick="submitOrder()">تأكيد الطلب — الدفع عند الاستلام</button>
+      <div class="order-trust">🔒 معلوماتك آمنة ولن تُشارك&nbsp;&nbsp;•&nbsp;&nbsp;🚚 توصيل سريع لكل مناطق المملكة&nbsp;&nbsp;•&nbsp;&nbsp;↩︎ إرجاع خلال ٧ أيام</div>
+    </div>
+    <div id="orderDone" class="order-done" style="display:none">
+      <div class="od-check">✓</div>
+      <h3>تم استلام طلبك بنجاح!</h3>
+      <p>بنتواصل معك على جوالك خلال دقائق لتأكيد الطلب وموعد التوصيل. شكراً لثقتك 🌿</p>
+      <button class="order-confirm" onclick="closeOrder()">تمام</button>
+    </div>
+  </div>
+</div>
+<script>
+  // ── DATA CONTRACT — Mantoog injects this per-request (offers/options/price).
+  //    The standalone demo fills sample values so the flow is visible.
+  window.LANDING_CONFIG = window.LANDING_CONFIG || {
+    productName: "مكنسة كولن الكهربائية رطبة وجافة — 20 لتر",
+    price: 229, currency: "ريال", cutout: "hero-cutout.png",
+    showQuantity: true, showNote: true, shipping: 0,
+    offers: [ { id:"o2", quantity:2, price:399 }, { id:"o3", quantity:3, price:549 } ],
+    bump: null   // e.g. { title, image, salePrice, oldPrice }
+  };
+  (function(){
+    var C=window.LANDING_CONFIG, qty=1, offer=null, bumpOn=false, $=function(id){return document.getElementById(id);};
+    function money(v){return v+' '+C.currency;}
+    if($('ordProdName'))$('ordProdName').textContent=C.productName;
+    if($('ordUnit'))$('ordUnit').textContent=C.price;
+    if(C.cutout&&$('ordImg'))$('ordImg').src=C.cutout;
+    document.querySelectorAll('.cur').forEach(function(e){e.textContent=C.currency;});
+    if(!C.showQuantity&&$('ordQtyWrap'))$('ordQtyWrap').style.display='none';
+    if(C.showNote&&$('ordNote'))$('ordNote').style.display='';
+    if(C.offers&&C.offers.length){
+      var box=$('ordOffers'); box.innerHTML='<div class="offers-title">🎁 اختر العرض الأنسب لك</div>';
+      var opts=[{single:true,label:'قطعة واحدة',price:C.price,quantity:1}].concat(C.offers.map(function(o){return{id:o.id,quantity:o.quantity,price:o.price,label:o.quantity+' قطع'};}));
+      opts.forEach(function(o,i){
+        var save=o.single?0:Math.round(C.price*o.quantity-o.price);
+        var el=document.createElement('div'); el.className='offer-opt'+(i===0?' sel':'');
+        el.innerHTML='<span class="offer-radio"></span><span class="offer-label">'+o.label+'</span>'+(save>0?'<span class="offer-save">وفّر '+save+'</span>':'')+'<span class="offer-price">'+money(o.price)+'</span>';
+        el.onclick=function(){offer=o.single?null:o;box.querySelectorAll('.offer-opt').forEach(function(x){x.classList.remove('sel');});el.classList.add('sel');if($('ordQtyWrap'))$('ordQtyWrap').style.display=(o.single&&C.showQuantity)?'':'none';if(o.single)qty=1;upd();};
+        box.appendChild(el);
+      });
+    }
+    if(C.bump){var b=C.bump,bx=$('ordBump');bx.style.display='';bx.innerHTML='<div class="bump-head">🔥 عرض حصري — أضِفه بسعر خاص</div><div class="bump-body">'+(b.image?'<img src="'+b.image+'">':'')+'<div class="bump-info"><div class="bump-name">'+b.title+'</div><div><b>'+money(b.salePrice)+'</b> <s>'+money(b.oldPrice)+'</s></div></div><span class="bump-check"></span></div>';bx.onclick=function(){bumpOn=!bumpOn;bx.classList.toggle('on',bumpOn);upd();};}
+    function total(){var t=offer?offer.price:C.price*qty;if(bumpOn&&C.bump)t+=C.bump.salePrice;return t+(C.shipping||0);}
+    function upd(){if($('ordQ'))$('ordQ').textContent=qty;if($('ordShip'))$('ordShip').textContent=(C.shipping>0)?money(C.shipping):'مجاني ✓';if($('ordTotal'))$('ordTotal').textContent=total();}
+    window.ordQty=function(d){if(offer)return;qty=Math.max(1,qty+d);upd();};
+    window.openOrder=function(){$('orderForm').style.display='';$('orderDone').style.display='none';$('orderOverlay').classList.add('open');document.body.style.overflow='hidden';};
+    window.closeOrder=function(){$('orderOverlay').classList.remove('open');document.body.style.overflow='';};
+    window.submitOrder=function(){
+      var n=$('ordName').value.trim(),p=$('ordPhone').value.replace(/\D/g,'');
+      if(!n){alert('رجاءً أدخل اسمك');return;} if(p.length<9){alert('رجاءً أدخل رقم جوال صحيح');return;}
+      var order={name:n,phone:$('ordPhone').value.trim(),address:$('ordAddr').value.trim(),note:($('ordNote')||{}).value||'',qty:offer?offer.quantity:qty,offerId:offer?offer.id:null,bump:bumpOn,total:total()};
+      if(typeof window.onLandingOrder==='function'){window.onLandingOrder(order);} else {console.log('ORDER',order);}  // Mantoog hooks its order API here
+      $('orderForm').style.display='none';$('orderDone').style.display='';
+    };
+    document.querySelectorAll('.btn-primary, .price-cta, .sticky-cta a, a[href="#price"], a[href="#order"]').forEach(function(el){el.addEventListener('click',function(e){e.preventDefault();window.openOrder();});});
+    upd();
+  })();
+</script>
+</body>
+</html>

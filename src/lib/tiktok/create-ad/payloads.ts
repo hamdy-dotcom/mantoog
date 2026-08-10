@@ -73,6 +73,77 @@ export function buildCampaignPayload(payload: CreateAdWizardPayload) {
   return body
 }
 
+// ── Smart+ (Upgraded Smart Performance Campaign) — dedicated /smart_plus/* endpoints.
+// TikTok auto-manages targeting, bidding, placement and creative optimization. Fields
+// reverse-engineered live against the TikTok API (web-conversion / orders goal).
+// Campaign is created PAUSED so the admin reviews and enables it in TikTok Ads Manager.
+// Smart+ create endpoints require a numeric request_id (idempotency key). It MUST be
+// an integer string — TikTok rejects a missing/non-numeric value with code 40002.
+export const numericRequestId = () => `${Date.now()}${Math.floor(Math.random() * 100000)}`
+
+export function buildSmartPlusCampaignPayload(payload: CreateAdWizardPayload) {
+  const objective = goalObjective(payload.targeting.goal) // orders → WEB_CONVERSIONS
+  const body: Record<string, unknown> = {
+    request_id: numericRequestId(),
+    campaign_name: buildCampaignName(payload.product.title, payload.targeting.goal),
+    objective_type: objective,
+    budget_mode: 'BUDGET_MODE_DYNAMIC_DAILY_BUDGET', // daily budget (NOT BUDGET_MODE_DAY, which Smart+ rejects)
+    budget: payload.targeting.daily_budget,
+    operation_status: 'ENABLE', // launches live — delivery starts once TikTok's ad review passes
+  }
+  if (objective === 'WEB_CONVERSIONS') body.sales_destination = 'WEBSITE'
+  return body
+}
+
+export function buildSmartPlusAdgroupPayload(
+  campaignId: string,
+  payload: CreateAdWizardPayload,
+  opts?: { numericPixelId?: string; optimizationEvent?: string }
+) {
+  const hasEnd = !!payload.targeting.schedule_end?.trim()
+  const adv = resolvedAdvanced(payload.targeting.advanced)
+  const productShort = payload.product.title.length > 36
+    ? `${payload.product.title.slice(0, 35)}…`
+    : payload.product.title
+
+  // Manual placements honored when provided; Smart+ supports TikTok + Pangle (verified live).
+  const placements = adv.placement === 'manual' && adv.placements.length
+    ? adv.placements
+    : ['PLACEMENT_TIKTOK']
+  const useCostCap = adv.bidStrategy === 'cost_cap' && adv.bidCap != null && adv.bidCap > 0
+
+  const body: Record<string, unknown> = {
+    request_id: numericRequestId(),
+    campaign_id: campaignId,
+    adgroup_name: `${productShort} - Ad group - ${uniqueNameSuffix().slice(-8)}`,
+    promotion_type: 'WEBSITE',
+    // Smart+ auto-manages age/gender/interests; only location is supplied.
+    targeting_spec: { location_ids: [payload.targeting.location_id] },
+    schedule_type: hasEnd ? 'SCHEDULE_START_END' : 'SCHEDULE_FROM_NOW',
+    schedule_start_time: localDatetimeToTikTok(payload.targeting.schedule_start),
+    optimization_goal: 'CONVERT',
+    billing_event: 'OCPM',
+    // Auto (lowest-cost) bidding by default — without bid_type TikTok demands a manual
+    // cost per conversion. Cost cap maps to BID_TYPE_CUSTOM + conversion_bid_price.
+    ...(useCostCap
+      ? { bid_type: 'BID_TYPE_CUSTOM', conversion_bid_price: adv.bidCap }
+      : { bid_type: 'BID_TYPE_NO_BID' }),
+    placement_type: 'PLACEMENT_TYPE_NORMAL',
+    placements,
+    operation_status: 'ENABLE',
+  }
+  // Ad controls live on the Smart+ ADGROUP (verified live; on standard they're creative-level).
+  if (adv.comment_disabled) body.comment_disabled = true
+  if (adv.video_download_disabled) body.video_download_disabled = true
+  if (adv.share_disabled) body.share_disabled = true
+  if (hasEnd && payload.targeting.schedule_end) {
+    body.schedule_end_time = localDatetimeToTikTok(payload.targeting.schedule_end)
+  }
+  if (opts?.numericPixelId) body.pixel_id = opts.numericPixelId
+  if (opts?.optimizationEvent) body.optimization_event = opts.optimizationEvent
+  return body
+}
+
 export function buildAdgroupPayload(
   campaignId: string,
   payload: CreateAdWizardPayload,

@@ -12,9 +12,13 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   const { id } = await ctx.params
   try {
     const body = await req.json()
-    const upsell_item = typeof body.upsell_item === 'string' && body.upsell_item.trim()
-      ? body.upsell_item.trim().slice(0, 500)
-      : null
+    // Storefront sends upsell_item as an object (same shape order-create stores); also tolerate a string.
+    let upsell_item: unknown = null
+    if (body.upsell_item && typeof body.upsell_item === 'object') {
+      upsell_item = body.upsell_item
+    } else if (typeof body.upsell_item === 'string' && body.upsell_item.trim()) {
+      upsell_item = body.upsell_item.trim().slice(0, 500)
+    }
     const additional_price = Number(body.additional_price)
     if (!upsell_item || !Number.isFinite(additional_price) || additional_price <= 0) {
       return NextResponse.json({ success: false, error: 'Invalid upsell data' }, { status: 400 })

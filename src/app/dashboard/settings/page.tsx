@@ -108,6 +108,7 @@ export default function SettingsPage() {
   const [googleAdsConversionId, setGoogleAdsConversionId] = useState('')
   const [googleAdsConversionLabel, setGoogleAdsConversionLabel] = useState('')
   const [googleAnalyticsMeasurementId, setGoogleAnalyticsMeasurementId] = useState('')
+  const [googleSiteVerification, setGoogleSiteVerification] = useState('')
   // Snapchat Conversion API (server-side) — token handled via a dedicated server
   // route, never through the client save path. We track status, not the token.
   const [snapCapiEnabled, setSnapCapiEnabled] = useState(false)
@@ -190,6 +191,7 @@ export default function SettingsPage() {
       setGoogleAdsConversionId(store.google_ads_conversion_id || '')
       setGoogleAdsConversionLabel(store.google_ads_conversion_label || '')
       setGoogleAnalyticsMeasurementId(store.google_analytics_measurement_id || '')
+      setGoogleSiteVerification(store.google_site_verification || '')
 
       // Snapchat CAPI status comes from a server route (token stays server-side).
       fetch('/api/dashboard/snap-capi')
@@ -326,6 +328,7 @@ export default function SettingsPage() {
       google_ads_conversion_id: googleAdsConversionId.trim() || null,
       google_ads_conversion_label: googleAdsConversionLabel.trim() || null,
       google_analytics_measurement_id: googleAnalyticsMeasurementId.trim() || null,
+      google_site_verification: googleSiteVerification.trim() || null,
       customizations: {
         ...(newHeaderImageUrl && { headerImageUrl: newHeaderImageUrl }),
         ...(custWhatsappEnabled && custWhatsapp.trim() && { whatsapp: custWhatsapp.trim() }),
@@ -391,6 +394,7 @@ export default function SettingsPage() {
       google_ads_conversion_id: googleAdsConversionId.trim() || null,
       google_ads_conversion_label: googleAdsConversionLabel.trim() || null,
       google_analytics_measurement_id: googleAnalyticsMeasurementId.trim() || null,
+      google_site_verification: googleSiteVerification.trim() || null,
     }))
     setLogoUrl(newLogoUrl)
     setLogoFile(null)
@@ -1330,6 +1334,42 @@ export default function SettingsPage() {
                     {lang === 'ar'
                       ? 'احصل عليها من: Google Analytics → Admin → Property → Data Streams → Web'
                       : 'Get from: Google Analytics → Admin → Property → Data Streams → Web'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Google Site Verification */}
+              <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-[#34a853]/20 border border-[#34a853]/30 rounded-xl flex items-center justify-center text-lg">✅</div>
+                  <div>
+                    <div className="text-white font-medium">Google Search Console</div>
+                    <div className="text-xs text-[#8b8fa8]">Site verification</div>
+                  </div>
+                  {googleSiteVerification && (
+                    <span className="mr-auto text-xs bg-[#14321f] text-[#4ade80] border border-[#4ade80]/20 px-2.5 py-1 rounded-full">
+                      ✓ {lang === 'ar' ? 'مرتبط' : 'Connected'}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[#8b8fa8] uppercase tracking-wider">
+                    {lang === 'ar' ? 'كود التحقق' : 'Verification Code'}
+                  </label>
+                  <div className="mt-1.5 flex items-center gap-2 bg-[#0f1117] border border-[#2a2d35] rounded-lg px-3 py-2.5 focus-within:border-[#3b82f6] transition-colors">
+                    <span className="text-lg flex-shrink-0">🔍</span>
+                    <input
+                      type="text"
+                      value={googleSiteVerification}
+                      onChange={e => setGoogleSiteVerification(e.target.value)}
+                      placeholder="e.g. l_oV1cXiyhCH6IBHYqi8t3Bpk_Vucs-y93ZUtt8"
+                      className="flex-1 bg-transparent text-sm text-white placeholder-[#4a4e60] focus:outline-none"
+                    />
+                  </div>
+                  <p className="text-xs text-[#4a4e60] mt-1.5">
+                    {lang === 'ar'
+                      ? 'احصل عليه من: Google Search Console أو Merchant Center → Verify → HTML tag → content="..."'
+                      : 'Get from: Google Search Console or Merchant Center → Verify → HTML tag → copy only the content="..." value'}
                   </p>
                 </div>
               </div>

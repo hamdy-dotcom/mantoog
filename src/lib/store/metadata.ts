@@ -12,6 +12,7 @@ export type PublicStore = {
   currency: string | null
   language: string | null
   has_paid: boolean
+  google_site_verification: string | null
 }
 
 export type PublicProduct = {
@@ -53,7 +54,7 @@ function productImages(product: PublicProduct): string[] {
 export async function fetchStoreBySlug(slug: string): Promise<PublicStore | null> {
   const { data } = await supabaseAdmin
     .from('stores')
-    .select('id, merchant_id, name, slug, logo_url, currency, language, has_paid')
+    .select('id, merchant_id, name, slug, logo_url, currency, language, has_paid, google_site_verification')
     .eq('slug', slug)
     .single()
   if (!data) return null
@@ -87,6 +88,7 @@ export function buildStoreMetadata(store: PublicStore): Metadata {
     title: name,
     description,
     icons: storeIcons(store.logo_url),
+    ...(store.google_site_verification ? { verification: { google: store.google_site_verification } } : {}),
     openGraph: {
       title: name,
       description,

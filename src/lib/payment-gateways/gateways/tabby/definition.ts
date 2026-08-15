@@ -2,13 +2,11 @@ import type { GatewayDefinition } from '../../types'
 
 /** Tabby — BNPL (pay in 4).
  *
- *  `merchant_code` is required, not optional: it is sent as the X-Merchant-Code
- *  header and webhooks are registered per merchant_code + secret key pair.
+ *  `merchant_code` is required: it is sent as the X-Merchant-Code header, and
+ *  webhooks are registered per merchant_code + secret key pair.
  *
- *  There is no webhook field here on purpose. Tabby does not issue a webhook
- *  secret — it is an auth header value the merchant chooses when registering
- *  the webhook through Tabby's API, so Phase 2 generates one and writes it into
- *  `credentials` itself.
+ *  No webhook field on purpose — Tabby issues no webhook secret. It is an auth
+ *  header value we choose when registering the webhook through their API.
  */
 export const definition: GatewayDefinition = {
   id: 'tabby',
@@ -16,8 +14,7 @@ export const definition: GatewayDefinition = {
   emoji: '🐱',
   docsUrl: 'https://docs.tabby.ai',
   supportedCurrencies: ['SAR', 'AED', 'KWD', 'BHD', 'QAR'],
-  // We register the endpoint through Tabby's API in Phase 2, so there is no
-  // URL for the merchant to copy anywhere.
+  // We register the endpoint through Tabby's API — no URL to copy.
   webhookSetup: 'api',
 
   fields: [
@@ -46,8 +43,7 @@ export const definition: GatewayDefinition = {
       helpAr: 'يحدد عنوان الـ API: api.tabby.sa للسعودية، و api.tabby.ai لغيرها.',
     },
     {
-      // Publishable by design — it renders the Tabby promo snippet in the
-      // customer's browser, so it stays in public_config rather than encrypted.
+      // Publishable: it renders the Tabby promo snippet in the browser.
       key: 'public_key',
       labelEn: 'Merchant Public Key',
       labelAr: 'المفتاح العام للتاجر',

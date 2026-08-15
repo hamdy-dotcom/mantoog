@@ -14,8 +14,8 @@ type Props = {
   submitting: boolean
   formError: string
   onBack: () => void
-  /** COD plus any enabled gateway. Selection state lives in the product page so
-   *  every theme shares one choice; these layouts only render the picker. */
+  /** COD plus any enabled gateway. Selection state lives in the product page,
+   *  so these layouts only render the picker. */
   paymentOptions?: PaymentOption[]
   paymentMethod?: string | null
   setPaymentMethod?: (id: string) => void

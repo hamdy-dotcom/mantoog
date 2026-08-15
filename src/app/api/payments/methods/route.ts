@@ -5,10 +5,7 @@ import { getEnabledGateways } from '@/lib/payment-gateways/store'
 export const runtime = 'nodejs'
 
 // Public: called by the storefront checkout form to render the payment picker.
-//
-// Everything it returns is safe for a browser. Credentials never come near it —
-// `getEnabledGateways` whitelists non-secret fields by definition rather than
-// spreading the stored config.
+// Safe for a browser — `getEnabledGateways` whitelists non-secret fields.
 
 export async function GET(req: NextRequest) {
   const storeId = req.nextUrl.searchParams.get('storeId')
@@ -22,8 +19,8 @@ export async function GET(req: NextRequest) {
 
   if (!store) return NextResponse.json({ error: 'Unknown store' }, { status: 404 })
 
-  // COD is offered on every store, always — a storefront must never end up with
-  // no way to check out because a gateway was misconfigured.
+  // COD is always offered, so a misconfigured gateway can never leave a
+  // storefront with no way to check out.
   const gateways = await getEnabledGateways(store.id, store.currency ?? '')
 
   return NextResponse.json({ cod: true, gateways })

@@ -9,13 +9,11 @@ export const runtime = 'nodejs'
 
 // Where the customer's browser lands when the provider is done with them.
 //
-// PRESENTATIONAL ONLY — this route never writes payment state. The webhook owns
-// that. A customer can type this URL by hand with any query string they like,
-// so believing it would be a fraud path. What it does instead is ask the
-// provider directly (read-only) what really happened, purely to decide which
-// message to show.
+// PRESENTATIONAL ONLY — the webhook owns payment state. A customer can type
+// this URL by hand with any query string they like, so it asks the provider
+// directly (read-only) which message to show.
 //
-// POST is required as well as GET: PayTabs returns by submitting a form.
+// POST as well as GET: PayTabs returns by submitting a form.
 
 type RouteCtx = { params: Promise<{ gateway: string; orderId: string }> }
 
@@ -25,9 +23,8 @@ type OrderRow = {
   product_id: string
   payment_status: string | null
   payment_checkout_id: string | null
-  /** PostgREST returns an embedded relation as an object when it can infer a
-   *  to-one cardinality from the FK, and an array when it cannot. Accept both
-   *  rather than depending on which. */
+  /** PostgREST embeds a relation as an object or an array depending on whether
+   *  it can infer to-one cardinality from the FK. Accept both. */
   stores: { slug: string | null } | { slug: string | null }[] | null
 }
 
@@ -58,8 +55,7 @@ async function handle(req: NextRequest, ctx: RouteCtx) {
 
   const landing = getProductLandingUrl(slug, order.product_id)
 
-  // If the webhook already landed, that answer is authoritative and there is no
-  // reason to ask the provider again.
+  // If the webhook already landed, that answer is authoritative.
   let outcome: PaymentOutcome =
     order.payment_status === 'paid' ||
     order.payment_status === 'failed' ||
@@ -75,8 +71,8 @@ async function handle(req: NextRequest, ctx: RouteCtx) {
       try {
         outcome = await mod.adapter.verifyStatus(cfg, order.payment_checkout_id)
       } catch (err) {
-        // A lookup failure is not a payment failure. Stay on 'pending' and let
-        // the page say "confirming" — the webhook is still the deciding vote.
+        // A lookup failure is not a payment failure — stay on 'pending' and let
+        // the webhook decide.
         console.error('[payments/return] status lookup failed', {
           gateway,
           orderId,
@@ -86,8 +82,7 @@ async function handle(req: NextRequest, ctx: RouteCtx) {
     }
   }
 
-  // `?o=` from the provider is only ever a hint and is deliberately ignored —
-  // it rides on a URL the customer can edit.
+  // `?o=` from the provider is ignored — it rides on a URL the customer edits.
   const param = outcome === 'paid' ? 'success' : outcome === 'pending' ? 'pending' : 'failed'
 
   const target = new URL(landing)

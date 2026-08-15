@@ -13,9 +13,8 @@ import type {
  *  Signature spec: PayTabs support article 60000718961.
  */
 
-/** Region → API host. A wrong region surfaces as an AUTHENTICATION failure
- *  rather than a routing one, which is why the settings field warns about it.
- *  Keys match the `region` options in ./definition.ts. */
+/** Region → API host, keyed to the `region` options in ./definition.ts. A wrong
+ *  region surfaces as an authentication failure, not a routing one. */
 const HOSTS: Record<string, string> = {
   ARE: 'https://secure.paytabs.com',
   SAU: 'https://secure.paytabs.sa',
@@ -27,11 +26,8 @@ const HOSTS: Record<string, string> = {
   GLOBAL: 'https://secure-global.paytabs.com',
 }
 
-/** PayTabs `payment_result.response_status` → our vocabulary.
- *
- *  H (hold) and P (pending) are genuinely undecided — an authorised-but-not-
- *  captured card or an async method still in flight. Mapping either to `paid`
- *  would mark orders as settled that no money has actually moved for. */
+/** PayTabs `payment_result.response_status` → our vocabulary. H and P are
+ *  genuinely undecided, so neither may map to `paid` — no money has moved. */
 const STATUS: Record<string, PaymentOutcome> = {
   A: 'paid',        // Authorised
   H: 'pending',     // Hold — authorised, not captured
@@ -45,9 +41,8 @@ const STATUS: Record<string, PaymentOutcome> = {
 
 function toOutcome(responseStatus: unknown): PaymentOutcome {
   const key = String(responseStatus ?? '').toUpperCase()
-  // Unknown codes are pending, never paid — an unrecognised status must not be
-  // able to release goods. The webhook will arrive again, or the reconciliation
-  // sweep will pick it up.
+  // Unknown codes are pending, never paid: an unrecognised status must not be
+  // able to release goods.
   return STATUS[key] ?? 'pending'
 }
 
@@ -81,8 +76,7 @@ async function callApi(
   }
 
   if (!res.ok) {
-    // `result` / `message` carry the human-readable reason; never echo the body,
-    // which repeats the customer details we just sent.
+    // Never echo the body — it repeats the customer details we just sent.
     const reason = json.message ?? json.result ?? res.status
     throw new Error(`PayTabs ${path} failed: ${String(reason)}`)
   }
@@ -116,8 +110,6 @@ export const adapter: GatewayAdapter = {
       },
 
       return: input.returnUrl,
-      // Registered by the merchant in their PayTabs dashboard, but sending it
-      // per-transaction means a merchant who skipped that step still settles.
       callback: input.callbackUrl,
 
       // We already collect the address in our own checkout form.
@@ -156,8 +148,7 @@ export const adapter: GatewayAdapter = {
     const a = Buffer.from(expected, 'utf8')
     const b = Buffer.from(received.trim().toLowerCase(), 'utf8')
 
-    // timingSafeEqual throws on length mismatch, which is itself a leak-free
-    // signal that the signature is wrong.
+    // timingSafeEqual throws on a length mismatch.
     return a.length === b.length && timingSafeEqual(a, b)
   },
 

@@ -1,14 +1,9 @@
 -- Per-store payment gateway credentials (PayTabs / Tabby / Tamara).
 --
--- Gateway API keys are SECRETS. The storefront product page does
--- `stores.select('*')` client-side, so they must NOT live on `stores` (they
--- would ship to every visitor's browser) — same reasoning as `snapchat_capi`.
--- This table has RLS enabled and NO policies, so only the service-role client
--- (which bypasses RLS) can read or write it.
---
--- On top of that, every secret VALUE is encrypted at rest by the app
--- (AES-256-GCM, `v1:<iv>:<tag>:<ciphertext>`) using PAYMENTS_ENC_KEY, so a DB
--- dump or a leaked service-role key alone does not expose usable credentials.
+-- Not on `stores`: the storefront does `stores.select('*')` client-side, which
+-- would ship these keys to every visitor — same reasoning as `snapchat_capi`.
+-- Secret values are additionally encrypted at rest by the app (see
+-- src/lib/payment-gateways/crypto.ts).
 
 CREATE TABLE IF NOT EXISTS store_payment_gateways (
   store_id      uuid        NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
@@ -16,9 +11,8 @@ CREATE TABLE IF NOT EXISTS store_payment_gateways (
   merchant_id   uuid        NOT NULL,
   enabled       boolean     NOT NULL DEFAULT false,
 
-  -- public_config holds non-secret settings (profile id, merchant code, region,
-  -- widget public keys) in plaintext — it is returned to the browser as-is.
-  -- credentials holds secrets, each VALUE independently encrypted.
+  -- Plaintext, returned to the browser as-is; `credentials` holds the
+  -- encrypted secrets.
   public_config jsonb       NOT NULL DEFAULT '{}'::jsonb,
   credentials   jsonb       NOT NULL DEFAULT '{}'::jsonb,
 
@@ -38,7 +32,6 @@ CREATE INDEX IF NOT EXISTS idx_store_payment_gateways_merchant_id
 CREATE INDEX IF NOT EXISTS idx_store_payment_gateways_enabled
   ON store_payment_gateways(store_id) WHERE enabled;
 
-ALTER TABLE store_payment_gateways ENABLE ROW LEVEL SECURITY;
 -- Intentionally no policies: only the service-role key may touch this table.
--- Merchants reach it exclusively through /api/dashboard/payment-gateways,
--- which never returns a secret value (only `set` + last-4 `tail`).
+-- Merchants reach it through /api/dashboard/payment-gateways.
+ALTER TABLE store_payment_gateways ENABLE ROW LEVEL SECURITY;

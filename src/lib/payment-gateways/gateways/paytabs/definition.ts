@@ -1,10 +1,8 @@
 import type { GatewayDefinition } from '../../types'
 
-/** PayTabs — hosted payment page / PT2 server-to-server APIs.
- *
- *  Profile ID + Server Key is everything a web integration needs; PayTabs'
- *  Client Key is documented as mobile-SDK-only, so it is deliberately omitted.
- */
+/** PayTabs — hosted payment page / PT2 server-to-server APIs. Profile ID +
+ *  Server Key is all a web integration needs; the Client Key is omitted because
+ *  PayTabs documents it as mobile-SDK-only. */
 export const definition: GatewayDefinition = {
   id: 'paytabs',
   label: 'PayTabs',
@@ -32,7 +30,7 @@ export const definition: GatewayDefinition = {
       secret: false,
       required: true,
       type: 'select',
-      // Values map to regional base URLs inside adapter.ts (Phase 2).
+      // Values map to regional base URLs inside adapter.ts.
       options: [
         { value: 'ARE', label: 'United Arab Emirates' },
         { value: 'SAU', label: 'Saudi Arabia' },

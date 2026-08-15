@@ -1,18 +1,11 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
-/** Envelope encryption for gateway secrets.
+/** Envelope encryption for gateway secrets: `v1:<iv>:<authTag>:<ciphertext>`,
+ *  each part base64, AES-256-GCM. The `v1` prefix is the key version, so
+ *  PAYMENTS_ENC_KEY can be rotated later.
  *
- *  Format: `v1:<iv>:<authTag>:<ciphertext>`, each part base64.
- *  - AES-256-GCM is authenticated, so a tampered ciphertext throws instead of
- *    decrypting to garbage.
- *  - Each value carries its own IV, so secrets are encrypted independently:
- *    replacing one never touches the others.
- *  - The `v1` prefix is the key version — required to rotate PAYMENTS_ENC_KEY
- *    later without guessing which rows are on which key.
- *
- *  This protects DB dumps, backups and dashboard/support access. It does NOT
- *  protect against an attacker who already has the server env (they hold both
- *  the encryption key and the service-role key).
+ *  This protects DB dumps, backups and support access — not an attacker who
+ *  already has the server env.
  */
 
 const VERSION = 'v1'
@@ -78,8 +71,8 @@ export function isEncrypted(value: unknown): value is string {
 }
 
 /** Last 4 chars of a stored secret, for the masked "✓ ••••1234" display.
- *  Returns null if the value can't be decrypted (e.g. key rotated) so the UI
- *  degrades to "saved" instead of blowing up the whole settings page. */
+ *  Null when it can't be decrypted (e.g. key rotated), so the settings page
+ *  degrades instead of failing. */
 export function tailOf(envelope: unknown): string | null {
   if (!isEncrypted(envelope)) return null
   try {

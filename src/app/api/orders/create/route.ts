@@ -132,10 +132,9 @@ export async function POST(request: NextRequest) {
 
     const computedTotal = basePrice + bumpAmt + shipping
 
-    // Payment method — the client's choice is a request, not an instruction.
-    // It is re-checked against what this store actually offers, so a crafted
-    // POST cannot select a gateway that is disabled, wrong-currency, or has no
-    // adapter behind it.
+    // The client's choice is a request, not an instruction: it is re-checked
+    // against what this store offers, so a crafted POST cannot select a gateway
+    // that is disabled, wrong-currency, or has no adapter behind it.
     const requestedMethod =
       typeof orderFields.payment_method === 'string'
         ? orderFields.payment_method.trim().toLowerCase()
@@ -195,15 +194,13 @@ export async function POST(request: NextRequest) {
       ip_country: getIpCountry(request),
     }
 
-    // A customer whose card was declined and who fixes it is still ONE order.
-    // Reusing the row keeps the dashboard free of a dead entry per attempt.
+    // A customer whose card was declined and who fixes it is still ONE order,
+    // so the row is reused rather than leaving a dead entry per attempt.
     //
     // `retry_order_id` comes from the browser, so the guards below decide which
-    // rows it may touch. It must be an unsettled ONLINE attempt for this store,
-    // placed from the same phone number. Without the last two clauses, any id
-    // from this store would do — including a stranger's cash order, since
-    // `payment_status` defaults to 'pending' on rows that predate payments —
-    // and one customer could overwrite another's order with their own details.
+    // rows it may touch: an unsettled online attempt for this store, from the
+    // same phone. Drop the last two clauses and a stranger's cash order becomes
+    // a valid target, since legacy rows also read `payment_status = 'pending'`.
     const retryId =
       gateway && typeof orderFields.retry_order_id === 'string'
         ? orderFields.retry_order_id
@@ -234,8 +231,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
 
       orderData = retry.data as { id: string } | null
-      // No row matched (already settled, different store, or a corrected phone
-      // number) — fall through to a fresh insert rather than failing the
+      // No row matched — fall through to a fresh insert rather than failing the
       // customer's checkout.
     }
 
@@ -252,9 +248,8 @@ export async function POST(request: NextRequest) {
     const orderId = orderData?.id ? String(orderData.id) : null
 
     // ── Online payment ─────────────────────────────────────────────────────
-    // The order exists but nothing is confirmed yet, so none of the conversion
-    // side effects below run: they belong to the paid moment, which arrives on
-    // the webhook. We hand the browser a redirect and stop here.
+    // Nothing is confirmed yet, so the conversion side effects below are skipped
+    // — they belong to the paid moment, which arrives on the webhook.
     if (gateway && orderId) {
       const mod = getGateway(gateway)
       const cfg = await resolveConfig(orderFields.store_id, gateway)

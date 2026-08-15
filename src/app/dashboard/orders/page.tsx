@@ -126,15 +126,12 @@ export default function OrdersPage() {
   // Unique traffic sources present in this merchant's orders
   const uniqueSources = Array.from(new Set(orders.map(o => o.traffic_source || 'direct')))
 
-  // Orders mid-payment are not orders yet — the customer was redirected to a
-  // gateway and may never come back. Showing them would inflate every count on
-  // this page and put unpaid rows in the merchant's fulfilment queue. They are
-  // still in `orders` (the webhook needs a row to settle), just not shown.
+  // Orders mid-payment are not orders yet: the customer may never come back, so
+  // showing them would inflate every count and clog the fulfilment queue. The
+  // rows stay in `orders` — the webhook needs one to settle.
   //
-  // `payment_method` is what decides this, NOT `payment_status` alone: the
-  // column predates online payments and defaults to 'pending' at the database
-  // level, so every historical COD order carries that value. Keying off the
-  // status by itself would hide the merchant's entire order history.
+  // `payment_method` decides this, NOT `payment_status` alone, which reads
+  // 'pending' on every legacy COD row from the column's database default.
   const visibleOrders = orders.filter(
     o => o.payment_method === 'cod' || o.payment_status !== 'pending',
   )

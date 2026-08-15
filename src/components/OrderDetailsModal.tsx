@@ -31,11 +31,8 @@ const LABELS: Record<string, { en: string; ar: string }> = {
   exported_at: { en: 'Exported', ar: 'تم التصدير' },
 }
 
-// Keys we never show (internal / redundant).
-// `payment_raw` is the provider's verbatim payload — kept for disputes, but it
-// is a wall of JSON that would bury every other field in this modal.
-// `payment_checkout_id` and `purchase_tracked_at` are plumbing, not merchant
-// facts; the transaction ref above is the one a merchant actually quotes.
+// Keys we never show: `payment_raw` is a wall of JSON kept only for disputes,
+// and the rest is plumbing rather than anything a merchant would quote.
 const HIDDEN = new Set([
   'products', 'upsell_item', 'stores', 'merchant_id', 'store_id', 'product_id', 'updated_at',
   'payment_raw', 'payment_checkout_id', 'purchase_tracked_at',
@@ -62,13 +59,10 @@ export default function OrderDetailsModal({ order, onClose, lang = 'ar' }: Props
   if (!order) return null
   const label = (k: string) => (LABELS[k] ? LABELS[k][lang] : humanize(k))
 
-  // A zero balance is the normal case on every order — showing it as a row
-  // would add noise to all of them to flag the rare one.
-  //
-  // Payment status is suppressed entirely on cash orders. There is nothing to
-  // report, and legacy COD rows carry a stale 'pending' from the column's
-  // database default, which would read as "this order is unpaid" on an order
-  // that was never going to be paid online.
+  // A zero balance is the normal case, so it stays hidden rather than adding a
+  // row to every order. Payment status is hidden on cash orders entirely: the
+  // legacy 'pending' default would read as "unpaid" on an order that was never
+  // going to be paid online.
   const isEmpty = (k: string) =>
     order[k] == null ||
     order[k] === '' ||

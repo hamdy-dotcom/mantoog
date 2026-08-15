@@ -2,12 +2,9 @@ import type { GatewayDefinition } from '../../types'
 
 /** Tamara — BNPL (pay later / instalments).
  *
- *  Tamara issues exactly three credentials: API Token, Notification Token and
- *  Public Key. There is no region field because Tamara has one production host.
- *
- *  Sandbox is on a separate host, and nothing stores which one to use — see the
- *  note on `GatewayField.key` in ../../types.ts. Tamara's adapter is the one
- *  case that will need that decision made; the other two gateways don't.
+ *  Three credentials: API Token, Notification Token and Public Key. No region
+ *  field — Tamara has one production host. Sandbox is a separate host and
+ *  nothing stores which to use, a decision Tamara's adapter will have to make.
  */
 export const definition: GatewayDefinition = {
   id: 'tamara',

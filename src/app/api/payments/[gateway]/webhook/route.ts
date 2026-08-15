@@ -6,22 +6,16 @@ import { applyPaymentOutcome } from '@/lib/payment-gateways/settle'
 
 export const runtime = 'nodejs'
 
-// The ONLY writer of payment state.
+// The ONLY writer of payment state — server-to-server and signed, unlike the
+// customer-controlled return URL, which stays read-only.
 //
-// The browser return URL is customer-controlled and proves nothing, so it stays
-// read-only. This endpoint is server-to-server and signed, which is why it is
-// trusted to move money state.
-//
-// There is no store id in the path: every session is created with our order id
-// as the provider's merchant reference, so the payload identifies the order and
-// the order carries the store. Reading that reference out of an unverified body
-// is safe — it only selects which secret to check the signature against, and a
-// forged reference still fails that check.
+// No store id in the path: the payload carries our order id, and the order
+// carries the store. Reading that reference out of an unverified body only
+// selects which secret to check the signature against.
 
-/** Providers disable endpoints that keep failing, and a retry cannot fix a
- *  payload we will never understand. So anything we cannot act on is 200'd and
- *  logged; only a genuine write failure returns non-2xx, because that IS worth
- *  retrying. */
+/** Anything we cannot act on is 200'd and logged, since providers disable
+ *  endpoints that keep failing and a retry cannot fix a payload we will never
+ *  understand. Only a genuine write failure returns non-2xx. */
 function ack(reason: string, detail: Record<string, unknown> = {}) {
   console.log('[payments/webhook]', reason, detail)
   return NextResponse.json({ ok: true, received: true })
@@ -37,8 +31,8 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   const mod = getGateway(gateway)
   if (!mod.adapter) return ack('gateway has no adapter', { gateway })
 
-  // Must be the raw bytes: signatures are computed over the body as sent, and
-  // re-serialising parsed JSON reorders keys and breaks the comparison.
+  // Must be the raw bytes: re-serialising parsed JSON reorders keys and breaks
+  // the signature comparison.
   const rawBody = await req.text().catch(() => '')
   if (!rawBody) return ack('empty body', { gateway })
 
@@ -83,8 +77,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     })
     return NextResponse.json({ ok: true, settled })
   } catch (err) {
-    // Genuine write failure — 500 so the provider retries. Acking here would
-    // lose the payment silently.
+    // 500 so the provider retries — acking here would lose the payment.
     console.error('[payments/webhook] settle failed', {
       gateway,
       orderId: order.id,

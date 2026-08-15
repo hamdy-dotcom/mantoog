@@ -37,8 +37,8 @@ export default function GatewayFieldInput({
   const label = ar ? field.labelAr : field.labelEn
   const help = ar ? field.helpAr : field.helpEn
 
-  // Stored secret, not being replaced: show a clear "saved" state rather than an
-  // empty box, so saving never looks like it wiped the key.
+  // Stored secret, not being replaced: a "saved" state rather than an empty
+  // box, so saving never looks like it wiped the key.
   const showStoredSecret = field.secret && secret?.set && !replacing
 
   return (

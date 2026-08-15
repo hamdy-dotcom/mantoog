@@ -16,9 +16,9 @@ type Draft = {
 
 const emptyDraft = (): Draft => ({ values: {}, replacing: {}, clear: [] })
 
-/** Payments tab. Saves through /api/dashboard/payment-gateways — deliberately
- *  NOT through the settings page's shared handleSave, which only writes
- *  `stores` and `merchants`. Secrets must never travel that client path. */
+/** Payments tab. Saves through /api/dashboard/payment-gateways, NOT the
+ *  settings page's shared handleSave — secrets must not travel that client
+ *  path. */
 export default function PaymentGatewaysTab({ lang }: Props) {
   const ar = lang === 'ar'
 
@@ -112,11 +112,9 @@ export default function PaymentGatewaysTab({ lang }: Props) {
       {GATEWAY_DEFINITIONS.map(def => {
         const state = states[def.id]
         const draft = draftFor(def.id)
-        // Two independent reasons a gateway can't be set up: the store's
-        // currency, and whether we've actually implemented it yet. `implemented`
-        // comes from the server (it knows which modules have an adapter), so a
-        // merchant can't configure something a customer could pick but not pay
-        // with. `state` is undefined until the first fetch resolves — assume
+        // Two independent blockers: the store's currency, and whether the
+        // gateway has an adapter yet (`implemented`, which only the server
+        // knows). `state` is undefined until the first fetch resolves — assume
         // implemented then, so the list doesn't flash "coming soon" on load.
         const implemented = state?.available ?? true
         const currencyOk = !currency || supportsCurrency(def, currency)

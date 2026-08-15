@@ -1,7 +1,8 @@
 'use client'
 import { useRef, useState } from 'react'
+import PaymentMethodPicker from '@/components/store/PaymentMethodPicker'
 
-export default function HomeTheme({ store, product, landingPage, sections, images, benefits, shippingCost, onSubmit, submitting, formError, activeOffers = [], selectedOffer, setSelectedOffer, upsellProduct, upsellConfig, bumpChecked, setBumpChecked }: any) {
+export default function HomeTheme({ store, product, landingPage, sections, images, benefits, shippingCost, onSubmit, submitting, formError, activeOffers = [], selectedOffer, setSelectedOffer, upsellProduct, upsellConfig, bumpChecked, setBumpChecked, paymentOptions = [], paymentMethod, setPaymentMethod }: any) {
   const formRef = useRef<HTMLDivElement>(null)
   const [activeImg, setActiveImg] = useState(0)
   const [selectedColor, setSelectedColor] = useState<any>(null)
@@ -321,6 +322,19 @@ export default function HomeTheme({ store, product, landingPage, sections, image
                   <span>{total} {currency}</span>
                 </div>
               </div>
+
+              <PaymentMethodPicker
+                options={paymentOptions}
+                value={paymentMethod}
+                onChange={setPaymentMethod}
+                dir="rtl"
+                lang="ar"
+                accent={accentColor}
+                text="#1f2937"
+                subtext="#6b7280"
+                cardBg="#fff"
+                cardBorder="#e5e7eb"
+              />
 
               {formError && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', color: '#ef4444', fontSize: 13 }}>{formError}</div>

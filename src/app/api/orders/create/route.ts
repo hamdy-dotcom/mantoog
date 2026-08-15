@@ -5,6 +5,9 @@ import type { OrderAttributionPayload } from '@/lib/analytics/attribution'
 import { sendCreditsWarningEmail } from '@/lib/email/credits-warning'
 import { orderLimiter, checkLimit } from '@/lib/ratelimit'
 import { sendSnapPurchase } from '@/lib/snapchat/capi'
+import { getGateway, isGatewayId } from '@/lib/payment-gateways/registry'
+import { getEnabledGateways, resolveConfig, returnUrlFor, webhookUrlFor } from '@/lib/payment-gateways/store'
+import type { GatewayId } from '@/lib/payment-gateways/types'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest) {
       await Promise.all([
         supabase
           .from('products')
-          .select('id, price, shipping_cost, offers, upsell, store_id')
+          .select('id, title, price, shipping_cost, offers, upsell, store_id')
           .eq('id', orderFields.product_id)
           .single(),
         supabase
@@ -129,7 +132,37 @@ export async function POST(request: NextRequest) {
 
     const computedTotal = basePrice + bumpAmt + shipping
 
-    const { data: orderData, error } = await supabase.from('orders').insert({
+    // Payment method — the client's choice is a request, not an instruction.
+    // It is re-checked against what this store actually offers, so a crafted
+    // POST cannot select a gateway that is disabled, wrong-currency, or has no
+    // adapter behind it.
+    const requestedMethod =
+      typeof orderFields.payment_method === 'string'
+        ? orderFields.payment_method.trim().toLowerCase()
+        : 'cod'
+
+    let gateway: GatewayId | null = null
+
+    if (requestedMethod !== 'cod') {
+      if (!isGatewayId(requestedMethod)) {
+        return NextResponse.json(
+          { success: false, error: 'Unsupported payment method' },
+          { status: 400 }
+        )
+      }
+
+      const offered = await getEnabledGateways(orderFields.store_id, store.currency)
+      if (!offered.some(g => g.id === requestedMethod)) {
+        return NextResponse.json(
+          { success: false, error: 'Payment method unavailable' },
+          { status: 400 }
+        )
+      }
+
+      gateway = requestedMethod
+    }
+
+    const orderRow = {
       store_id: orderFields.store_id,
       merchant_id: orderFields.merchant_id,
       product_id: orderFields.product_id,
@@ -144,7 +177,10 @@ export async function POST(request: NextRequest) {
       total_price: computedTotal,
       currency: store.currency,
       shipping_price: shipping,
-      payment_method: 'cod',
+      payment_method: gateway ?? 'cod',
+      // NULL means "no online payment involved" — that is what keeps COD orders
+      // out of every payment query and out of the abandoned-payment sweep.
+      payment_status: gateway ? 'pending' : null,
       status: 'pending',
       lat: orderFields.lat ?? null,
       lng: orderFields.lng ?? null,
@@ -157,17 +193,123 @@ export async function POST(request: NextRequest) {
       ...attribution,
       ip_address: getClientIp(request),
       ip_country: getIpCountry(request),
-    }).select('id').single()
+    }
+
+    // A customer whose card was declined and who fixes it is still ONE order.
+    // Reusing the row keeps the dashboard free of a dead entry per attempt.
+    //
+    // `retry_order_id` comes from the browser, so the guards below decide which
+    // rows it may touch. It must be an unsettled ONLINE attempt for this store,
+    // placed from the same phone number. Without the last two clauses, any id
+    // from this store would do — including a stranger's cash order, since
+    // `payment_status` defaults to 'pending' on rows that predate payments —
+    // and one customer could overwrite another's order with their own details.
+    const retryId =
+      gateway && typeof orderFields.retry_order_id === 'string'
+        ? orderFields.retry_order_id
+        : null
+
+    let orderData: { id: string } | null = null
+    let error: { message: string } | null = null
+
+    if (retryId) {
+      const retry = await supabase
+        .from('orders')
+        .update({
+          ...orderRow,
+          // Clear the previous attempt's outcome so the settlement claim
+          // (`payment_status = 'pending'`) can fire again.
+          payment_checkout_id: null,
+          payment_txn_id: null,
+          payment_error: null,
+          payment_raw: null,
+          paid_at: null,
+        })
+        .eq('id', retryId)
+        .eq('store_id', orderFields.store_id)
+        .eq('customer_phone', orderFields.customer_phone)
+        .eq('payment_status', 'pending')
+        .neq('payment_method', 'cod')
+        .select('id')
+        .maybeSingle()
+
+      orderData = retry.data as { id: string } | null
+      // No row matched (already settled, different store, or a corrected phone
+      // number) — fall through to a fresh insert rather than failing the
+      // customer's checkout.
+    }
+
+    if (!orderData) {
+      const inserted = await supabase.from('orders').insert(orderRow).select('id').single()
+      orderData = inserted.data as { id: string } | null
+      error = inserted.error
+    }
 
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
+    const orderId = orderData?.id ? String(orderData.id) : null
+
+    // ── Online payment ─────────────────────────────────────────────────────
+    // The order exists but nothing is confirmed yet, so none of the conversion
+    // side effects below run: they belong to the paid moment, which arrives on
+    // the webhook. We hand the browser a redirect and stop here.
+    if (gateway && orderId) {
+      const mod = getGateway(gateway)
+      const cfg = await resolveConfig(orderFields.store_id, gateway)
+
+      if (!mod.adapter || !cfg) {
+        return NextResponse.json(
+          { success: false, error: 'Payment method unavailable' },
+          { status: 400 }
+        )
+      }
+
+      try {
+        const session = await mod.adapter.createSession(cfg, {
+          orderId,
+          // Server-computed, never the client's number.
+          amount: computedTotal,
+          currency: store.currency,
+          description: String(product.title ?? 'Order'),
+          customer: {
+            name: String(orderFields.customer_name ?? ''),
+            phone: String(orderFields.customer_phone ?? ''),
+          },
+          returnUrl: returnUrlFor(gateway, orderId),
+          callbackUrl: webhookUrlFor(gateway),
+        })
+
+        await supabase
+          .from('orders')
+          .update({ payment_checkout_id: session.reference })
+          .eq('id', orderId)
+
+        return NextResponse.json({ success: true, orderId, redirectUrl: session.redirectUrl })
+      } catch (sessionError: unknown) {
+        const message = sessionError instanceof Error ? sessionError.message : 'Unknown error'
+        console.error('[orders/create] session creation failed', { gateway, orderId, message })
+
+        // Leave the row settled rather than pending, so the abandoned-payment
+        // sweep does not later chase a session that was never created.
+        await supabase
+          .from('orders')
+          .update({ payment_status: 'failed', payment_error: message, status: 'cancelled' })
+          .eq('id', orderId)
+
+        return NextResponse.json(
+          { success: false, error: 'Could not start payment' },
+          { status: 502 }
+        )
+      }
+    }
+
+    // ── COD from here down ─────────────────────────────────────────────────
     // Snapchat Conversions API (server-side Purchase). Non-blocking on failure —
     // never let a CAPI hiccup break order creation. Deduplicated against the
     // browser Snap Pixel via a shared event_id (the DB order id). Uses the
     // customer's REAL ip + user-agent from this request (not the server's).
-    const orderId = orderData?.id ? String(orderData.id) : null
     // Snap Pixel IDs are UUIDs. The pixel-id field is a free multi-tag input, so
     // guard against stray non-UUID entries (e.g. an email typed by mistake)
     // being used as the CAPI pixel id and misrouting the request.

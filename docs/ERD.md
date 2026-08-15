@@ -149,7 +149,18 @@ One landing page per product (typical). Drives storefront content and visit trac
 
 ## orders
 
-Customer COD orders placed on product landing pages.
+Customer orders placed on product landing pages — cash on delivery, or prepaid
+through a payment gateway.
+
+`status` (fulfilment) and `payment_status` (money) are separate axes: a paid
+order still starts unfulfilled.
+
+`payment_status` predates online payments and has a database default of
+`'pending'`, so **every order created before this feature reads `'pending'`
+even though it was cash on delivery**. COD orders written since are `NULL`.
+The test for "an online payment was attempted" is therefore
+`payment_method <> 'cod'` — never `payment_status` on its own, which would
+sweep up the entire order history.
 
 | Column | Type | Nullable | Default | Notes |
 |--------|------|----------|---------|-------|
@@ -168,7 +179,15 @@ Customer COD orders placed on product landing pages.
 | total_price | numeric | NO | — | `unit_price × quantity + shipping` |
 | currency | text | NO | — | |
 | shipping_price | numeric | YES | `0` | |
-| payment_method | text | YES | `'cod'` | Cash on delivery |
+| payment_method | text | YES | `'cod'` | `cod` \| `paytabs` \| `tabby` \| `tamara` |
+| payment_status | text | YES | `'pending'` | Pre-existing. NULL on new COD orders; `pending`/`paid`/`failed`/`cancelled` online. Legacy COD rows read `pending` — see note above |
+| payment_checkout_id | text | YES | NULL | Migration; gateway session/payment id |
+| payment_txn_id | text | YES | NULL | Migration; final transaction reference |
+| paid_at | timestamptz | YES | NULL | Migration |
+| payment_error | text | YES | NULL | Migration; decline reason |
+| payment_raw | jsonb | YES | NULL | Migration; provider payload, for disputes |
+| purchase_tracked_at | timestamptz | YES | NULL | Migration; Purchase-pixel dedup claim |
+| cod_balance_due | numeric | YES | `0` | Migration; upsell added after an online payment |
 | status | text | YES | `'pending'` | See status values below |
 | lat | numeric | YES | NULL | Map picker latitude |
 | lng | numeric | YES | NULL | Map picker longitude |

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
+import PaymentGatewaysTab from '@/components/dashboard/PaymentGatewaysTab'
 import { DASHBOARD_MAIN_CLASS } from '@/components/dashboard/dashboard-layout'
 import { getAuthenticatedUser, loadMerchantStore, signOutAndGoToLogin } from '@/lib/auth/client'
 import { useLang } from '@/lib/i18n/LanguageContext'
@@ -442,6 +443,7 @@ export default function SettingsPage() {
             { id: 'brand', label: tr.brandAppearance },
             { id: 'pixels', label: lang === 'ar' ? '📡 التتبع والإعلانات' : '📡 Pixels & Ads' },
             { id: 'checkout', label: { ar: 'نموذج الطلب', en: 'Order Form' }, icon: '🛒' },
+            { id: 'payments', label: { ar: 'بوابات الدفع', en: 'Payments' }, icon: '💰' },
             { id: 'shipping', label: tr.shipping },
             { id: 'domain', label: tr.customDomain },
             { id: 'account', label: tr.account },
@@ -1524,6 +1526,10 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* Saves through its own API route, not handleSave — gateway secrets
+              must never travel the client-side stores/merchants save path. */}
+          {activeTab === 'payments' && <PaymentGatewaysTab lang={lang} />}
+
           {activeTab === 'shipping' && (
             <Section title={tr.shipping}>
               <div>
@@ -1595,16 +1601,21 @@ export default function SettingsPage() {
 
         </div>
 
-        <div className="mt-8 pt-6 border-t border-[#2a2d35]">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full sm:w-auto bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 text-white text-sm font-semibold px-8 py-3 rounded-xl transition-colors"
-          >
-            {saving ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : tr.saveChanges}
-          </button>
-        </div>
+        {/* Hidden on the Payments tab: this button writes `stores`/`merchants`,
+            and each gateway card has its own save. Showing both would imply
+            gateway changes are saved here — they are not. */}
+        {activeTab !== 'payments' && (
+          <div className="mt-8 pt-6 border-t border-[#2a2d35]">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full sm:w-auto bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 text-white text-sm font-semibold px-8 py-3 rounded-xl transition-colors"
+            >
+              {saving ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : tr.saveChanges}
+            </button>
+          </div>
+        )}
       </main>
     </div>
   )

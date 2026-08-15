@@ -126,7 +126,21 @@ export default function OrdersPage() {
   // Unique traffic sources present in this merchant's orders
   const uniqueSources = Array.from(new Set(orders.map(o => o.traffic_source || 'direct')))
 
-  const filteredByDate = orders.filter(order => {
+  // Orders mid-payment are not orders yet — the customer was redirected to a
+  // gateway and may never come back. Showing them would inflate every count on
+  // this page and put unpaid rows in the merchant's fulfilment queue. They are
+  // still in `orders` (the webhook needs a row to settle), just not shown.
+  //
+  // `payment_method` is what decides this, NOT `payment_status` alone: the
+  // column predates online payments and defaults to 'pending' at the database
+  // level, so every historical COD order carries that value. Keying off the
+  // status by itself would hide the merchant's entire order history.
+  const visibleOrders = orders.filter(
+    o => o.payment_method === 'cod' || o.payment_status !== 'pending',
+  )
+  const awaitingPaymentCount = orders.length - visibleOrders.length
+
+  const filteredByDate = visibleOrders.filter(order => {
     if (dateFilter === 'all' && !dateFrom) return true
     const orderDate = new Date(order.created_at)
     const now = new Date()
@@ -285,6 +299,11 @@ export default function OrdersPage() {
               {newOrdersCount > 0 && (
                 <span className="ms-2 text-[#fbbf24] font-medium">
                   · {newOrdersCount} {lang === 'ar' ? 'جديد (لم يُصدَّر)' : 'new (unexported)'}
+                </span>
+              )}
+              {awaitingPaymentCount > 0 && (
+                <span className="ms-2 text-[#8b8fa8]">
+                  · {awaitingPaymentCount} {lang === 'ar' ? 'بانتظار الدفع' : 'awaiting payment'}
                 </span>
               )}
             </p>

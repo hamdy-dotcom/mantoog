@@ -28,6 +28,15 @@ export default function StorePage() {
         .single()
       if (!storeData) { setNotFound(true); setLoading(false); return }
       setStore(storeData)
+      if (storeData.google_site_verification) {
+        const existing = document.head.querySelector('meta[name="google-site-verification"]')
+        if (!existing) {
+          const tag = document.createElement('meta')
+          tag.name = 'google-site-verification'
+          tag.content = storeData.google_site_verification
+          document.head.appendChild(tag)
+        }
+      }
       const { data: productsData } = await supabase
         .from('products')
         .select('*, landing_pages(headline, published)')

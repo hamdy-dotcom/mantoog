@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import PaymentMethodPicker, { type PaymentOption } from '@/components/store/PaymentMethodPicker'
 import Script from 'next/script'
 import { createClient } from '@/lib/supabase/client'
 import { useParams } from 'next/navigation'
@@ -209,6 +210,15 @@ export default function LandingPage() {
   const [postUpsellAccepting, setPostUpsellAccepting] = useState(false)
   const [lastOrderId, setLastOrderId] = useState<string | null>(null)
   const [showAllReviews, setShowAllReviews] = useState(false)
+  // Payment options for this store: COD plus any enabled, currency-compatible
+  // gateway. Fetched here rather than inside the picker so the five theme
+  // renderers share one request and one selection.
+  const [paymentOptions, setPaymentOptions] = useState<PaymentOption[]>([])
+  const [paymentMethod, setPaymentMethod] = useState<string | null>(null)
+  // Set when the customer comes back from a gateway, so a retry updates the
+  // existing order instead of leaving a dead row behind per attempt.
+  const [retryOrderId, setRetryOrderId] = useState<string | null>(null)
+  const [awaitingPayment, setAwaitingPayment] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
   const allReviewsRef = useRef<HTMLDivElement>(null)
   const beaconSentRef = useRef(false)
@@ -298,10 +308,119 @@ export default function LandingPage() {
         }).catch(() => {})
       }
 
+      // Payment options. COD is always present, so a failure here degrades to
+      // cash-on-delivery rather than a checkout the customer cannot complete.
+      const cod: PaymentOption = {
+        id: 'cod',
+        label: market.dir === 'rtl' ? 'الدفع عند الاستلام' : 'Cash on delivery',
+        emoji: '💵',
+      }
+      try {
+        const res = await fetch(`/api/payments/methods?storeId=${encodeURIComponent(storeData.id)}`)
+        const data: { gateways?: PaymentOption[] } = await res.json()
+        const gateways: PaymentOption[] = Array.isArray(data?.gateways)
+          ? data.gateways.map(g => ({ id: g.id, label: g.label, emoji: g.emoji }))
+          : []
+        setPaymentOptions([cod, ...gateways])
+        // With nothing else on offer there is no decision to present, so COD is
+        // implicit. Any real choice stays unselected until the customer makes it.
+        if (gateways.length === 0) setPaymentMethod('cod')
+      } catch {
+        setPaymentOptions([cod])
+        setPaymentMethod('cod')
+      }
+
       setLoading(false)
     }
     load()
   }, [])
+
+  // Returning from a payment gateway.
+  //
+  // This is a fresh page load — every bit of checkout state is gone, so the
+  // outcome has to come from the server. The `?payment=` param is only a routing
+  // hint (the customer can edit it); `/summary` reports what the webhook
+  // actually recorded. Runs after `load` so the upsell product is available.
+  const returnHandled = useRef(false)
+  useEffect(() => {
+    if (loading || returnHandled.current) return
+
+    const sp = new URLSearchParams(window.location.search)
+    const payment = sp.get('payment')
+    const orderId = sp.get('order')
+    if (!payment || !orderId) return
+
+    returnHandled.current = true
+
+    // Drop the params so a refresh or a shared link cannot replay this screen.
+    window.history.replaceState({}, '', window.location.pathname)
+
+    const failMessage = m.dir === 'rtl'
+      ? 'لم تتم عملية الدفع. جرب مرة أخرى أو اختر الدفع عند الاستلام.'
+      : 'Payment was not completed. Please try again or choose cash on delivery.'
+
+    const showFailure = () => {
+      setRetryOrderId(orderId)
+      setFormError(failMessage)
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+
+    if (payment === 'failed') {
+      showFailure()
+      return
+    }
+
+    // The webhook may not have landed yet — it races the customer's browser.
+    // Poll briefly rather than declaring failure on a payment that is fine.
+    let cancelled = false
+    const POLL_MS = 2000
+    const MAX_TRIES = 10
+
+    const check = async (attempt: number): Promise<void> => {
+      if (cancelled) return
+      setAwaitingPayment(true)
+
+      try {
+        const res = await fetch(`/api/orders/${orderId}/summary`)
+        const order = (await res.json())?.order
+
+        if (order?.payment_status === 'paid') {
+          setAwaitingPayment(false)
+          // Needed before the upsell screen, which PATCHes this order id.
+          setLastOrderId(orderId)
+          setName(order.customer_name || '')
+          // Read from `product` rather than the `upsellConfig` const declared
+          // further down — this closure would otherwise reach a binding that
+          // does not exist yet at this point in the component body.
+          const postUpsell = product?.upsell
+          if (postUpsell?.type === 'post_purchase' && upsellProduct) setShowPostUpsell(true)
+          else setSubmitted(true)
+          return
+        }
+
+        if (order?.payment_status === 'failed' || order?.payment_status === 'cancelled') {
+          setAwaitingPayment(false)
+          showFailure()
+          return
+        }
+      } catch {
+        // Network blip — keep polling rather than scaring a paying customer.
+      }
+
+      if (attempt >= MAX_TRIES) {
+        // Still unconfirmed. The order is real and the webhook will settle it,
+        // so this is deliberately not phrased as a failure.
+        setAwaitingPayment(false)
+        setSubmitted(true)
+        return
+      }
+
+      setTimeout(() => void check(attempt + 1), POLL_MS)
+    }
+
+    void check(1)
+    return () => { cancelled = true }
+  }, [loading])
 
   useEffect(() => {
     const i = setInterval(() => setTimer(t => t > 0 ? t - 1 : 0), 1000)
@@ -479,6 +598,10 @@ export default function LandingPage() {
       setFormError(m.dir === 'rtl' ? 'يرجى إدخال ملاحظاتك' : 'Please enter your note')
       return
     }
+    if (!paymentMethod) {
+      setFormError(m.dir === 'rtl' ? 'يرجى اختيار طريقة الدفع' : 'Please choose a payment method')
+      return
+    }
     setFormError('')
     setSubmitting(true)
     const orderQty = selectedOffer ? selectedOffer.quantity : (store?.show_quantity ? submitQty : 1)
@@ -525,7 +648,10 @@ export default function LandingPage() {
           total_price: orderTotal,
           currency: store.currency,
           shipping_price: shippingCost,
-          payment_method: 'cod',
+          payment_method: paymentMethod,
+          // Present only when retrying a failed attempt, so the server updates
+          // that order rather than creating a second one for the same intent.
+          retry_order_id: retryOrderId,
           status: 'pending',
           lat: pickedLocation?.lat || null,
           lng: pickedLocation?.lng || null,
@@ -541,6 +667,14 @@ export default function LandingPage() {
       if (orderOk && result.orderId) {
         dbOrderId = String(result.orderId)
         setLastOrderId(result.orderId)
+      }
+
+      // Online payment: the order exists but is unpaid, so none of the success
+      // handling below applies — the conversion happens at the gateway, and the
+      // return trip brings the customer back to this page to find out.
+      if (orderOk && result.redirectUrl) {
+        window.location.href = result.redirectUrl
+        return
       }
     } catch {
       orderOk = false
@@ -697,6 +831,16 @@ export default function LandingPage() {
       </div>
     )
   }
+
+  // Back from the gateway, webhook not in yet. Deliberately not phrased as
+  // success OR failure — the money question is genuinely still open.
+  if (awaitingPayment) return (
+    <div dir={m.dir} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24, textAlign: 'center', fontFamily: 'system-ui', background: '#f9fafb' }}>
+      <div style={{ fontSize: 56 }}>⏳</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: '#111' }}>{m.dir === 'rtl' ? 'جاري تأكيد الدفع...' : 'Confirming your payment…'}</div>
+      <div style={{ fontSize: 15, color: '#555', maxWidth: 360, lineHeight: 1.7 }}>{m.dir === 'rtl' ? 'لا تغلق هذه الصفحة، لن تستغرق سوى لحظات.' : 'Please don\'t close this page — it will only take a moment.'}</div>
+    </div>
+  )
 
   if (submitted) return (
     <div dir={m.dir} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24, textAlign: 'center', fontFamily: 'system-ui', background: '#f9fafb' }}>
@@ -906,6 +1050,9 @@ export default function LandingPage() {
         formError={formError}
         onBack={() => window.history.back()}
         onSubmit={handleSubmit}
+        paymentOptions={paymentOptions}
+        paymentMethod={paymentMethod}
+        setPaymentMethod={setPaymentMethod}
       />
       </>
     )
@@ -920,6 +1067,11 @@ export default function LandingPage() {
     upsellConfig,
     bumpChecked,
     setBumpChecked,
+    // Selection lives here so `handleSubmit` reads it directly and every theme
+    // only has to render the picker.
+    paymentOptions,
+    paymentMethod,
+    setPaymentMethod,
   }
 
   if (store?.theme === 'fashion') {
@@ -1717,6 +1869,19 @@ export default function LandingPage() {
                 <span>{total} {store?.currency}</span>
               </div>
             </div>
+            <PaymentMethodPicker
+              options={paymentOptions}
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+              dir={m.dir}
+              lang={m.dir === 'rtl' ? 'ar' : 'en'}
+              accent={th.accent}
+              text={th.text}
+              subtext={th.subtext}
+              cardBg={th.cardBg}
+              cardBorder={th.cardBorder}
+              font={th.font}
+            />
             {formError && (
               <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', color: '#ef4444', fontSize: 13 }}>{formError}</div>
             )}

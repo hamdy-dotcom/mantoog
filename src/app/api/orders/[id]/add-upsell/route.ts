@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
 
     const { data: order, error: fetchErr } = await supabase
       .from('orders')
-      .select('total_price')
+      .select('total_price, payment_status, cod_balance_due')
       .eq('id', id)
       .single()
 
@@ -34,11 +34,27 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
       return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 })
     }
 
-    const newTotal = Number(order.total_price) + Number(additional_price)
+    // On a COD order nothing has been charged yet, so the upsell simply raises
+    // the amount collected on delivery.
+    //
+    // On an order already PAID online, the captured amount is fixed — raising
+    // `total_price` would silently claim we took money we never took. The extra
+    // is recorded as a cash balance the courier collects instead.
+    const alreadyPaid = order.payment_status === 'paid'
+
+    const patch: Record<string, unknown> = alreadyPaid
+      ? {
+          upsell_item,
+          cod_balance_due: Number(order.cod_balance_due ?? 0) + Number(additional_price),
+        }
+      : {
+          upsell_item,
+          total_price: Number(order.total_price) + Number(additional_price),
+        }
 
     const { error } = await supabase
       .from('orders')
-      .update({ upsell_item, total_price: newTotal })
+      .update(patch)
       .eq('id', id)
 
     if (error) {

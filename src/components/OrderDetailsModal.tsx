@@ -20,13 +20,26 @@ const LABELS: Record<string, { en: string; ar: string }> = {
   total_price: { en: 'Total', ar: 'الإجمالي' },
   shipping_price: { en: 'Shipping', ar: 'الشحن' },
   currency: { en: 'Currency', ar: 'العملة' },
+  payment_method: { en: 'Paid with', ar: 'طريقة الدفع' },
+  payment_status: { en: 'Payment', ar: 'حالة الدفع' },
+  paid_at: { en: 'Paid at', ar: 'تاريخ الدفع' },
+  payment_txn_id: { en: 'Transaction ref', ar: 'رقم العملية' },
+  payment_error: { en: 'Payment error', ar: 'خطأ الدفع' },
+  cod_balance_due: { en: 'Cash due on delivery', ar: 'مستحق عند الاستلام' },
   traffic_source: { en: 'Source', ar: 'المصدر' },
   notes: { en: 'Notes', ar: 'ملاحظات' },
   exported_at: { en: 'Exported', ar: 'تم التصدير' },
 }
 
-// Keys we never show (internal / redundant)
-const HIDDEN = new Set(['products', 'upsell_item', 'stores', 'merchant_id', 'store_id', 'product_id', 'updated_at'])
+// Keys we never show (internal / redundant).
+// `payment_raw` is the provider's verbatim payload — kept for disputes, but it
+// is a wall of JSON that would bury every other field in this modal.
+// `payment_checkout_id` and `purchase_tracked_at` are plumbing, not merchant
+// facts; the transaction ref above is the one a merchant actually quotes.
+const HIDDEN = new Set([
+  'products', 'upsell_item', 'stores', 'merchant_id', 'store_id', 'product_id', 'updated_at',
+  'payment_raw', 'payment_checkout_id', 'purchase_tracked_at',
+])
 
 function humanize(key: string) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -49,11 +62,22 @@ export default function OrderDetailsModal({ order, onClose, lang = 'ar' }: Props
   if (!order) return null
   const label = (k: string) => (LABELS[k] ? LABELS[k][lang] : humanize(k))
 
+  // A zero balance is the normal case on every order — showing it as a row
+  // would add noise to all of them to flag the rare one.
+  //
+  // Payment status is suppressed entirely on cash orders. There is nothing to
+  // report, and legacy COD rows carry a stale 'pending' from the column's
+  // database default, which would read as "this order is unpaid" on an order
+  // that was never going to be paid online.
+  const isEmpty = (k: string) =>
+    order[k] == null ||
+    order[k] === '' ||
+    (k === 'cod_balance_due' && Number(order[k]) === 0) ||
+    (k === 'payment_status' && order.payment_method === 'cod')
+
   // Ordered known fields first, then any remaining non-empty scalar fields.
-  const known = Object.keys(LABELS).filter(k => order[k] != null && order[k] !== '')
-  const rest = Object.keys(order).filter(
-    k => !HIDDEN.has(k) && !LABELS[k] && order[k] != null && order[k] !== ''
-  )
+  const known = Object.keys(LABELS).filter(k => !isEmpty(k))
+  const rest = Object.keys(order).filter(k => !HIDDEN.has(k) && !LABELS[k] && !isEmpty(k))
   const rows = [...known, ...rest]
 
   const product = order.products

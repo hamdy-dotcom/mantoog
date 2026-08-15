@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { getStoreTheme, StoreTheme } from '@/lib/store-themes/tokens'
+import PaymentMethodPicker, { type PaymentOption } from '@/components/store/PaymentMethodPicker'
 
 type Props = {
   store: any
@@ -13,6 +14,11 @@ type Props = {
   submitting: boolean
   formError: string
   onBack: () => void
+  /** COD plus any enabled gateway. Selection state lives in the product page so
+   *  every theme shares one choice; these layouts only render the picker. */
+  paymentOptions?: PaymentOption[]
+  paymentMethod?: string | null
+  setPaymentMethod?: (id: string) => void
 }
 
 type Cust = {
@@ -132,7 +138,7 @@ function VideoSection({ url, k }: { url: string; k: StoreTheme }) {
 }
 
 /* ── ORDER FORM (shared) ─────────────────────────────────────────── */
-function OrderForm({ k, product, shippingCost, onSubmit, submitting, formError, ctaLabel }: Pick<Props, 'product'|'shippingCost'|'onSubmit'|'submitting'|'formError'> & { k: StoreTheme; ctaLabel?: string }) {
+function OrderForm({ k, product, shippingCost, onSubmit, submitting, formError, ctaLabel, paymentOptions = [], paymentMethod, setPaymentMethod }: Pick<Props, 'product'|'shippingCost'|'onSubmit'|'submitting'|'formError'|'paymentOptions'|'paymentMethod'|'setPaymentMethod'> & { k: StoreTheme; ctaLabel?: string }) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
@@ -154,6 +160,23 @@ function OrderForm({ k, product, shippingCost, onSubmit, submitting, formError, 
           <input value={f.val} onChange={e => f.set(e.target.value)} placeholder={f.ph} style={input} />
         </div>
       ))}
+      {setPaymentMethod && (
+        <div style={{ margin: '12px 0' }}>
+          <PaymentMethodPicker
+            options={paymentOptions}
+            value={paymentMethod ?? null}
+            onChange={setPaymentMethod}
+            dir="rtl"
+            lang="ar"
+            accent={k.accent}
+            text={k.text}
+            subtext={k.muted}
+            cardBg={k.inputBg}
+            cardBorder={k.inputBorder}
+            font={k.font}
+          />
+        </div>
+      )}
       {formError && <p style={{ fontSize: 12, color: '#dc2626', margin: '6px 0' }}>{formError}</p>}
       <button
         onClick={() => onSubmit({ name, phone, address })}
@@ -167,7 +190,7 @@ function OrderForm({ k, product, shippingCost, onSubmit, submitting, formError, 
 }
 
 /* ── EDITORIAL layout (luxe) ─────────────────────────────────────── */
-function EditorialPage({ k, cust, product, shippingCost, onSubmit, submitting, formError, images, onBack, store }: Props & { k: StoreTheme; cust: Cust }) {
+function EditorialPage({ k, cust, product, shippingCost, onSubmit, submitting, formError, images, onBack, store, paymentOptions, paymentMethod, setPaymentMethod }: Props & { k: StoreTheme; cust: Cust }) {
   const name = product?.landing_pages?.[0]?.headline || product?.title
   const img = images[0]
   const d = product?.compare_at_price ? Math.round((1 - product.price / product.compare_at_price) * 100) : 0
@@ -190,7 +213,7 @@ function EditorialPage({ k, cust, product, shippingCost, onSubmit, submitting, f
             {product?.compare_at_price && <span style={{ fontSize: 13, color: k.muted }}>كان {product.compare_at_price}</span>}
             {d > 0 && <span style={{ fontSize: 10, color: k.discountBg, fontWeight: 700 }}>-{d}%</span>}
           </div>
-          <OrderForm k={k} product={product} shippingCost={shippingCost} onSubmit={onSubmit} submitting={submitting} formError={formError} ctaLabel={cust.ctaLabel} />
+          <OrderForm k={k} product={product} shippingCost={shippingCost} onSubmit={onSubmit} submitting={submitting} formError={formError} ctaLabel={cust.ctaLabel} paymentOptions={paymentOptions} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} />
         </div>
       </div>
       {cust.guarantees && cust.guarantees.length > 0 && <GuaranteeBadges badges={cust.guarantees} k={k} />}
@@ -201,7 +224,7 @@ function EditorialPage({ k, cust, product, shippingCost, onSubmit, submitting, f
 }
 
 /* ── BRUTALIST layout ────────────────────────────────────────────── */
-function BrutalistPage({ k, cust, product, shippingCost, onSubmit, submitting, formError, images, onBack, store }: Props & { k: StoreTheme; cust: Cust }) {
+function BrutalistPage({ k, cust, product, shippingCost, onSubmit, submitting, formError, images, onBack, store, paymentOptions, paymentMethod, setPaymentMethod }: Props & { k: StoreTheme; cust: Cust }) {
   const name = product?.landing_pages?.[0]?.headline || product?.title
   const img = images[0]
   const d = product?.compare_at_price ? Math.round((1 - product.price / product.compare_at_price) * 100) : 0
@@ -222,7 +245,7 @@ function BrutalistPage({ k, cust, product, shippingCost, onSubmit, submitting, f
           <span style={{ fontSize: 14 }}>SAR</span>
           {product?.compare_at_price && <span style={{ fontSize: 13, color: '#6b7280', textDecoration: 'line-through' }}>{product.compare_at_price}</span>}
         </div>
-        <OrderForm k={k} product={product} shippingCost={shippingCost} onSubmit={onSubmit} submitting={submitting} formError={formError} ctaLabel={cust.ctaLabel} />
+        <OrderForm k={k} product={product} shippingCost={shippingCost} onSubmit={onSubmit} submitting={submitting} formError={formError} ctaLabel={cust.ctaLabel} paymentOptions={paymentOptions} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} />
       </div>
       {cust.guarantees && cust.guarantees.length > 0 && <GuaranteeBadges badges={cust.guarantees} k={k} />}
       {cust.video && <VideoSection url={cust.video} k={k} />}
@@ -232,7 +255,7 @@ function BrutalistPage({ k, cust, product, shippingCost, onSubmit, submitting, f
 }
 
 /* ── GALLERY/MINIMAL layout ──────────────────────────────────────── */
-function GalleryPage({ k, cust, product, shippingCost, onSubmit, submitting, formError, images, onBack, store }: Props & { k: StoreTheme; cust: Cust }) {
+function GalleryPage({ k, cust, product, shippingCost, onSubmit, submitting, formError, images, onBack, store, paymentOptions, paymentMethod, setPaymentMethod }: Props & { k: StoreTheme; cust: Cust }) {
   const name = product?.landing_pages?.[0]?.headline || product?.title
   const img = images[0]
   return (
@@ -256,7 +279,7 @@ function GalleryPage({ k, cust, product, shippingCost, onSubmit, submitting, for
           </div>
         </div>
         <div style={{ height: 1, background: k.divider, marginBottom: 24 }} />
-        <OrderForm k={k} product={product} shippingCost={shippingCost} onSubmit={onSubmit} submitting={submitting} formError={formError} ctaLabel={cust.ctaLabel} />
+        <OrderForm k={k} product={product} shippingCost={shippingCost} onSubmit={onSubmit} submitting={submitting} formError={formError} ctaLabel={cust.ctaLabel} paymentOptions={paymentOptions} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} />
       </div>
       {cust.guarantees && cust.guarantees.length > 0 && <GuaranteeBadges badges={cust.guarantees} k={k} />}
       {cust.video && <VideoSection url={cust.video} k={k} />}
@@ -266,7 +289,7 @@ function GalleryPage({ k, cust, product, shippingCost, onSubmit, submitting, for
 }
 
 /* ── FASHION layout ──────────────────────────────────────────────── */
-function FashionStorePage({ k, cust, product, shippingCost, onSubmit, submitting, formError, images, onBack, store }: Props & { k: StoreTheme; cust: Cust }) {
+function FashionStorePage({ k, cust, product, shippingCost, onSubmit, submitting, formError, images, onBack, store, paymentOptions, paymentMethod, setPaymentMethod }: Props & { k: StoreTheme; cust: Cust }) {
   const name = product?.landing_pages?.[0]?.headline || product?.title
   const img = images[0]
   const d = product?.compare_at_price ? Math.round((1 - product.price / product.compare_at_price) * 100) : 0
@@ -304,7 +327,7 @@ function FashionStorePage({ k, cust, product, shippingCost, onSubmit, submitting
             <button style={{ width: '100%', padding: '12px', background: k.text, color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{cust.ctaLabel || 'أضف إلى السلة'}</button>
             <button style={{ width: '100%', padding: '11px', background: 'transparent', color: k.text, border: `1px solid ${k.border}`, fontSize: 11, cursor: 'pointer' }}>♡ أضف للمفضلة</button>
           </div>
-          <OrderForm k={k} product={product} shippingCost={shippingCost} onSubmit={onSubmit} submitting={submitting} formError={formError} ctaLabel={cust.ctaLabel} />
+          <OrderForm k={k} product={product} shippingCost={shippingCost} onSubmit={onSubmit} submitting={submitting} formError={formError} ctaLabel={cust.ctaLabel} paymentOptions={paymentOptions} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} />
           <div style={{ paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {['🚚 توصيل مجاني للطلبات فوق 200 SAR', '↩️ إرجاع مجاني خلال 30 يوم', '✅ منتج أصلي مضمون'].map(info => (
               <p key={info} style={{ fontSize: 11, color: k.subtext, margin: 0 }}>{info}</p>
@@ -324,7 +347,7 @@ function FashionStorePage({ k, cust, product, shippingCost, onSubmit, submitting
 }
 
 /* ── STANDARD layout (all other themes) ─────────────────────────── */
-function StandardPage({ k, cust, product, shippingCost, onSubmit, submitting, formError, images, onBack, store }: Props & { k: StoreTheme; cust: Cust }) {
+function StandardPage({ k, cust, product, shippingCost, onSubmit, submitting, formError, images, onBack, store, paymentOptions, paymentMethod, setPaymentMethod }: Props & { k: StoreTheme; cust: Cust }) {
   const [activeImg, setActiveImg] = useState(0)
   const name = product?.landing_pages?.[0]?.headline || product?.title
   const d = product?.compare_at_price ? Math.round((1 - product.price / product.compare_at_price) * 100) : 0
@@ -365,7 +388,7 @@ function StandardPage({ k, cust, product, shippingCost, onSubmit, submitting, fo
             <button style={{ width: '100%', padding: '13px', borderRadius: k.radiusBtn, fontSize: 14, fontWeight: 700, cursor: 'pointer', border: 'none', background: k.accent, color: k.accentText, boxShadow: `0 4px 20px ${k.accentGlow}`, marginBottom: 14 }}>
               {cust.ctaLabel || `🛒 اطلب الآن — ${product?.price} ${currency}`}
             </button>
-            <OrderForm k={k} product={product} shippingCost={shippingCost} onSubmit={onSubmit} submitting={submitting} formError={formError} ctaLabel={cust.ctaLabel} />
+            <OrderForm k={k} product={product} shippingCost={shippingCost} onSubmit={onSubmit} submitting={submitting} formError={formError} ctaLabel={cust.ctaLabel} paymentOptions={paymentOptions} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} />
           </div>
         </div>
       </div>

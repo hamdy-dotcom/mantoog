@@ -5,10 +5,9 @@ import { loadRows, saveGateway, toState } from '@/lib/payment-gateways/store'
 
 export const runtime = 'nodejs'
 
-// Gateway API keys are secrets, so they are read/written ONLY here (server-side,
-// service role) — never through the client-side settings save path, and never
-// returned to the browser. GET reports presence + last 4 chars; it never echoes
-// a secret. Mirrors the Snapchat CAPI route, which solves the same problem.
+// The only path that reads or writes gateway secrets, server-side with the
+// service role. GET reports presence + last 4 chars, never the value itself.
+// Mirrors the Snapchat CAPI route.
 
 async function getStore() {
   const supabase = await createClient()

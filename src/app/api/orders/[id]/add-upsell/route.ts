@@ -34,12 +34,10 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
       return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 })
     }
 
-    // On a COD order nothing has been charged yet, so the upsell simply raises
-    // the amount collected on delivery.
-    //
-    // On an order already PAID online, the captured amount is fixed — raising
-    // `total_price` would silently claim we took money we never took. The extra
-    // is recorded as a cash balance the courier collects instead.
+    // On a COD order the upsell simply raises the amount collected on delivery.
+    // On one already paid online the captured amount is fixed, so raising
+    // `total_price` would claim money we never took — the extra becomes a cash
+    // balance for the courier instead.
     const alreadyPaid = order.payment_status === 'paid'
 
     const patch: Record<string, unknown> = alreadyPaid

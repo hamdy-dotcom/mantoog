@@ -29,14 +29,10 @@ export type GatewayRow = {
 
 const COLUMNS = 'store_id, gateway, merchant_id, enabled, public_config, credentials, status'
 
-/** Webhook URL the merchant registers with the provider — one per gateway for
- *  the whole platform, with no store id in it.
- *
- *  It doesn't need one: every session is created with our `orders.id` as the
- *  provider's merchant reference, so the payload identifies the order, and the
- *  order carries `store_id`. Parsing the body to find that reference is not the
- *  same as trusting it — it only selects which secret to verify against, and a
- *  forged reference still fails the signature check. */
+/** Webhook URL the merchant registers with the provider — one per gateway,
+ *  platform-wide, with no store id in it. It needs none: the payload carries
+ *  our `orders.id`, and the order carries `store_id`. Reading that reference is
+ *  not trusting it — a forged one still fails the signature check. */
 export function webhookUrlFor(gateway: GatewayId): string {
   return `${getSiteOrigin()}/api/payments/${gateway}/webhook`
 }
@@ -51,10 +47,8 @@ export function returnUrlFor(gateway: GatewayId, orderId: string): string {
 export async function loadRows(storeId: string): Promise<GatewayRow[]> {
   const { data, error } = await supabaseAdmin.from(TABLE).select(COLUMNS).eq('store_id', storeId)
 
-  // An empty result and a failed query both used to look like "no gateways", so
-  // a missing table or a broken key silently degraded every store to COD-only
-  // with nothing in the logs. Checkout still falls back to COD — that is the
-  // right behaviour — but the reason is now visible.
+  // Checkout still falls back to COD, but log the reason — an empty result and
+  // a failed query are otherwise indistinguishable.
   if (error) {
     console.error('[payments/store] gateway lookup failed', { storeId, message: error.message })
     return []
@@ -96,9 +90,8 @@ export type SaveInput = {
   storeId: string
   merchantId: string
   gateway: GatewayId
-  /** The store's settlement currency, checked server-side before a gateway can
-   *  go live. The settings tab greys out unsupported gateways, but that is a
-   *  client-side courtesy — a crafted POST would otherwise sail past it. */
+  /** The store's settlement currency, re-checked here because the settings
+   *  tab's greying-out is a client-side courtesy a crafted POST ignores. */
   currency: string
   enabled: boolean
   /** Only the fields the merchant actually submitted. */
@@ -138,9 +131,8 @@ export async function saveGateway(input: SaveInput): Promise<SaveResult> {
     const submitted = values[field.key]
 
     if (field.secret) {
-      // Merge rule: an absent or blank secret means "leave what's stored".
-      // Without this, saving any other setting would wipe every secret the
-      // merchant didn't retype — and they never see them to retype.
+      // An absent or blank secret means "leave what's stored" — the merchant
+      // never sees these values, so they cannot retype them on every save.
       if (typeof submitted === 'string' && submitted.trim()) {
         credentials[field.key] = encryptValue(submitted.trim())
       }
@@ -193,8 +185,8 @@ export async function saveGateway(input: SaveInput): Promise<SaveResult> {
   return { ok: true, state: toState(def, rows.find(r => r.gateway === gateway)) }
 }
 
-/** What the storefront may know about one payment option. Deliberately narrow:
- *  this crosses to the browser, so it carries no credentials and no row data. */
+/** What the storefront may know about one payment option. This crosses to the
+ *  browser, so it carries no credentials and no row data. */
 export type OfferedGateway = {
   id: GatewayId
   label: string
@@ -203,15 +195,9 @@ export type OfferedGateway = {
   publicConfig: Values
 }
 
-/** Gateways a customer may actually pay with on this store, in registry order.
- *
- *  Three filters, all of which must pass:
- *    - the merchant enabled it
- *    - it settles in the store's currency (an unsupported one fails at the
- *      provider, after the customer has already committed)
- *    - it has an adapter, so there is behaviour behind the button
- *
- *  Safe to expose: never touches `credentials`. */
+/** Gateways a customer may actually pay with on this store, in registry order:
+ *  enabled, settling in the store's currency, and backed by an adapter. Safe to
+ *  expose — never touches `credentials`. */
 export async function getEnabledGateways(
   storeId: string,
   currency: string,

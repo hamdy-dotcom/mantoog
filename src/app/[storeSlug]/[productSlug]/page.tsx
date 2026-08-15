@@ -210,13 +210,12 @@ export default function LandingPage() {
   const [postUpsellAccepting, setPostUpsellAccepting] = useState(false)
   const [lastOrderId, setLastOrderId] = useState<string | null>(null)
   const [showAllReviews, setShowAllReviews] = useState(false)
-  // Payment options for this store: COD plus any enabled, currency-compatible
-  // gateway. Fetched here rather than inside the picker so the five theme
-  // renderers share one request and one selection.
+  // Held here, not in the picker, so the five theme renderers share one request
+  // and one selection.
   const [paymentOptions, setPaymentOptions] = useState<PaymentOption[]>([])
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null)
   // Set when the customer comes back from a gateway, so a retry updates the
-  // existing order instead of leaving a dead row behind per attempt.
+  // existing order instead of leaving a dead row per attempt.
   const [retryOrderId, setRetryOrderId] = useState<string | null>(null)
   const [awaitingPayment, setAwaitingPayment] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
@@ -308,8 +307,8 @@ export default function LandingPage() {
         }).catch(() => {})
       }
 
-      // Payment options. COD is always present, so a failure here degrades to
-      // cash-on-delivery rather than a checkout the customer cannot complete.
+      // COD is always present, so a failure here degrades to cash-on-delivery
+      // rather than a checkout the customer cannot complete.
       const cod: PaymentOption = {
         id: 'cod',
         label: market.dir === 'rtl' ? 'الدفع عند الاستلام' : 'Cash on delivery',
@@ -322,8 +321,8 @@ export default function LandingPage() {
           ? data.gateways.map(g => ({ id: g.id, label: g.label, emoji: g.emoji }))
           : []
         setPaymentOptions([cod, ...gateways])
-        // With nothing else on offer there is no decision to present, so COD is
-        // implicit. Any real choice stays unselected until the customer makes it.
+        // Nothing else on offer means no decision to present. A real choice
+        // stays unselected until the customer makes it.
         if (gateways.length === 0) setPaymentMethod('cod')
       } catch {
         setPaymentOptions([cod])
@@ -335,12 +334,10 @@ export default function LandingPage() {
     load()
   }, [])
 
-  // Returning from a payment gateway.
-  //
-  // This is a fresh page load — every bit of checkout state is gone, so the
-  // outcome has to come from the server. The `?payment=` param is only a routing
-  // hint (the customer can edit it); `/summary` reports what the webhook
-  // actually recorded. Runs after `load` so the upsell product is available.
+  // Returning from a payment gateway. A fresh page load, so checkout state is
+  // gone and the outcome comes from `/summary` — the `?payment=` param is only
+  // a hint the customer could have edited. Runs after `load` so the upsell
+  // product is available.
   const returnHandled = useRef(false)
   useEffect(() => {
     if (loading || returnHandled.current) return
@@ -370,8 +367,8 @@ export default function LandingPage() {
       return
     }
 
-    // The webhook may not have landed yet — it races the customer's browser.
-    // Poll briefly rather than declaring failure on a payment that is fine.
+    // The webhook races the customer's browser, so poll briefly rather than
+    // declaring failure on a payment that is fine.
     let cancelled = false
     const POLL_MS = 2000
     const MAX_TRIES = 10
@@ -389,9 +386,8 @@ export default function LandingPage() {
           // Needed before the upsell screen, which PATCHes this order id.
           setLastOrderId(orderId)
           setName(order.customer_name || '')
-          // Read from `product` rather than the `upsellConfig` const declared
-          // further down — this closure would otherwise reach a binding that
-          // does not exist yet at this point in the component body.
+          // `product`, not the `upsellConfig` const declared further down: this
+          // closure would reach a binding that does not exist yet.
           const postUpsell = product?.upsell
           if (postUpsell?.type === 'post_purchase' && upsellProduct) setShowPostUpsell(true)
           else setSubmitted(true)
@@ -408,8 +404,8 @@ export default function LandingPage() {
       }
 
       if (attempt >= MAX_TRIES) {
-        // Still unconfirmed. The order is real and the webhook will settle it,
-        // so this is deliberately not phrased as a failure.
+        // Still unconfirmed, but the order is real and the webhook will settle
+        // it — deliberately not phrased as a failure.
         setAwaitingPayment(false)
         setSubmitted(true)
         return
@@ -649,8 +645,8 @@ export default function LandingPage() {
           currency: store.currency,
           shipping_price: shippingCost,
           payment_method: paymentMethod,
-          // Present only when retrying a failed attempt, so the server updates
-          // that order rather than creating a second one for the same intent.
+          // Set only when retrying a failed attempt, so the server updates that
+          // order rather than creating a second one.
           retry_order_id: retryOrderId,
           status: 'pending',
           lat: pickedLocation?.lat || null,
@@ -669,9 +665,8 @@ export default function LandingPage() {
         setLastOrderId(result.orderId)
       }
 
-      // Online payment: the order exists but is unpaid, so none of the success
-      // handling below applies — the conversion happens at the gateway, and the
-      // return trip brings the customer back to this page to find out.
+      // Online payment: the order exists but is unpaid, so the success handling
+      // below is skipped — the return trip runs it instead.
       if (orderOk && result.redirectUrl) {
         window.location.href = result.redirectUrl
         return
@@ -832,8 +827,8 @@ export default function LandingPage() {
     )
   }
 
-  // Back from the gateway, webhook not in yet. Deliberately not phrased as
-  // success OR failure — the money question is genuinely still open.
+  // Back from the gateway, webhook not in yet — deliberately phrased as neither
+  // success nor failure.
   if (awaitingPayment) return (
     <div dir={m.dir} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24, textAlign: 'center', fontFamily: 'system-ui', background: '#f9fafb' }}>
       <div style={{ fontSize: 56 }}>⏳</div>
@@ -1067,8 +1062,7 @@ export default function LandingPage() {
     upsellConfig,
     bumpChecked,
     setBumpChecked,
-    // Selection lives here so `handleSubmit` reads it directly and every theme
-    // only has to render the picker.
+    // Themes only render the picker; the selection stays with `handleSubmit`.
     paymentOptions,
     paymentMethod,
     setPaymentMethod,

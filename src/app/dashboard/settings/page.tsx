@@ -1526,8 +1526,8 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Saves through its own API route, not handleSave — gateway secrets
-              must never travel the client-side stores/merchants save path. */}
+          {/* Saves through its own API route, not handleSave — secrets must not
+              travel the client-side stores/merchants save path. */}
           {activeTab === 'payments' && <PaymentGatewaysTab lang={lang} />}
 
           {activeTab === 'shipping' && (
@@ -1601,9 +1601,8 @@ export default function SettingsPage() {
 
         </div>
 
-        {/* Hidden on the Payments tab: this button writes `stores`/`merchants`,
-            and each gateway card has its own save. Showing both would imply
-            gateway changes are saved here — they are not. */}
+        {/* Hidden on the Payments tab, where each gateway card has its own save
+            — this button only writes `stores`/`merchants`. */}
         {activeTab !== 'payments' && (
           <div className="mt-8 pt-6 border-t border-[#2a2d35]">
             <button

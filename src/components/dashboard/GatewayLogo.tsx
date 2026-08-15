@@ -10,16 +10,14 @@ type Props = {
   emoji: string
 }
 
-/** Brand logo for a gateway.
- *
- *  Files live in `public/gateways/<id>.svg` and are NOT checked in: they are
- *  trademarked marks, so drop the official asset from each provider's brand kit
- *  in there rather than redrawing it. Until a file exists the component falls
- *  back to the definition's emoji, so the tab never renders a broken image.
- */
-/** Marks drawn in a dark ink on a transparent background, which would disappear
- *  against the dashboard's own dark tile. These get a light plate instead.
- *  Tabby is absent on purpose: it ships its own mint background. */
+/** Brand logo for a gateway, from `public/gateways/<id>.svg`. These are
+ *  trademarked marks: drop in the official asset from the provider's brand kit
+ *  rather than redrawing it. Falls back to the definition's emoji when the file
+ *  is missing. */
+
+/** Dark-ink marks on a transparent background, which would vanish against the
+ *  dashboard's dark tile — these get a light plate. Tabby is absent on purpose:
+ *  it ships its own mint background. */
 const NEEDS_LIGHT_PLATE: GatewayId[] = ['tamara']
 
 export default function GatewayLogo({ id, label, emoji }: Props) {
@@ -29,9 +27,8 @@ export default function GatewayLogo({ id, label, emoji }: Props) {
     ? 'bg-white border-[#2a2d35]'
     : 'bg-[#0f1117] border-[#2a2d35]'
 
-  // Providers ship wordmarks, not square icons, and their aspect ratios differ
-  // (Tabby is 2.5:1, Tamara 1.8:1). A fixed-height / flexible-width tile with
-  // object-contain keeps each one legible instead of squashing it into a square.
+  // Providers ship wordmarks, not square icons, with differing aspect ratios
+  // (Tabby 2.5:1, Tamara 1.8:1) — hence fixed height, flexible width.
   return (
     <div
       className={`h-10 w-24 border rounded-xl flex items-center justify-center overflow-hidden shrink-0 px-2 ${plate}`}

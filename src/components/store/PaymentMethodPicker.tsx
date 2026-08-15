@@ -12,14 +12,12 @@ export type PaymentOption = {
 
 type Props = {
   options: PaymentOption[]
-  /** null until the customer picks — selection is required, nothing is
-   *  pre-selected, so the choice is always deliberate. */
+  /** null until the customer picks — nothing is pre-selected. */
   value: string | null
   onChange: (id: string) => void
   dir: 'rtl' | 'ltr'
   lang: 'ar' | 'en'
-  /** Storefront theme colours. Each theme owns its own palette, so they are
-   *  passed in rather than imported — this component never picks a colour. */
+  /** Storefront theme colours, passed in because each theme owns its palette. */
   accent: string
   text: string
   subtext: string
@@ -65,9 +63,7 @@ export default function PaymentMethodPicker({
   cardBorder,
   font,
 }: Props) {
-  // One option means no decision to make — rendering a single radio the customer
-  // must still tick is friction for nothing. Auto-selecting it would violate
-  // "explicit choice", so the parent selects it and we stay out of the way.
+  // One option is no decision — the parent selects it, so nothing renders here.
   if (options.length < 2) return null
 
   return (

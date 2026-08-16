@@ -48,6 +48,23 @@ export type ResolvedConfig = {
   values: Record<string, unknown>
 }
 
+/** One line on the order. BNPL providers underwrite the individual transaction,
+ *  so they want to see what is being bought, not just a total. */
+export type LineItem = {
+  name: string
+  quantity: number
+  /** Price of ONE unit, in the order's currency. */
+  unitPrice: number
+  sku?: string
+}
+
+export type ShippingAddress = {
+  line1: string
+  city: string
+  /** ISO-3166 alpha-2. Required by both BNPL providers. */
+  country: string
+}
+
 export type CreateSessionInput = {
   /** Our `orders.id`. Every adapter MUST send this as the provider's
    *  merchant-reference field (PayTabs `cart_id`, Tabby `order.reference_id`,
@@ -58,6 +75,12 @@ export type CreateSessionInput = {
   currency: string
   description: string
   customer: { name: string; phone: string; email?: string }
+  /** Must reconcile: sum(unitPrice × quantity) + shippingAmount === amount.
+   *  Tamara and Tabby both re-add the breakdown and reject on a mismatch, so a
+   *  rounding slip here reads as a declined gateway, not a validation error. */
+  items: LineItem[]
+  shippingAmount: number
+  shipping: ShippingAddress
   /** Base URL the customer returns to. Providers wanting distinct
    *  success/cancel/failure URLs append `?o=success|cancel|failure`, a display
    *  hint only — the real status comes from `verifyStatus`. */
@@ -80,6 +103,24 @@ export type WebhookResult = {
   txnId?: string
 }
 
+export type FinalizeInput = {
+  /** Our `orders.id`. */
+  orderId: string
+  /** Provider reference stored at session creation, when there is one. */
+  checkoutId: string | null
+}
+
+/** Authoritative state, read back from the provider rather than believed from a
+ *  delivered payload. */
+export type RemoteOutcome = {
+  status: PaymentOutcome
+  /** The provider's own figure, cross-checked against the order total: a
+   *  payment authorised for less than we charged must never settle as paid.
+   *  Null when the provider returns no amount. */
+  amount: number | null
+  txnId?: string
+}
+
 /** Behaviour half of a gateway. Server-only: it handles decrypted secrets. */
 export type GatewayAdapter = {
   baseUrl(cfg: ResolvedConfig): string
@@ -94,6 +135,16 @@ export type GatewayAdapter = {
   verifyStatus(cfg: ResolvedConfig, checkoutId: string): Promise<PaymentOutcome>
   verifyWebhook(cfg: ResolvedConfig, rawBody: string, headers: Headers): boolean
   parseWebhook(rawBody: string): WebhookResult
+  /** Drives provider-side settlement and reports what the PROVIDER says, not
+   *  what the callback claimed. Present only where the callback cannot be
+   *  trusted alone: Tabby's webhook is unauthenticated, and Tamara's JWT signs
+   *  only itself so a valid token can be replayed with a substituted body.
+   *  PayTabs omits it — its HMAC covers the raw body, which is stronger.
+   *
+   *  Not read-only: BNPL settlement is multi-step, and authorise happens here.
+   *  Capture does not — merchants take that step in the provider's own portal,
+   *  so a `paid` outcome from here means committed, not money received. */
+  finalize?(cfg: ResolvedConfig, input: FinalizeInput): Promise<RemoteOutcome>
 }
 
 export type GatewayModule = {

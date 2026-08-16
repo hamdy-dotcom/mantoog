@@ -7,6 +7,7 @@ import { orderLimiter, checkLimit } from '@/lib/ratelimit'
 import { sendSnapPurchase } from '@/lib/snapchat/capi'
 import { getGateway, isGatewayId } from '@/lib/payment-gateways/registry'
 import { getEnabledGateways, resolveConfig, returnUrlFor, webhookUrlFor } from '@/lib/payment-gateways/store'
+import { placeholderEmail, resolveCountry } from '@/lib/payment-gateways/customer'
 import type { GatewayId } from '@/lib/payment-gateways/types'
 
 const supabase = createClient(
@@ -261,6 +262,54 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Fail here rather than send a payload the provider will refuse — the
+      // customer sees the same error either way, but we keep the reason.
+      const country = resolveCountry(orderFields.address_country, store.currency)
+      if (!country) {
+        console.error('[orders/create] no country for gateway order', {
+          gateway,
+          orderId,
+          currency: store.currency,
+        })
+        await supabase
+          .from('orders')
+          .update({
+            payment_status: 'failed',
+            payment_error: 'Could not resolve a country for this order',
+            status: 'cancelled',
+          })
+          .eq('id', orderId)
+
+        return NextResponse.json(
+          { success: false, error: 'Could not start payment' },
+          { status: 400 }
+        )
+      }
+
+      // Must mirror computedTotal above: both providers re-add the breakdown
+      // and reject a mismatch, so these two have to stay in step.
+      const phone = String(orderFields.customer_phone ?? '')
+      const items = [
+        {
+          name: String(product.title ?? 'Order'),
+          // An offer prices the whole bundle, so it is one line rather than
+          // `qty` lines — otherwise the total double-counts.
+          quantity: resolvedOffer ? 1 : qty,
+          unitPrice: basePrice / (resolvedOffer ? 1 : qty),
+          sku: String(product.id),
+        },
+      ]
+
+      if (bumpAmt > 0) {
+        // Display name only — the price comes from the DB, never from here.
+        items.push({
+          name: String(upsellItemToStore?.product_title ?? 'Add-on'),
+          quantity: 1,
+          unitPrice: bumpAmt,
+          sku: `${product.id}-bump`,
+        })
+      }
+
       try {
         const session = await mod.adapter.createSession(cfg, {
           orderId,
@@ -270,7 +319,16 @@ export async function POST(request: NextRequest) {
           description: String(product.title ?? 'Order'),
           customer: {
             name: String(orderFields.customer_name ?? ''),
-            phone: String(orderFields.customer_phone ?? ''),
+            phone,
+            // Synthesised — checkout has no email field. See customer.ts.
+            email: placeholderEmail(phone),
+          },
+          items,
+          shippingAmount: shipping,
+          shipping: {
+            line1: String(orderFields.address_line1 ?? orderFields.location_address ?? ''),
+            city: String(orderFields.address_governorate ?? ''),
+            country,
           },
           returnUrl: returnUrlFor(gateway, orderId),
           callbackUrl: webhookUrlFor(gateway),

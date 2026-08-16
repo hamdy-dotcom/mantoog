@@ -2,11 +2,11 @@ import type { GatewayDefinition } from '../../types'
 
 /** Tabby — BNPL (pay in 4).
  *
- *  `merchant_code` is required: it is sent as the X-Merchant-Code header, and
- *  webhooks are registered per merchant_code + secret key pair.
+ *  No webhook secret field, and none is possible: Tabby's webhook is entirely
+ *  unauthenticated, so the callback proves nothing about its origin. The
+ *  adapter's `finalize` re-reads the payment, and that read settles state.
  *
- *  No webhook field on purpose — Tabby issues no webhook secret. It is an auth
- *  header value we choose when registering the webhook through their API.
+ *  No region field either — Tabby serves every market from one host.
  */
 export const definition: GatewayDefinition = {
   id: 'tabby',
@@ -29,20 +29,6 @@ export const definition: GatewayDefinition = {
       helpAr: 'يُرسل كترويسة X-Merchant-Code مع كل طلب.',
     },
     {
-      key: 'region',
-      labelEn: 'Region',
-      labelAr: 'المنطقة',
-      secret: false,
-      required: true,
-      type: 'select',
-      options: [
-        { value: 'SA', label: 'Saudi Arabia' },
-        { value: 'AE', label: 'UAE / Kuwait / other' },
-      ],
-      helpEn: 'Selects the API host: api.tabby.sa for KSA, api.tabby.ai elsewhere.',
-      helpAr: 'يحدد عنوان الـ API: api.tabby.sa للسعودية، و api.tabby.ai لغيرها.',
-    },
-    {
       // Publishable: it renders the Tabby promo snippet in the browser.
       key: 'public_key',
       labelEn: 'Merchant Public Key',
@@ -50,9 +36,9 @@ export const definition: GatewayDefinition = {
       secret: false,
       required: true,
       type: 'text',
-      placeholder: 'pk_test_… / pk_…',
-      helpEn: 'Merchant dashboard → API keys. Used by the storefront widget.',
-      helpAr: 'لوحة التاجر ← مفاتيح API. يستخدمه المتجر لعرض الودجت.',
+      placeholder: 'pk_…',
+      helpEn: 'Merchant dashboard → API keys. Use the live key — test keys are rejected.',
+      helpAr: 'لوحة التاجر ← مفاتيح API. استخدم المفتاح المباشر — مفاتيح الاختبار مرفوضة.',
     },
     {
       key: 'secret_key',
@@ -61,9 +47,9 @@ export const definition: GatewayDefinition = {
       secret: true,
       required: true,
       type: 'text',
-      placeholder: 'sk_test_… / sk_…',
-      helpEn: 'Merchant dashboard → API keys. Server-side only — never exposed to the browser.',
-      helpAr: 'لوحة التاجر ← مفاتيح API. يُستخدم على الخادم فقط ولا يظهر في المتصفح.',
+      placeholder: 'sk_…',
+      helpEn: 'Merchant dashboard → API keys. Live key only, server-side — never exposed to the browser.',
+      helpAr: 'لوحة التاجر ← مفاتيح API. المفتاح المباشر فقط، ويُستخدم على الخادم ولا يظهر في المتصفح.',
     },
   ],
 }

@@ -103,9 +103,27 @@ export type SaveInput = {
 
 export type SaveResult = { ok: true; state: GatewayState } | { ok: false; error: string }
 
+/** Tabby has no separate test host — the key prefix is the entire distinction,
+ *  so a test key silently points live traffic at an account that never settles. */
+const TEST_KEY = /^(sk|pk)_test_/i
+
 export async function saveGateway(input: SaveInput): Promise<SaveResult> {
   const { storeId, merchantId, gateway, currency, enabled, values, clear = [] } = input
   const def = getDefinition(gateway)
+
+  // Unlike the guards below, this applies even when not going live: a test key
+  // is never usable here, so accepting it only fails later and further away.
+  const testField = def.fields.find(f => {
+    const submitted = values[f.key]
+    return typeof submitted === 'string' && TEST_KEY.test(submitted.trim())
+  })
+
+  if (testField) {
+    return {
+      ok: false,
+      error: `${testField.labelEn} looks like a test key. This platform runs against live APIs only.`,
+    }
+  }
 
   // Both guards apply only to going live. Saving credentials for a gateway you
   // can't yet use is harmless, and blocking it would strand anyone mid-setup.

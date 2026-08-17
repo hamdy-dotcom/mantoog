@@ -18,9 +18,11 @@ export const definition: GatewayDefinition = {
 
   fields: [
     {
+      // Storage key stays `api_token` — renaming it would orphan every
+      // credential already saved. Only the label changed.
       key: 'api_token',
-      labelEn: 'API Token',
-      labelAr: 'رمز الـ API',
+      labelEn: 'Merchant Key',
+      labelAr: 'مفتاح التاجر',
       secret: true,
       required: true,
       type: 'text',
@@ -28,14 +30,17 @@ export const definition: GatewayDefinition = {
       helpAr: 'بوابة التاجر ← الإعدادات ← API. يُرسل كرمز Bearer مع كل طلب.',
     },
     {
+      // Optional: it only authenticates the sender of a callback, and the
+      // payload is never trusted anyway — the adapter re-reads the order from
+      // Tamara before settling. Without it we simply lose that first check.
       key: 'notification_token',
       labelEn: 'Notification Token',
       labelAr: 'رمز الإشعارات',
       secret: true,
-      required: true,
+      required: false,
       type: 'text',
-      helpEn: 'Used to verify that incoming webhooks really came from Tamara.',
-      helpAr: 'يُستخدم للتحقق من أن الإشعارات الواردة صادرة فعلاً من Tamara.',
+      helpEn: 'Optional. Verifies that incoming notifications really came from Tamara — recommended, but payments settle without it.',
+      helpAr: 'اختياري. يتحقق من أن الإشعارات صادرة فعلاً من Tamara — يُنصح به، لكن الدفع يتم بدونه.',
     },
     {
       // Widget-only key, rendered in the customer's browser — kept in the clear.

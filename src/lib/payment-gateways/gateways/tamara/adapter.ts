@@ -47,8 +47,9 @@ function toOutcome(status: unknown): PaymentOutcome {
 }
 
 function apiToken(cfg: ResolvedConfig): string {
+  // Stored as `api_token`; shown to merchants as "Merchant Key".
   const token = cfg.values.api_token
-  if (typeof token !== 'string' || !token) throw new Error('Tamara api_token missing')
+  if (typeof token !== 'string' || !token) throw new Error('Tamara merchant key missing')
   return token
 }
 
@@ -184,11 +185,19 @@ export const adapter: GatewayAdapter = {
   },
 
   verifyWebhook(cfg, _rawBody, headers) {
+    const secret = cfg.values.notification_token
+
+    // Unconfigured — the token is optional, so there is nothing to check. Same
+    // posture as Tabby, which offers no webhook auth at all: `finalize` re-reads
+    // the order from Tamara, so a callback never settles anything on its own.
+    // Failing closed here would instead mean no Tamara order ever settles.
+    if (typeof secret !== 'string' || !secret) {
+      console.warn('[tamara] no notification_token set — callback sender unverified')
+      return true
+    }
+
     const token = bearerToken(headers)
     if (!token) return false
-
-    const secret = cfg.values.notification_token
-    if (typeof secret !== 'string' || !secret) return false
 
     // Signs the TOKEN, not the body — `_rawBody` is unused on purpose. Proving
     // the sender is not proving the payload, hence `finalize`.

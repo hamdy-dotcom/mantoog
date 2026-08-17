@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/tiktok/server'
 import { getSiteOrigin } from '@/lib/site-url'
 import { decryptValue, encryptValue, isEncrypted, tailOf } from './crypto'
+import { resolveTitle } from './display-title'
 import { getDefinition, getGateway, supportsCurrency } from './registry'
 import type {
   GatewayDefinition,
@@ -207,8 +208,14 @@ export async function saveGateway(input: SaveInput): Promise<SaveResult> {
  *  browser, so it carries no credentials and no row data. */
 export type OfferedGateway = {
   id: GatewayId
+  /** The provider's own brand name — used for the logo's alt text. */
   label: string
   emoji: string
+  /** What the customer actually reads, per language: the merchant's title when
+   *  they set one, otherwise `label`. Resolved here so the fallback lives in one
+   *  place and the storefront only has to pick a language. */
+  titleEn: string
+  titleAr: string
   /** Non-secret settings only — widget public keys and the like. */
   publicConfig: Values
 }
@@ -240,6 +247,8 @@ export async function getEnabledGateways(
         id: mod.definition.id,
         label: mod.definition.label,
         emoji: mod.definition.emoji,
+        titleEn: resolveTitle(mod.definition, publicConfig, 'en'),
+        titleAr: resolveTitle(mod.definition, publicConfig, 'ar'),
         publicConfig,
       }
     })

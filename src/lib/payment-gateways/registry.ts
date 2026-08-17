@@ -1,14 +1,18 @@
 import type { GatewayDefinition, GatewayId, GatewayModule } from './types'
+import { withTitleFields } from './display-title'
 import { paytabs } from './gateways/paytabs'
 import { tabby } from './gateways/tabby'
 import { tamara } from './gateways/tamara'
 
 /** Every supported gateway. Adding a fourth is one entry here plus its folder —
- *  no migration, no new routes, no new form code. */
+ *  no migration, no new routes, no new form code.
+ *
+ *  `withTitleFields` adds the merchant's customer-facing title to each one here
+ *  rather than in the definitions, so a new gateway cannot omit it. */
 export const GATEWAYS: Record<GatewayId, GatewayModule> = {
-  paytabs,
-  tabby,
-  tamara,
+  paytabs: withTitleFields(paytabs),
+  tabby: withTitleFields(tabby),
+  tamara: withTitleFields(tamara),
 }
 
 export const GATEWAY_IDS = Object.keys(GATEWAYS) as GatewayId[]

@@ -11,6 +11,15 @@ import HomeTheme from '@/components/landing/HomeTheme'
 import ThemedProductPage from '@/components/store/ThemedProductPage'
 import { getOrderAttributionPayload, initAttributionFromLanding } from '@/lib/analytics/attribution'
 
+/** One gateway as `/api/payments/methods` returns it. Declared here rather than
+ *  imported from the payment-gateways store, which is server-only. */
+type OfferedGatewayPayload = {
+  id: string
+  emoji: string
+  titleEn: string
+  titleAr: string
+}
+
 
 const MARKET: Record<string, any> = {
   EGP: {
@@ -316,9 +325,15 @@ export default function LandingPage() {
       }
       try {
         const res = await fetch(`/api/payments/methods?storeId=${encodeURIComponent(storeData.id)}`)
-        const data: { gateways?: PaymentOption[] } = await res.json()
+        const data: { gateways?: OfferedGatewayPayload[] } = await res.json()
         const gateways: PaymentOption[] = Array.isArray(data?.gateways)
-          ? data.gateways.map(g => ({ id: g.id, label: g.label, emoji: g.emoji }))
+          ? data.gateways.map(g => ({
+              id: g.id,
+              // The merchant's own wording when they set one; the API already
+              // fell back to the provider name, so this only picks a language.
+              label: market.dir === 'rtl' ? g.titleAr : g.titleEn,
+              emoji: g.emoji,
+            }))
           : []
         setPaymentOptions([cod, ...gateways])
         // Nothing else on offer means no decision to present. A real choice

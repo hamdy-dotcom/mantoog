@@ -18,7 +18,7 @@ type Props = {
 /** Dark-ink marks on a transparent background, which would vanish against the
  *  dashboard's dark tile — these get a light plate. Tabby is absent on purpose:
  *  it ships its own mint background. */
-const NEEDS_LIGHT_PLATE: GatewayId[] = ['tamara']
+const NEEDS_LIGHT_PLATE: GatewayId[] = ['tamara', 'paytabs']
 
 export default function GatewayLogo({ id, label, emoji }: Props) {
   const [failed, setFailed] = useState(false)
@@ -28,7 +28,8 @@ export default function GatewayLogo({ id, label, emoji }: Props) {
     : 'bg-[#0f1117] border-[#2a2d35]'
 
   // Providers ship wordmarks, not square icons, with differing aspect ratios
-  // (Tabby 2.5:1, Tamara 1.8:1) — hence fixed height, flexible width.
+  // (Tabby 2.5:1, Tamara 1.8:1, PayTabs 5.3:1) — hence fixed height, flexible
+  // width.
   return (
     <div
       className={`h-10 w-24 border rounded-xl flex items-center justify-center overflow-hidden shrink-0 px-2 ${plate}`}

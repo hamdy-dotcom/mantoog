@@ -1624,8 +1624,12 @@
         <input id="ordPhone" type="tel" dir="ltr" style="text-align:right" placeholder="رقم الجوال" autocomplete="tel">
         <input id="ordAddr" placeholder="العنوان تفصيلي (المدينة، الحي، الشارع)" autocomplete="street-address">
         <div id="ordMapWrap" style="display:none">
-          <button type="button" id="ordMapBtn" onclick="pickLocation()" style="width:100%;padding:11px;border:1.5px dashed #cbd5e0;border-radius:10px;background:#f7fafc;font-size:14px;cursor:pointer;color:#2d3748;font-family:inherit">📍 تحديد موقع التوصيل</button>
-          <div id="ordMapStatus" style="font-size:12px;color:#718096;margin-top:4px;text-align:center"></div>
+          <label style="font-size:14px;font-weight:700;color:#1a202c;display:block;margin-bottom:8px">📍 تحديد موقع التوصيل</label>
+          <button type="button" id="ordMapBtn" onclick="pickLocation()" style="width:100%;padding:13px 20px;border:none;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;box-shadow:0 8px 20px -6px rgba(59,130,246,.5)">📡 اضغط هنا لتحديد موقعك تلقائياً</button>
+          <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0 0 8px">أو حرك الدبوس على الخريطة يدوياً</p>
+          <div id="ordMapEl" style="height:220px;border-radius:12px;border:1.5px solid #e2e8f0;margin-bottom:8px;overflow:hidden;position:relative;z-index:1"></div>
+          <div id="ordMapStatus" style="font-size:12px;color:#718096;text-align:center"></div>
+          <div id="ordMapPicked" style="display:none;background:rgba(59,130,246,.06);border:1.5px solid #3b82f6;border-radius:10px;padding:10px 12px;margin-top:6px;font-size:13px;color:#374151"></div>
         </div>
         <div class="order-qty" id="ordQtyWrap"><span>الكمية</span><div class="qty-ctrl"><button type="button" onclick="ordQty(-1)">−</button><b id="ordQ">1</b><button type="button" onclick="ordQty(1)">+</button></div></div>
         <textarea id="ordNote" rows="2" placeholder="ملاحظات إضافية (اختياري)" style="display:none"></textarea>
@@ -1669,28 +1673,46 @@
     if(C.showNote&&$('ordNote')){$('ordNote').style.display='';if(C.noteRequired)$('ordNote').placeholder='ملاحظات (مطلوب)';}
     if(C.showMap){if($('ordMapWrap'))$('ordMapWrap').style.display='';if($('ordAddr'))$('ordAddr').style.display='none';}
     else if(C.showAddress===false){if($('ordAddr'))$('ordAddr').style.display='none';}
+    var COUNTRY_CENTERS={SAR:[24.7136,46.6753],AED:[25.2048,55.2708],EGP:[30.0444,31.2357],MAD:[33.9716,-6.8498],DZD:[36.7372,3.0865]};
+    var mapCenter=COUNTRY_CENTERS[C.currency]||[25.2048,55.2708];
+    var leafletMap=null,leafletMarker=null;
+    function setPickedLocation(lat,lng,addr){
+      pickedLocation={lat:lat,lng:lng,address:addr};
+      var pd=$('ordMapPicked');
+      if(pd){pd.style.display='';pd.innerHTML='<b style="color:#1e40af">✅ تم تحديد موقعك</b><br><span style="color:#6b7280;font-size:12px">'+addr+'</span>';}
+    }
+    function reverseGeocode(lat,lng){
+      fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+lat+'&lon='+lng+'&accept-language=ar&zoom=18',{headers:{'Accept':'application/json'}})
+        .then(function(r){return r.json();}).then(function(d){setPickedLocation(lat,lng,d.display_name||lat+', '+lng);})
+        .catch(function(){setPickedLocation(lat,lng,lat+', '+lng);});
+    }
+    function initLeafletMap(){
+      if(!window.L||!$('ordMapEl')||leafletMap)return;
+      var L=window.L;
+      leafletMap=L.map('ordMapEl',{zoomControl:true,scrollWheelZoom:false,tap:true,touchZoom:true}).setView(mapCenter,13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(leafletMap);
+      leafletMarker=L.marker(mapCenter,{draggable:true}).addTo(leafletMap);
+      leafletMarker.on('dragend',function(e){var p=e.target.getLatLng();reverseGeocode(p.lat,p.lng);});
+      leafletMap.on('click',function(e){leafletMarker.setLatLng([e.latlng.lat,e.latlng.lng]);leafletMap.flyTo([e.latlng.lat,e.latlng.lng],Math.max(leafletMap.getZoom(),16),{duration:0.6});reverseGeocode(e.latlng.lat,e.latlng.lng);});
+      setTimeout(function(){leafletMap.invalidateSize();},300);
+    }
+    if(C.showMap){
+      var lLink=document.createElement('link');lLink.rel='stylesheet';lLink.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';document.head.appendChild(lLink);
+      var lScript=document.createElement('script');lScript.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';lScript.onload=initLeafletMap;document.head.appendChild(lScript);
+    }
     window.pickLocation=function(){
       var btn=$('ordMapBtn'),st=$('ordMapStatus');
       if(!navigator.geolocation){if(st)st.textContent='الجهاز لا يدعم تحديد الموقع';return;}
-      if(btn)btn.textContent='⏳ جاري تحديد الموقع...';
+      if(btn){btn.textContent='⏳ جاري تحديد موقعك...';btn.disabled=true;}
       navigator.geolocation.getCurrentPosition(function(pos){
-        pickedLocation={lat:pos.coords.latitude,lng:pos.coords.longitude,address:''};
-        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+pos.coords.latitude+'&lon='+pos.coords.longitude+'&accept-language=ar')
-          .then(function(r){return r.json();}).then(function(d){
-            var addr=d.display_name||(''+pos.coords.latitude+', '+pos.coords.longitude);
-            pickedLocation.address=addr;
-            if(btn)btn.textContent='📍 '+addr;
-            if(st)st.textContent='';
-          }).catch(function(){
-            pickedLocation.address=pos.coords.latitude+', '+pos.coords.longitude;
-            if(btn)btn.textContent='📍 تم تحديد الموقع';
-            if(st)st.textContent='';
-          });
+        var lat=pos.coords.latitude,lng=pos.coords.longitude;
+        if(btn){btn.textContent='📡 اضغط هنا لتحديد موقعك تلقائياً';btn.disabled=false;}
+        if(leafletMarker){leafletMarker.setLatLng([lat,lng]);leafletMap.flyTo([lat,lng],17,{duration:0.8});}
+        reverseGeocode(lat,lng);
       },function(){
-        if(btn)btn.textContent='📍 تحديد موقع التوصيل';
-        if(st)st.textContent='تعذّر الوصول للموقع، أدخل العنوان يدوياً';
-        if($('ordAddr'))$('ordAddr').style.display='';
-      });
+        if(btn){btn.textContent='📡 اضغط هنا لتحديد موقعك تلقائياً';btn.disabled=false;}
+        if(st)st.textContent='تعذّر الوصول للموقع، حرك الدبوس على الخريطة يدوياً';
+      },{enableHighAccuracy:true,timeout:10000});
     };
     if(C.offers&&C.offers.length){
       var box=$('ordOffers'); box.innerHTML='<div class="offers-title">🎁 اختر العرض الأنسب لك</div>';

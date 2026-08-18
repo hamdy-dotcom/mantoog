@@ -1623,6 +1623,10 @@
         <input id="ordName" placeholder="الاسم الكامل" autocomplete="name">
         <input id="ordPhone" type="tel" dir="ltr" style="text-align:right" placeholder="رقم الجوال" autocomplete="tel">
         <input id="ordAddr" placeholder="العنوان تفصيلي (المدينة، الحي، الشارع)" autocomplete="street-address">
+        <div id="ordMapWrap" style="display:none">
+          <button type="button" id="ordMapBtn" onclick="pickLocation()" style="width:100%;padding:11px;border:1.5px dashed #cbd5e0;border-radius:10px;background:#f7fafc;font-size:14px;cursor:pointer;color:#2d3748;font-family:inherit">📍 تحديد موقع التوصيل</button>
+          <div id="ordMapStatus" style="font-size:12px;color:#718096;margin-top:4px;text-align:center"></div>
+        </div>
         <div class="order-qty" id="ordQtyWrap"><span>الكمية</span><div class="qty-ctrl"><button type="button" onclick="ordQty(-1)">−</button><b id="ordQ">1</b><button type="button" onclick="ordQty(1)">+</button></div></div>
         <textarea id="ordNote" rows="2" placeholder="ملاحظات إضافية (اختياري)" style="display:none"></textarea>
       </div>
@@ -1648,19 +1652,46 @@
   window.LANDING_CONFIG = window.LANDING_CONFIG || {
     productName: "مكنسة كولن الكهربائية رطبة وجافة — 20 لتر",
     price: 229, currency: "ريال", cutout: "hero-cutout.png",
-    showQuantity: true, showNote: true, shipping: 0,
+    showQuantity: true, showNote: true, noteRequired: false,
+    showAddress: true, showMap: false, locationRequired: false,
+    shipping: 0,
     offers: [ { id:"o2", quantity:2, price:399 }, { id:"o3", quantity:3, price:549 } ],
-    bump: null   // e.g. { title, image, salePrice, oldPrice }
+    bump: null
   };
   (function(){
-    var C=window.LANDING_CONFIG, qty=1, offer=null, bumpOn=false, $=function(id){return document.getElementById(id);};
+    var C=window.LANDING_CONFIG, qty=1, offer=null, bumpOn=false, pickedLocation=null, $=function(id){return document.getElementById(id);};
     function money(v){return v+' '+C.currency;}
     if($('ordProdName'))$('ordProdName').textContent=C.productName;
     if($('ordUnit'))$('ordUnit').textContent=C.price;
     if(C.cutout&&$('ordImg'))$('ordImg').src=C.cutout;
     document.querySelectorAll('.cur').forEach(function(e){e.textContent=C.currency;});
     if(!C.showQuantity&&$('ordQtyWrap'))$('ordQtyWrap').style.display='none';
-    if(C.showNote&&$('ordNote'))$('ordNote').style.display='';
+    if(C.showNote&&$('ordNote')){$('ordNote').style.display='';if(C.noteRequired)$('ordNote').placeholder='ملاحظات (مطلوب)';}
+    if(C.showMap){if($('ordMapWrap'))$('ordMapWrap').style.display='';if($('ordAddr'))$('ordAddr').style.display='none';}
+    else if(C.showAddress===false){if($('ordAddr'))$('ordAddr').style.display='none';}
+    window.pickLocation=function(){
+      var btn=$('ordMapBtn'),st=$('ordMapStatus');
+      if(!navigator.geolocation){if(st)st.textContent='الجهاز لا يدعم تحديد الموقع';return;}
+      if(btn)btn.textContent='⏳ جاري تحديد الموقع...';
+      navigator.geolocation.getCurrentPosition(function(pos){
+        pickedLocation={lat:pos.coords.latitude,lng:pos.coords.longitude,address:''};
+        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+pos.coords.latitude+'&lon='+pos.coords.longitude+'&accept-language=ar')
+          .then(function(r){return r.json();}).then(function(d){
+            var addr=d.display_name||(''+pos.coords.latitude+', '+pos.coords.longitude);
+            pickedLocation.address=addr;
+            if(btn)btn.textContent='📍 '+addr;
+            if(st)st.textContent='';
+          }).catch(function(){
+            pickedLocation.address=pos.coords.latitude+', '+pos.coords.longitude;
+            if(btn)btn.textContent='📍 تم تحديد الموقع';
+            if(st)st.textContent='';
+          });
+      },function(){
+        if(btn)btn.textContent='📍 تحديد موقع التوصيل';
+        if(st)st.textContent='تعذّر الوصول للموقع، أدخل العنوان يدوياً';
+        if($('ordAddr'))$('ordAddr').style.display='';
+      });
+    };
     if(C.offers&&C.offers.length){
       var box=$('ordOffers'); box.innerHTML='<div class="offers-title">🎁 اختر العرض الأنسب لك</div>';
       var opts=[{single:true,label:'قطعة واحدة',price:C.price,quantity:1}].concat(C.offers.map(function(o){return{id:o.id,quantity:o.quantity,price:o.price,label:o.quantity+' قطع'};}));
@@ -1680,9 +1711,14 @@
     window.closeOrder=function(){$('orderOverlay').classList.remove('open');document.body.style.overflow='';};
     window.submitOrder=function(){
       var n=$('ordName').value.trim(),p=$('ordPhone').value.replace(/\D/g,'');
-      if(!n){alert('رجاءً أدخل اسمك');return;} if(p.length<9){alert('رجاءً أدخل رقم جوال صحيح');return;}
-      var order={name:n,phone:$('ordPhone').value.trim(),address:$('ordAddr').value.trim(),note:($('ordNote')||{}).value||'',qty:offer?offer.quantity:qty,offerId:offer?offer.id:null,bump:bumpOn,total:total()};
-      if(typeof window.onLandingOrder==='function'){window.onLandingOrder(order);} else {console.log('ORDER',order);}  // Mantoog hooks its order API here
+      if(!n){alert('رجاءً أدخل اسمك');return;}
+      if(p.length<9){alert('رجاءً أدخل رقم جوال صحيح');return;}
+      if(C.showMap&&C.locationRequired&&!pickedLocation){alert('رجاءً حدد موقع التوصيل');return;}
+      if(!C.showMap&&C.showAddress!==false&&!$('ordAddr').value.trim()){alert('رجاءً أدخل العنوان');return;}
+      if(C.showNote&&C.noteRequired&&$('ordNote')&&!$('ordNote').value.trim()){alert('رجاءً أدخل الملاحظات');return;}
+      var addr=C.showMap?(pickedLocation?pickedLocation.address:''):($('ordAddr')?$('ordAddr').value.trim():'');
+      var order={name:n,phone:$('ordPhone').value.trim(),address:addr,note:($('ordNote')||{}).value||'',qty:offer?offer.quantity:qty,offerId:offer?offer.id:null,bump:bumpOn,total:total(),location:pickedLocation||null};
+      if(typeof window.onLandingOrder==='function'){window.onLandingOrder(order);} else {console.log('ORDER',order);}
       $('orderForm').style.display='none';$('orderDone').style.display='';
     };
     document.querySelectorAll('.btn-primary, .price-cta, .sticky-cta a, a[href="#price"], a[href="#order"]').forEach(function(el){el.addEventListener('click',function(e){e.preventDefault();window.openOrder();});});

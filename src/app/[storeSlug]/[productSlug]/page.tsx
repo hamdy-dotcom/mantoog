@@ -867,6 +867,10 @@ export default function LandingPage() {
       currency: store?.currency || 'ريال',
       showQuantity: !!store?.show_quantity,
       showNote: !!store?.show_note,
+      noteRequired: !!store?.note_required,
+      showAddress: store?.address_mode !== 'map',
+      showMap: store?.address_mode === 'map' || (!store?.address_mode && !!store?.enable_location),
+      locationRequired: !!store?.location_required,
       shipping: shippingCost || 0,
       offers: (activeOffers || []).map((o: any) => ({ id: o.id, quantity: o.quantity, price: o.price })),
       bump: null,
@@ -882,7 +886,10 @@ export default function LandingPage() {
         onLoad={(e) => {
           try {
             const w = (e.currentTarget as HTMLIFrameElement).contentWindow as any
-            if (w) w.onLandingOrder = (order: any) => handleSubmit({ name: order.name, phone: order.phone, address: order.address, note: order.note, qty: order.qty })
+            if (w) w.onLandingOrder = (order: any) => {
+              if (order.location) setPickedLocation(order.location)
+              handleSubmit({ name: order.name, phone: order.phone, address: order.address, note: order.note, qty: order.qty })
+            }
           } catch { /* cross-origin never happens for srcDoc */ }
         }}
       />

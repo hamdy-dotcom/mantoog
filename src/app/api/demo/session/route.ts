@@ -55,5 +55,9 @@ export async function POST() {
     refresh_token: session.refresh_token,
   })
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({
+    ok: true,
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  })
 }

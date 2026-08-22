@@ -125,9 +125,10 @@ export default function SeedancePage() {
         const res = await fetch('/api/demo/session', { method: 'POST' })
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'session failed')
-        // Cookie is set server-side; refresh client auth state
-        await s.auth.refreshSession()
-        setAuthed(true)
+        // Set session (writes to cookies via @supabase/ssr), then reload so server picks it up
+        await s.auth.setSession({ access_token: json.access_token, refresh_token: json.refresh_token })
+        window.location.reload()
+        return
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
         alert('Demo login failed: ' + msg)

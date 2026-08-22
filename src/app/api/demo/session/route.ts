@@ -1,21 +1,21 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/tiktok/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 const DEMO_EMAIL = 'demo@mantoog.com'
 
 export async function POST() {
   const tempPassword = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + 'A1!'
 
-  // Try to find the user first
-  const { data: list } = await supabaseAdmin.auth.admin.listUsers()
-  const existing = list?.users?.find(u => u.email === DEMO_EMAIL)
+  // Find demo user
+  const { data: list } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+  const existing = list?.users?.find((u: { email?: string }) => u.email === DEMO_EMAIL)
 
   if (existing) {
-    // Update password on existing user
     const { error } = await supabaseAdmin.auth.admin.updateUserById(existing.id, { password: tempPassword })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   } else {
-    // Create the user
     const { error } = await supabaseAdmin.auth.admin.createUser({
       email: DEMO_EMAIL,
       password: tempPassword,
@@ -24,7 +24,7 @@ export async function POST() {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Sign in via GoTrue REST
+  // Sign in via GoTrue REST to get session tokens
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
@@ -39,8 +39,21 @@ export async function POST() {
     return NextResponse.json({ error: session.error_description || 'Sign-in failed' }, { status: 500 })
   }
 
-  return NextResponse.json({
+  // Write the session into SSR cookies so server-side getUser() works
+  const cookieStore = await cookies()
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll: () => cookieStore.getAll(),
+      setAll: (cookiesToSet) => {
+        cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+      },
+    },
+  })
+
+  await supabase.auth.setSession({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
   })
+
+  return NextResponse.json({ ok: true })
 }

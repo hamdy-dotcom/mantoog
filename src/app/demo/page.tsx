@@ -125,8 +125,8 @@ export default function SeedancePage() {
         const res = await fetch('/api/demo/session', { method: 'POST' })
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'session failed')
-        const { access_token, refresh_token } = json
-        await s.auth.setSession({ access_token, refresh_token })
+        // Cookie is set server-side; refresh client auth state
+        await s.auth.refreshSession()
         setAuthed(true)
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-const ADMIN_EMAILS = ['admin@mantoog.com']
+const ADMIN_EMAILS = ['admin@mantoog.com', 'demo@mantoog.com']
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('')

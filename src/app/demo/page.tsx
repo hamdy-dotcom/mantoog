@@ -123,11 +123,14 @@ export default function SeedancePage() {
       // Auto-sign in as the demo account
       try {
         const res = await fetch('/api/demo/session', { method: 'POST' })
-        if (!res.ok) throw new Error('session failed')
-        const { access_token, refresh_token } = await res.json()
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || 'session failed')
+        const { access_token, refresh_token } = json
         await s.auth.setSession({ access_token, refresh_token })
         setAuthed(true)
-      } catch {
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        alert('Demo login failed: ' + msg)
         router.push('/admin/login')
       }
     })

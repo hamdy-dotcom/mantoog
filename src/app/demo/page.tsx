@@ -124,8 +124,8 @@ export default function SeedancePage() {
       try {
         const res = await fetch('/api/demo/session', { method: 'POST' })
         if (!res.ok) throw new Error('session failed')
-        const { access_token, refresh_token } = await res.json()
-        await s.auth.setSession({ access_token, refresh_token })
+        const { token_hash } = await res.json()
+        await s.auth.verifyOtp({ token_hash, type: 'magiclink' })
         setAuthed(true)
       } catch {
         router.push('/admin/login')

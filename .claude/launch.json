@@ -4,9 +4,90 @@
     {
       "name": "mantoog-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000,
       "autoPort": false
+    },
+    {
+      "name": "3agall-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        ".preview-server.mjs"
+      ],
+      "port": 4599,
+      "autoPort": false
+    },
+    {
+      "name": "landing-demo",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "landing-demo/serve.mjs"
+      ],
+      "port": 4610,
+      "autoPort": false
+    },
+    {
+      "name": "malzamty-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/mac/Documents/molakhsly",
+        "--",
+        "--port",
+        "4620"
+      ],
+      "port": 4620,
+      "autoPort": false
+    },
+    {
+      "name": "nml-crm-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/mac/Documents/NML Internal CRM",
+        "--",
+        "--port",
+        "4630"
+      ],
+      "port": 4630,
+      "autoPort": false,
+      "url": "http://localhost:4630"
+    },
+    {
+      "name": "nml-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/mac/Documents/NML-Shelf-Intelligence/frontend"
+      ],
+      "port": 5177,
+      "autoPort": false,
+      "url": "http://localhost:5177"
+    },
+    {
+      "name": "sllr-warehouse-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/mac/Documents/sllr-warehouse",
+        "--",
+        "--port",
+        "4640"
+      ],
+      "port": 4640,
+      "autoPort": false,
+      "url": "http://localhost:4640"
     }
   ]
 }

@@ -1,26 +1,13 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/tiktok/server'
 
-const DEMO_EMAIL = 'demo@mantoog.com'
-const DEMO_PASSWORD = process.env.DEMO_ACCOUNT_PASSWORD!
+const DEMO_USER_ID = '100fe080-665b-4537-aadc-2740ce7199b6'
 
 export async function POST() {
-  if (!DEMO_PASSWORD) {
-    return NextResponse.json({ error: 'Demo not configured' }, { status: 503 })
-  }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: DEMO_EMAIL,
-    password: DEMO_PASSWORD,
-  })
+  const { data, error } = await supabaseAdmin.auth.admin.createSession({ user_id: DEMO_USER_ID })
 
   if (error || !data.session) {
-    return NextResponse.json({ error: error?.message || 'Auth failed' }, { status: 401 })
+    return NextResponse.json({ error: error?.message || 'Failed to create session' }, { status: 500 })
   }
 
   return NextResponse.json({

@@ -109,7 +109,7 @@ export default function StoreSetupPage() {
     })
 
     if (error) {
-      setError(ar ? 'حدث خطأ. حاول مرة أخرى.' : 'Something went wrong. Please try again.')
+      setError(error.message)
       setLoading(false)
       return
     }

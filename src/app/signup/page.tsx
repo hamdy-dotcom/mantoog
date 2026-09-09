@@ -124,7 +124,7 @@ export default function SignupPage() {
     }
 
     const fullPhone = selectedCode + phoneNumber
-    const callbackUrl = `${window.location.origin}/auth/callback?next=/dashboard/setup`
+    const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.mantoog.com'}/auth/callback?next=/dashboard/setup`
     const { data, error } = await supabase.auth.signUp({
       email, password,
       options: {
@@ -154,7 +154,7 @@ export default function SignupPage() {
 
   const handleResend = async () => {
     setResending(true); setError('')
-    const callbackUrl = `${window.location.origin}/auth/callback?next=/dashboard/setup`
+    const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.mantoog.com'}/auth/callback?next=/dashboard/setup`
     await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: callbackUrl } })
     setResending(false)
   }

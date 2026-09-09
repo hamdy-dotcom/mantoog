@@ -15,7 +15,7 @@ Rules:
 Return ONLY the Arabic title, nothing else.`
 
 export async function POST(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
 
   const { text } = await req.json().catch(() => ({}))

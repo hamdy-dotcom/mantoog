@@ -71,7 +71,7 @@ const ANGLES = [
 ]
 
 export async function POST(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
 
   const { title, description, imageUrls = [] } = await req.json().catch(() => ({}))

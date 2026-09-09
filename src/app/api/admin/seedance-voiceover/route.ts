@@ -49,7 +49,7 @@ function probeDuration(file: string): Promise<number | null> {
 // ElevenLabs TTS (Saudi VO) -> mix onto the Seedance video with ffmpeg:
 // keep the full video length, duck the original audio to 40%, delay the VO ~1.5s.
 export async function POST(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
 
   const { videoUrl, voiceover, voiceId, gender } = await req.json().catch(() => ({}))

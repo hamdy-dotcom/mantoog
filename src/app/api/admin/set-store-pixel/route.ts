@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/lib/tiktok/server'
 
 // Saves the merchant's TikTok Pixel id to their store (Settings → Ads uses the same field).
 export async function POST(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
 
   const { pixelId } = await req.json().catch(() => ({}))

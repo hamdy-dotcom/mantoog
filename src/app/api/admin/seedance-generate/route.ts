@@ -24,7 +24,7 @@ async function proxyToSupabase(imageUrl: string): Promise<string | null> {
 // One creative: proxy the angle image, create a Seedance 2.0 task (seedance2.ai, 15s,
 // ambient audio, no voiceover). Client polls via /api/admin/seedance-status.
 export async function POST(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
 
   const { imageUrls, mediaUrls, prompt, productId } = await req.json().catch(() => ({}))

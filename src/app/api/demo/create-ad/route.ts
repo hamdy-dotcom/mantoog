@@ -6,7 +6,7 @@ export const maxDuration = 120
 
 // Demo-only: launches a real TikTok ad then immediately pauses the campaign.
 export async function POST(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
 
   const body = await req.json().catch(() => ({}))

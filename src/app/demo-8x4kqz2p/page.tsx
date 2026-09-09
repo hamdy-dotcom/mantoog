@@ -64,6 +64,16 @@ const STEPS = [
 export default function SeedancePage() {
   const router = useRouter()
   const [authed, setAuthed] = useState(false)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
+
+  // Wrapper that injects Bearer token so server-side assertAdmin works
+  const authFetch = useCallback((url: string, init: RequestInit = {}) => {
+    const token = accessToken
+    if (!token) return fetch(url, init)
+    const headers = new Headers(init.headers)
+    headers.set('authorization', `Bearer ${token}`)
+    return fetch(url, { ...init, headers })
+  }, [accessToken])
   const [url, setUrl] = useState('')
   const [step, setStep] = useState<Step>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -125,10 +135,9 @@ export default function SeedancePage() {
         const res = await fetch('/api/demo/session', { method: 'POST' })
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'session failed')
-        // Set session (writes to cookies via @supabase/ssr), then reload so server picks it up
         await s.auth.setSession({ access_token: json.access_token, refresh_token: json.refresh_token })
-        window.location.reload()
-        return
+        setAccessToken(json.access_token)
+        setAuthed(true)
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
         alert('Demo login failed: ' + msg)
@@ -140,7 +149,7 @@ export default function SeedancePage() {
   // Load the connected ad account (currency for the budget field, id for Ads Manager links).
   useEffect(() => {
     if (!authed) return
-    fetch('/api/admin/tiktok-ad-account')
+    authFetch('/api/admin/tiktok-ad-account')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.advertiser_id) setAdAccount(d) })
       .catch(() => {})
@@ -196,7 +205,7 @@ export default function SeedancePage() {
       setDiscountInput('')
       setStep('pricing')
       // Translate the scraped title to Arabic for display (non-blocking).
-      fetch('/api/admin/translate-title', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: title }) })
+      authFetch('/api/admin/translate-title', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: title }) })
         .then(r => r.json()).then(d => { if (d?.titleAr) setProduct(prev => prev ? { ...prev, titleAr: d.titleAr } : prev) })
         .catch(() => {})
     } catch (e: any) { setError(e.message); setStep('idle') }
@@ -208,7 +217,7 @@ export default function SeedancePage() {
     if (!priceInput || !(parseFloat(priceInput) > 0)) { setError('أدخل سعرًا صحيحًا'); return }
     setStep('creating_page'); setError(null)
     try {
-      const cp = await fetch('/api/admin/ugc-create-product', {
+      const cp = await authFetch('/api/admin/ugc-create-product', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: product.title, description: product.description, images: product.images, sourceUrl: url.trim(),
@@ -290,7 +299,7 @@ export default function SeedancePage() {
       }
 
       // Proxy all product images ONCE — reused for every creative so generation is fast.
-      const px = await fetch('/api/admin/proxy-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrls: images.slice(0, 9) }) })
+      const px = await authFetch('/api/admin/proxy-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrls: images.slice(0, 9) }) })
       const pxData = await safeJson(px, 'فشل تجهيز الصور')
       if (!px.ok) throw new Error(pxData.error || 'تعذّر تجهيز الصور')
       setProxiedImages(pxData.mediaUrls || [])
@@ -305,7 +314,7 @@ export default function SeedancePage() {
     setStep('planning'); setError(null)
     try {
       const planImages = (proxiedImages.length ? proxiedImages : images).slice(0, 3)
-      const pl = await fetch('/api/admin/seedance-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: product.title, description: product.description, imageUrls: planImages }) })
+      const pl = await authFetch('/api/admin/seedance-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: product.title, description: product.description, imageUrls: planImages }) })
       const plan = await safeJson(pl, 'فشل كتابة الزوايا')
       if (!pl.ok) throw new Error(plan.error || 'تعذّرت كتابة الزوايا')
       const list: Creative[] = (plan.creatives as any[]).slice(0, 10).map((c, i) => ({
@@ -324,7 +333,7 @@ export default function SeedancePage() {
     if (!c || c.status === 'generating') return
     update(i, { status: 'generating', error: null })
     try {
-      const call = () => fetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaUrls: proxiedImages, imageUrls: images.slice(0, 9), prompt: c.seedancePrompt, productId: productPage?.productId || null }) })
+      const call = () => authFetch('/api/admin/seedance-generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaUrls: proxiedImages, imageUrls: images.slice(0, 9), prompt: c.seedancePrompt, productId: productPage?.productId || null }) })
       let g = await call()
       let txt = await g.text()
       let gd: any = {}
@@ -366,7 +375,7 @@ export default function SeedancePage() {
     setAgentsState('saving'); setAgentsErr(null)
     try {
       const budgetNum = parseFloat(dailyBudget) || 0
-      const r = await fetch('/api/admin/agent-deployments', {
+      const r = await authFetch('/api/admin/agent-deployments', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           campaignId: launchResult.campaign_id,
@@ -397,7 +406,7 @@ export default function SeedancePage() {
     try {
       const fd = new FormData()
       Array.from(files).slice(0, 9).forEach(f => fd.append('files', f))
-      const r = await fetch('/api/admin/upload-images', { method: 'POST', body: fd })
+      const r = await authFetch('/api/admin/upload-images', { method: 'POST', body: fd })
       const d = await safeJson(r, 'فشل رفع الصور')
       if (!r.ok) throw new Error(d.error || 'تعذّر رفع الصور')
       setProxiedImages(d.mediaUrls || [])
@@ -413,7 +422,7 @@ export default function SeedancePage() {
     if (!c.videoUrl) return
     update(i, { status: 'vo', error: null })
     try {
-      const res = await fetch('/api/admin/seedance-voiceover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: c.videoUrl, voiceover: c.voiceover, gender: c.gender }) })
+      const res = await authFetch('/api/admin/seedance-voiceover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: c.videoUrl, voiceover: c.voiceover, gender: c.gender }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'فشلت إضافة الصوت')
       update(i, { status: 'final', mergedUrl: data.mergedUrl })
@@ -425,7 +434,7 @@ export default function SeedancePage() {
     if (!productPage || !launchVideo) return
     setStep('launching'); setError(null)
     try {
-      const res = await fetch('/api/demo/create-ad', {
+      const res = await authFetch('/api/demo/create-ad', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId: productPage.productId,
@@ -456,7 +465,7 @@ export default function SeedancePage() {
     if (!id) { setPixelError('أدخل معرّف TikTok Pixel'); return }
     setSavingPixel(true); setPixelError(null)
     try {
-      const res = await fetch('/api/admin/set-store-pixel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pixelId: id }) })
+      const res = await authFetch('/api/admin/set-store-pixel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pixelId: id }) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'تعذّر حفظ معرّف Pixel')
       setSavingPixel(false); setShowPixelModal(false)

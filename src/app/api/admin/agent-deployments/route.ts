@@ -16,7 +16,7 @@ async function storeForUser() {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
   const ctx = await storeForUser()
   if (!ctx) return NextResponse.json({ error: 'no_store' }, { status: 404 })
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
 // Deploy agents on a campaign. Guardian starts in 48h observe mode.
 export async function POST(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
   const ctx = await storeForUser()
   if (!ctx) return NextResponse.json({ error: 'no_store' }, { status: 404 })
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
   const ctx = await storeForUser()
   if (!ctx) return NextResponse.json({ error: 'no_store' }, { status: 404 })

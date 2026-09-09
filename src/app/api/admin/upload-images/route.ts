@@ -35,7 +35,7 @@ async function toJpeg(input: Buffer, dir: string, idx: number): Promise<Buffer |
 // Used when a merchant supplies product-only photos (e.g. Seedance rejected the
 // scraped photos because they contain a real person).
 export async function POST(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
 
   const form = await req.formData().catch(() => null)

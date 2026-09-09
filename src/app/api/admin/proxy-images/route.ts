@@ -48,7 +48,7 @@ async function proxyOne(imageUrl: string, dir: string, idx: number): Promise<str
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
 
   const { imageUrls } = await req.json().catch(() => ({}))

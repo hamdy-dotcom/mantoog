@@ -9,7 +9,7 @@ export const maxDuration = 30
 // Creates the ad's destination: a product + published landing page from the
 // scraped URL data, and a smart Saudi-Arabic ad caption (<=100 chars for TikTok).
 export async function POST(req: NextRequest) {
-  const auth = await assertAdmin()
+  const auth = await assertAdmin(req)
   if (!auth.ok) return auth.response
 
   const { title, description, price, compareAtPrice, images = [], sourceUrl } = await req.json().catch(() => ({}))

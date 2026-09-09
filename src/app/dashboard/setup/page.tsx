@@ -90,6 +90,12 @@ export default function StoreSetupPage() {
       }
     }
 
+    // Ensure merchant record exists (may be missing if signup trigger failed)
+    await supabase.from('merchants').upsert(
+      { id: user.id, email: user.email ?? '' },
+      { onConflict: 'id' }
+    )
+
     const { error } = await supabase.from('stores').insert({
       merchant_id: user.id,
       name: storeName,

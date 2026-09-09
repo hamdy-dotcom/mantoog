@@ -9,6 +9,7 @@ export type PublicStore = {
   name: string
   slug: string
   logo_url: string | null
+  primary_color: string | null
   currency: string | null
   language: string | null
   has_paid: boolean
@@ -32,7 +33,14 @@ export function stripHtml(text: string): string {
   return text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-function storeIcons(logoUrl: string | null | undefined): Metadata['icons'] {
+function colorFavicon(color: string, letter: string): string {
+  const c = color.startsWith('#') ? color : '#3b82f6'
+  const l = (letter || 'M').toUpperCase().charAt(0)
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="${c}"/><text x="16" y="22" text-anchor="middle" font-size="18" font-family="sans-serif" fill="white" font-weight="bold">${l}</text></svg>`
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
+}
+
+function storeIcons(logoUrl: string | null | undefined, primaryColor?: string | null, storeName?: string | null): Metadata['icons'] {
   if (logoUrl) {
     return {
       icon: [{ url: logoUrl }],
@@ -40,10 +48,11 @@ function storeIcons(logoUrl: string | null | undefined): Metadata['icons'] {
       apple: logoUrl,
     }
   }
+  const favicon = colorFavicon(primaryColor || '#3b82f6', storeName || 'M')
   return {
-    icon: [{ url: MANTOOG_ICON, type: 'image/svg+xml', sizes: 'any' }],
-    shortcut: MANTOOG_ICON,
-    apple: MANTOOG_ICON,
+    icon: [{ url: favicon, type: 'image/svg+xml' }],
+    shortcut: favicon,
+    apple: favicon,
   }
 }
 
@@ -54,7 +63,7 @@ function productImages(product: PublicProduct): string[] {
 export async function fetchStoreBySlug(slug: string): Promise<PublicStore | null> {
   const { data } = await supabaseAdmin
     .from('stores')
-    .select('id, merchant_id, name, slug, logo_url, currency, language, has_paid, google_site_verification')
+    .select('id, merchant_id, name, slug, logo_url, primary_color, currency, language, has_paid, google_site_verification')
     .eq('slug', slug)
     .single()
   if (!data) return null
@@ -87,7 +96,7 @@ export function buildStoreMetadata(store: PublicStore): Metadata {
   return {
     title: name,
     description,
-    icons: storeIcons(store.logo_url),
+    icons: storeIcons(store.logo_url, store.primary_color, store.name),
     ...(store.google_site_verification ? { verification: { google: store.google_site_verification } } : {}),
     openGraph: {
       title: name,
@@ -121,7 +130,7 @@ export function buildProductMetadata(
   return {
     title,
     description,
-    icons: storeIcons(store.logo_url),
+    icons: storeIcons(store.logo_url, store.primary_color, store.name),
     openGraph: {
       title,
       description,

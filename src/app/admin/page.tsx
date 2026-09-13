@@ -396,7 +396,9 @@ export default function AdminPage() {
     const list = merchants.filter(m => {
       if (!merchantSearch) return true
       const q = merchantSearch.toLowerCase()
-      return m.email?.toLowerCase().includes(q) || m.stores?.[0]?.name?.toLowerCase().includes(q)
+      return m.email?.toLowerCase().includes(q) ||
+             m.stores?.[0]?.name?.toLowerCase().includes(q) ||
+             m.phone?.includes(merchantSearch.trim())
     })
     return [...list].sort((a, b) => {
       const as = analytics.merchantOrderStats
@@ -824,7 +826,7 @@ export default function AdminPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <div className="relative">
                   <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#4a4e60]" />
-                  <input value={merchantSearch} onChange={e => setMerchantSearch(e.target.value)} placeholder="Search by email or store..."
+                  <input value={merchantSearch} onChange={e => setMerchantSearch(e.target.value)} placeholder="Email, store, or phone..."
                     className="bg-[#1a1d24] border border-[#2a2d35] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-[#4a4e60] focus:outline-none focus:border-[#3b82f6] w-64" />
                 </div>
                 <div className="flex items-center gap-1.5 ml-auto text-xs text-[#4a4e60]">

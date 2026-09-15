@@ -171,7 +171,19 @@ export default function AdminPage() {
       supabase.from('stores').select('*').order('created_at', { ascending: false }),
       supabase.from('merchants').select('*').order('created_at', { ascending: false }),
       supabase.from('order_credits').select('id, merchant_id, credits_remaining, credits_total, credits_used, bundle_type, price_paid, created_at').order('created_at', { ascending: false }),
-      supabase.from('orders').select('*, stores(name, currency, merchant_id, slug), products(title)').gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()).order('created_at', { ascending: false }).limit(5000).then(r => r.data ?? []),
+      (async () => {
+        const since = new Date(Date.now() - 7 * 86400000).toISOString()
+        const base = supabase.from('orders').select('*, stores(name, currency, merchant_id, slug), products(title)').gte('created_at', since).order('created_at', { ascending: false })
+        const { count } = await supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', since)
+        if (!count) return []
+        const PAGE = 1000
+        const pages = await Promise.all(
+          Array.from({ length: Math.ceil(count / PAGE) }, (_, i) =>
+            base.range(i * PAGE, (i + 1) * PAGE - 1).then(({ data }: any) => data ?? [])
+          )
+        )
+        return pages.flat()
+      })(),
       fetch('/api/admin/products').then(r => r.json()).catch(() => ({ data: [] })),
       supabase.from('landing_pages').select('product_id, visits'),
       fetch('/api/admin/payment-requests'),

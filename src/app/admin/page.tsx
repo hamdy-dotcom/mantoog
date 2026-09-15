@@ -157,37 +157,46 @@ export default function AdminPage() {
       return rows
     }
 
-    const [{ data: storesData }, { data: merchantsData }, { data: creditsData }] = await Promise.all([
+    const [
+      { data: storesData },
+      { data: merchantsData },
+      { data: creditsData },
+      ordersData,
+      productsJson,
+      { data: allLandingPages },
+      prRes,
+      wRes,
+      abRes,
+    ] = await Promise.all([
       supabase.from('stores').select('*').order('created_at', { ascending: false }),
       supabase.from('merchants').select('*').order('created_at', { ascending: false }),
       supabase.from('order_credits').select('id, merchant_id, credits_remaining, credits_total, credits_used, bundle_type, price_paid, created_at').order('created_at', { ascending: false }),
-    ])
-
-    const mMap = (merchantsData || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc }, {})
-    setMerchantsMap(mMap)
-    setAllCreditRows(creditsData || [])
-
-    const [ordersData, productsJson, { data: allLandingPages }] = await Promise.all([
       fetchAll(supabase.from('orders').select('*, stores(name, currency, merchant_id, slug), products(title)').order('created_at', { ascending: false })),
       fetch('/api/admin/products').then(r => r.json()).catch(() => ({ data: [] })),
       supabase.from('landing_pages').select('product_id, visits'),
+      fetch('/api/admin/payment-requests'),
+      fetch('/api/admin/wallets'),
+      fetch('/api/admin/abandoned-checkouts'),
     ])
-    const productsData = productsJson.data ?? []
 
+    const productsData = productsJson.data ?? []
+    const mMap = (merchantsData || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc }, {})
+
+    setMerchantsMap(mMap)
+    setAllCreditRows(creditsData || [])
     setAllProducts(productsData.map((p: any) => ({ ...p, landing_pages: allLandingPages?.filter((lp: any) => lp.product_id === p.id) || [] })))
     setOrders(ordersData)
 
     const allStores   = storesData   || []
     const allCredits  = creditsData  || []
-    const allMerchants = (merchantsData || []).filter(m => !ADMIN_EMAILS.includes(m.email?.toLowerCase() || ''))
-    const enriched = allMerchants.map(m => ({
+    const allMerchants = (merchantsData || []).filter((m: any) => !ADMIN_EMAILS.includes(m.email?.toLowerCase() || ''))
+    const enriched = allMerchants.map((m: any) => ({
       ...m,
-      stores: [allStores.find(s => s.merchant_id === m.id)].filter(Boolean),
-      order_credits: [allCredits.find(c => c.merchant_id === m.id)].filter(Boolean),
+      stores: [allStores.find((s: any) => s.merchant_id === m.id)].filter(Boolean),
+      order_credits: [allCredits.find((c: any) => c.merchant_id === m.id)].filter(Boolean),
     }))
     setMerchants(enriched)
 
-    const [prRes, wRes, abRes] = await Promise.all([fetch('/api/admin/payment-requests'), fetch('/api/admin/wallets'), fetch('/api/admin/abandoned-checkouts')])
     if (prRes.ok) setPaymentRequests((await prRes.json()).requests ?? [])
     if (wRes.ok)  setAdminWallets((await wRes.json()).wallets ?? [])
     if (abRes.ok) setAbandonedCheckouts((await abRes.json()).data ?? [])

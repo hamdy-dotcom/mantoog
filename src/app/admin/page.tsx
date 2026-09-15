@@ -62,8 +62,6 @@ function Delta({ now, prev, label = 'vs prev' }: { now: number; prev: number; la
 export default function AdminPage() {
   /* ── core state ── */
   const [loading, setLoading]           = useState(true)
-  const [dataLoaded, setDataLoaded]     = useState(false)
-  const [dataLoading, setDataLoading]   = useState(false)
   const [authorized, setAuthorized]     = useState(false)
   const [activeTab, setActiveTab]       = useState('overview')
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
@@ -142,6 +140,7 @@ export default function AdminPage() {
       if (!user) { router.push('/login'); return }
       if (!ADMIN_EMAILS.includes(user.email || '')) { router.push('/dashboard'); return }
       setAuthorized(true)
+      await loadData()
       setLoading(false)
     }
     init()
@@ -201,13 +200,6 @@ export default function AdminPage() {
     if (prRes.ok) setPaymentRequests((await prRes.json()).requests ?? [])
     if (wRes.ok)  setAdminWallets((await wRes.json()).wallets ?? [])
     if (abRes.ok) setAbandonedCheckouts((await abRes.json()).data ?? [])
-    setDataLoaded(true)
-  }
-
-  const handleLoadData = async () => {
-    setDataLoading(true)
-    await loadData()
-    setDataLoading(false)
   }
 
   /* ── computed analytics ── */
@@ -485,7 +477,7 @@ export default function AdminPage() {
 
   const pendingCount = paymentRequests.filter(r => r.status === 'pending').length
 
-  if (loading) return <div className="min-h-screen bg-[#0f1117] flex items-center justify-center"><div className="text-center"><div className="w-10 h-10 rounded-full border-2 border-[#3b82f6] border-t-transparent animate-spin mx-auto mb-4" /><p className="text-[#4a4e60] text-sm">Verifying access...</p></div></div>
+  if (loading) return <div className="min-h-screen bg-[#0f1117] flex items-center justify-center"><div className="text-center"><div className="w-10 h-10 rounded-full border-2 border-[#3b82f6] border-t-transparent animate-spin mx-auto mb-4" /><p className="text-[#4a4e60] text-sm">Loading admin panel...</p></div></div>
   if (!authorized) return null
 
   const NAV = [
@@ -523,8 +515,8 @@ export default function AdminPage() {
           })}
         </nav>
         <div className="px-3 py-4 border-t border-[#2a2d35] space-y-1">
-          <button onClick={handleLoadData} disabled={dataLoading} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[#4a4e60] hover:text-white hover:bg-[#1a1d24] transition-all cursor-pointer disabled:opacity-40">
-            <IconRefresh className={`w-4 h-4 shrink-0 ${dataLoading ? 'animate-spin' : ''}`} /> {dataLoading ? 'Loading...' : 'Refresh data'}
+          <button onClick={loadData} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[#4a4e60] hover:text-white hover:bg-[#1a1d24] transition-all cursor-pointer">
+            <IconRefresh className="w-4 h-4 shrink-0" /> Refresh data
           </button>
           <button onClick={async () => { await supabase.auth.signOut(); router.push('/admin/login') }}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[#f87171]/70 hover:text-[#f87171] hover:bg-[#f87171]/10 transition-all cursor-pointer">
@@ -546,7 +538,7 @@ export default function AdminPage() {
               {activeTab === 'credits'   && `${allCreditRows.length} credit records`}
               {activeTab === 'payments'  && `${pendingCount} pending · ${paymentRequests.length} total`}
               {activeTab === 'wallets'       && `${adminWallets.filter(w=>w.is_active).length} active wallets`}
-              {dataLoaded && activeTab === 'missed-orders' && (() => { const u = abandonedCheckouts.filter(o=>!o.recovered); const pct = orders.length ? Math.round(u.length/(orders.length+u.length)*100) : 0; return `${u.length} unrecovered · ${pct}% miss rate` })()}
+              {activeTab === 'missed-orders' && (() => { const u = abandonedCheckouts.filter(o=>!o.recovered); const pct = orders.length ? Math.round(u.length/(orders.length+u.length)*100) : 0; return `${u.length} unrecovered · ${pct}% miss rate` })()}
             </p>
           </div>
           <div className="text-xs text-[#4a4e60]">{new Date().toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short', year:'numeric' })}</div>
@@ -554,29 +546,8 @@ export default function AdminPage() {
 
         <div className="p-8">
 
-          {/* ════════════════ NOT LOADED YET ════════════════ */}
-          {!dataLoaded && (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
-              <div className="text-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#3b82f6]/10 border border-[#3b82f6]/20 flex items-center justify-center mx-auto mb-4">
-                  <IconGrid className="w-8 h-8 text-[#3b82f6]" />
-                </div>
-                <h2 className="text-white font-semibold text-lg mb-1">Data not loaded</h2>
-                <p className="text-[#4a4e60] text-sm">Click below to fetch all dashboard data</p>
-              </div>
-              <button
-                onClick={handleLoadData}
-                disabled={dataLoading}
-                className="flex items-center gap-3 bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 text-white font-semibold px-8 py-3.5 rounded-2xl transition-colors text-sm">
-                {dataLoading
-                  ? <><IconRefresh className="w-4 h-4 animate-spin" /> Loading data...</>
-                  : <><IconRefresh className="w-4 h-4" /> Load Dashboard Data</>}
-              </button>
-            </div>
-          )}
-
-          {/* ════════════════ TAB CONTENT (only after data loaded) ════════════════ */}
-          {dataLoaded && activeTab === 'overview' && (
+          {/* ════════════════ OVERVIEW ════════════════ */}
+          {activeTab === 'overview' && (
             <div className="space-y-5">
 
               {/* ── Filter bar ── */}
@@ -859,7 +830,7 @@ export default function AdminPage() {
           )}
 
           {/* ════════════════ MERCHANTS ════════════════ */}
-          {dataLoaded && activeTab === 'merchants' && (
+          {activeTab === 'merchants' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="relative">
@@ -945,7 +916,7 @@ export default function AdminPage() {
           )}
 
           {/* ════════════════ PRODUCTS ════════════════ */}
-          {dataLoaded && activeTab === 'products' && (() => {
+          {activeTab === 'products' && (() => {
             const maxPrice = Math.max(...allProducts.map(p => Number(p.price)||0), 100)
             const effectivePriceMax = productPriceMax >= 999999 ? maxPrice : productPriceMax
             const filtered = allProducts.filter(p => {
@@ -1069,7 +1040,7 @@ export default function AdminPage() {
           })()}
 
           {/* ════════════════ ORDERS ════════════════ */}
-          {dataLoaded && activeTab === 'orders' && (
+          {activeTab === 'orders' && (
             <div className="space-y-4">
 
               {/* Filters row */}
@@ -1262,7 +1233,7 @@ export default function AdminPage() {
           )}
 
           {/* ════════════════ CREDITS ════════════════ */}
-          {dataLoaded && activeTab === 'credits' && (() => {
+          {activeTab === 'credits' && (() => {
             const enriched = allCreditRows.map(c => ({ ...c, email: merchantsMap[c.merchant_id]?.email??'—', storeName: merchants.find(m=>m.id===c.merchant_id)?.stores?.[0]?.name??'—' }))
             const filtered = enriched.filter(c => !creditSearch || c.email.toLowerCase().includes(creditSearch.toLowerCase()) || c.storeName.toLowerCase().includes(creditSearch.toLowerCase()))
             const totalGranted = enriched.reduce((s,c) => s+(c.credits_total??0),0)
@@ -1359,7 +1330,7 @@ export default function AdminPage() {
           })()}
 
           {/* ════════════════ PAYMENTS ════════════════ */}
-          {dataLoaded && activeTab === 'payments' && (
+          {activeTab === 'payments' && (
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 {(['pending','approved','rejected','all'] as const).map(f => {
@@ -1432,7 +1403,7 @@ export default function AdminPage() {
           )}
 
           {/* ════════════════ WALLETS ════════════════ */}
-          {dataLoaded && activeTab === 'wallets' && (
+          {activeTab === 'wallets' && (
             <div className="max-w-2xl space-y-6">
               <div className="bg-[#1a1d24] border border-[#2a2d35] rounded-2xl p-6">
                 <h3 className="font-semibold text-sm mb-5">Add wallet</h3>
@@ -1499,7 +1470,7 @@ export default function AdminPage() {
 
 
           {/* ════════════════ MISSED ORDERS ════════════════ */}
-          {dataLoaded && activeTab === 'missed-orders' && (() => {
+          {activeTab === 'missed-orders' && (() => {
             const filteredAbandoned = abandonedCheckouts.filter(o => {
               if (abandonedStatusFilter === 'unrecovered' && o.recovered) return false
               if (abandonedStatusFilter === 'recovered'   && !o.recovered) return false

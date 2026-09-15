@@ -171,7 +171,7 @@ export default function AdminPage() {
       supabase.from('stores').select('*').order('created_at', { ascending: false }),
       supabase.from('merchants').select('*').order('created_at', { ascending: false }),
       supabase.from('order_credits').select('id, merchant_id, credits_remaining, credits_total, credits_used, bundle_type, price_paid, created_at').order('created_at', { ascending: false }),
-      fetchAll(supabase.from('orders').select('*, stores(name, currency, merchant_id, slug), products(title)').order('created_at', { ascending: false })),
+      supabase.from('orders').select('*, stores(name, currency, merchant_id, slug), products(title)').gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()).order('created_at', { ascending: false }).limit(5000).then(r => r.data ?? []),
       fetch('/api/admin/products').then(r => r.json()).catch(() => ({ data: [] })),
       supabase.from('landing_pages').select('product_id, visits'),
       fetch('/api/admin/payment-requests'),
@@ -534,7 +534,7 @@ export default function AdminPage() {
               {activeTab === 'overview'  && `${analytics.totalMerchants} merchants · ${analytics.totalOrders} orders · ${analytics.ordersToday} today`}
               {activeTab === 'merchants' && `${filteredMerchants.length} merchants`}
               {activeTab === 'products'  && `${allProducts.length} products`}
-              {activeTab === 'orders'    && `${filteredOrders.length} of ${orders.length} orders · page ${ordersPage}/${totalPages||1}`}
+              {activeTab === 'orders'    && `${filteredOrders.length} of ${orders.length} orders (last 7 days) · page ${ordersPage}/${totalPages||1}`}
               {activeTab === 'credits'   && `${allCreditRows.length} credit records`}
               {activeTab === 'payments'  && `${pendingCount} pending · ${paymentRequests.length} total`}
               {activeTab === 'wallets'       && `${adminWallets.filter(w=>w.is_active).length} active wallets`}
